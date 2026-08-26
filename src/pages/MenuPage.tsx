@@ -381,7 +381,21 @@ export default function MenuPage() {
           localStorage.setItem(LAST_ORDER_KEY, String(o.id));
         }}
       />
-      {order && trackerOpen && <OrderTracker order={order} onClose={() => setTrackerOpen(false)} onUpdate={setOrder} />}
+      {order && trackerOpen && (
+        <OrderTracker
+          order={order}
+          onClose={() => setTrackerOpen(false)}
+          onUpdate={(updated) =>
+            setOrder((prev) => {
+              // Same chime as the background poller above — this just
+              // covers the case where the tracker itself is open and
+              // doing the polling instead.
+              if (prev && updated.status !== prev.status) playChime();
+              return updated;
+            })
+          }
+        />
+      )}
     </div>
   );
 }
