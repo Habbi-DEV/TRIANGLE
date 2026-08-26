@@ -23,7 +23,7 @@ export default function LanguageSwitch({ compact = false }: { compact?: boolean 
             lang === l ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
           }`}
         >
-          {l === 'fr' ? 'FR' : 'ع'}
+          {l === 'fr' ? 'FR' : 'AR'}
         </button>
       ))}
     </div>
