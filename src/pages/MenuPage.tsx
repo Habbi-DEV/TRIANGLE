@@ -173,8 +173,8 @@ export default function MenuPage() {
                 '🍽️'
               )}
             </div>
-            <h1 className="font-display text-[17px] font-extrabold tracking-tight text-zinc-900">{settings?.restaurant_name || 'Restolink'}</h1>
-            <div className="ml-auto flex items-center gap-2">
+            <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900">{settings?.restaurant_name || 'Restolink'}</h1>
+            <div className="ms-auto flex shrink-0 items-center gap-2">
               <div className="flex rounded-full bg-zinc-100 p-0.5">
                 <button
                   onClick={() => setLang('fr')}
