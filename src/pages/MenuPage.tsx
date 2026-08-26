@@ -186,7 +186,7 @@ export default function MenuPage() {
                   onClick={() => setLang('ar')}
                   className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${lang === 'ar' ? 'bg-brand-500 text-white' : 'text-zinc-500'}`}
                 >
-                  ع
+                  AR
                 </button>
               </div>
               <button
