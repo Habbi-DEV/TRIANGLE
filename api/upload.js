@@ -12,6 +12,20 @@ const EXT_MIME = {
 };
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
+// The exact folder names that exist in the `menu-images` bucket. Kept as a
+// closed whitelist (rather than trusting whatever the client sends) so a
+// crafted `folder` value can't be used to write outside these folders
+// (e.g. path traversal like "../../something").
+const ALLOWED_FOLDERS = new Set([
+  'Banniere',
+  'Categories',
+  'Logo',
+  'Menu Triangle',
+  'Sauces',
+  'Supplements',
+]);
+const DEFAULT_FOLDER = 'Menu Triangle';
+
 async function requireAdmin(req, res) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
@@ -46,8 +60,10 @@ export default async function handler(req, res) {
     // cashier/kitchen/delivery accounts) could upload arbitrary files.
     if (!(await requireAdmin(req, res))) return;
 
-    const { fileName, fileBase64, contentType } = req.body || {};
+    const { fileName, fileBase64, contentType, folder } = req.body || {};
     if (!fileName || !fileBase64) return res.status(400).json({ error: 'fileName and fileBase64 are required' });
+
+    const targetFolder = ALLOWED_FOLDERS.has(folder) ? folder : DEFAULT_FOLDER;
 
     const ext = fileName.split('.').pop()?.toLowerCase();
     const resolvedType = EXT_MIME[ext];
@@ -60,7 +76,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'File extension does not match its content type' });
     }
 
-    const safeName = `products/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const safeName = `${targetFolder}/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
     const buffer = Buffer.from(fileBase64, 'base64');
 
     if (buffer.length > MAX_BYTES) {
