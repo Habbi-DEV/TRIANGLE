@@ -206,7 +206,7 @@ export default function MenuManagePage() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Categories' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
@@ -236,7 +236,7 @@ export default function MenuManagePage() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Categories' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
@@ -273,7 +273,7 @@ export default function MenuManagePage() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Banniere' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
@@ -316,7 +316,7 @@ export default function MenuManagePage() {
               'Content-Type': 'application/json',
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+            body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Menu Triangle' }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
@@ -351,7 +351,7 @@ export default function MenuManagePage() {
         const res = await fetch('/api/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+          body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Menu Triangle' }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
@@ -397,7 +397,7 @@ export default function MenuManagePage() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Sauces' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
@@ -460,7 +460,7 @@ export default function MenuManagePage() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Supplements' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
