@@ -15,7 +15,7 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
   return (
     <div
       onClick={() => !soldOut && onOpen(product)}
-      className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-100 transition hover:shadow-md ${soldOut ? 'opacity-60' : ''}`}
+      className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white shadow-soft-sm ring-1 ring-zinc-100 transition hover:shadow-soft ${soldOut ? 'opacity-60' : ''}`}
     >
       <div className="relative aspect-[5/4] overflow-hidden bg-orange-100">
         {product.image_url ? (
@@ -45,7 +45,7 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
             }}
             disabled={soldOut}
             aria-label={t('shop.add_to_cart', { name: product.name })}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-white shadow-sm transition hover:bg-brand-600 active:scale-90 disabled:bg-zinc-300"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-white shadow-soft-sm transition hover:bg-brand-600 active:scale-90 disabled:bg-zinc-300"
           >
             <Plus size={16} strokeWidth={3} />
           </button>
