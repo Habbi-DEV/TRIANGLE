@@ -30,13 +30,21 @@ const LAST_ORDER_KEY = 'restolink:lastOrderId';
 // carry a 6px blur without it reading as fog. Category tiles are 48px
 // (h-12), so the same blur radius was proportionally much larger — it ate
 // into the photo's own edges and looked like smudging rather than a crisp
-// outline. Halving the blur radii (and trimming the far layer's opacity)
-// keeps the glow a thin line hugging the silhouette instead of a haze.
-// Note: this only fixes it for photos with a hard alpha edge (no soft
-// feather baked into the PNG) — a source image with gradual edge
-// transparency will still look soft no matter what blur value is used here.
+// outline. Halving the blur radii keeps the glow a thin line hugging the
+// silhouette instead of a haze.
+//
+// The reference "neon bowl" mock has a second ingredient this was missing:
+// a thin WHITE rim sitting right at the photo's edge, with the orange glow
+// starting outside that white line rather than touching the pixels
+// directly. That gap is what reads as a crisp lit outline instead of a
+// smudge — without it, the orange blur blends straight into the photo's
+// own edge colors and looks like bleeding rather than a glow. CSS applies
+// stacked drop-shadows in order, each one drawn from the combined result so
+// far, so listing the white layers first (near-zero blur, so they trace the
+// silhouette tightly) and the orange layers after (larger blur) naturally
+// produces white-then-orange working outward from the edge.
 const CATEGORY_SELECTED_FILTER =
-  'drop-shadow(0 0 1px #f97316) drop-shadow(0 0 1px #f97316) drop-shadow(0 0 1.5px rgba(249,115,22,0.6)) drop-shadow(0 0 3px rgba(249,115,22,0.3))';
+  'drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 3px rgba(249,115,22,0.55))';
 
 export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
