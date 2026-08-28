@@ -191,14 +191,27 @@ export default function MenuPage() {
             first thing on screen, pinned, instead of the banner pushing it down. */}
         <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
           <div className="flex items-center gap-2.5">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${settings?.logo_url ? '' : 'rounded-xl bg-brand-500 shadow-sm shadow-orange-500/30'}`}>
-              {settings?.logo_url ? (
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${
+                settings === null ? '' : settings.logo_url ? '' : 'rounded-xl bg-brand-500 shadow-sm shadow-orange-500/30'
+              }`}
+            >
+              {/* settings === null means the /api/settings fetch hasn't resolved
+                  yet on this page load — render nothing rather than the
+                  placeholder logo/emoji, so the visitor never sees a wrong
+                  brand flash before the real one swaps in a moment later.
+                  Once settings has actually loaded, an empty logo_url is a
+                  genuine "no logo configured" state, so the 🍽️ fallback is
+                  still correct there. */}
+              {settings === null ? null : settings.logo_url ? (
                 <img src={settings.logo_url} alt="" className="h-full w-full object-contain" />
               ) : (
                 '🍽️'
               )}
             </div>
-            <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900">{settings?.restaurant_name || 'Restolink'}</h1>
+            <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900">
+              {settings === null ? '' : settings.restaurant_name || 'Restolink'}
+            </h1>
             <div className="ms-auto flex shrink-0 items-center gap-2">
               <div className="flex rounded-full bg-zinc-100 p-0.5">
                 <button
@@ -273,7 +286,12 @@ export default function MenuPage() {
             spare). */}
         <div className="no-scrollbar -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-1 pt-2 md:mx-0 md:px-0">
           <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
-            {settings?.all_category_image_url ? (
+            {settings === null ? (
+              // Same reasoning as the header logo above: settings hasn't
+              // loaded yet, so render an empty placeholder instead of the
+              // ✨ default — avoids the "wrong icon then real one" flash.
+              <span className="h-12 w-12" />
+            ) : settings.all_category_image_url ? (
               // Bare layout box — no bg/border/overflow-hidden — so a
               // transparent-PNG category photo sits directly on the page,
               // same treatment as the sauce swatches in ProductSheet. The
