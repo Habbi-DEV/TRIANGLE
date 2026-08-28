@@ -10,7 +10,7 @@ import ProductCard from '../components/customer/ProductCard';
 import ProductSheet from '../components/customer/ProductSheet';
 import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
-import Spinner from '../components/ui/Spinner';
+import Skeleton from '../components/ui/Skeleton';
 import { playChime, unlockChime } from '../lib/chime';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../lib/orderStatus';
 import { useLang } from '../lib/i18n';
@@ -243,37 +243,47 @@ export default function MenuPage() {
           </div>
         </header>
 
-        {/* promo banner carousel — right below the pinned header, scrolls away normally */}
-        {promotions.length > 0 && (
+        {/* promo banner carousel — right below the pinned header, scrolls away
+            normally. Skeleton while loading: we don't yet know whether this
+            restaurant even has promotions, so we show a plausible banner
+            shape and let it collapse away once the real promotions array
+            resolves (possibly empty). */}
+        {loading ? (
           <div className="pt-3">
-            <div
-              ref={bannerRef}
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                setBannerIdx(Math.round(el.scrollLeft / el.clientWidth));
-              }}
-              className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white"
-            >
-              {promotions.map((p) => (
-                <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
-              ))}
-            </div>
-            {promotions.length > 1 && (
-              <div className="mt-2 flex justify-center gap-1.5">
-                {promotions.map((p, i) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      const el = bannerRef.current;
-                      if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-                    }}
-                    aria-label={t('shop.go_to_banner', { n: i + 1 })}
-                    className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200'}`}
-                  />
+            <Skeleton className="aspect-[2/1] w-full rounded-2xl" />
+          </div>
+        ) : (
+          promotions.length > 0 && (
+            <div className="pt-3">
+              <div
+                ref={bannerRef}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  setBannerIdx(Math.round(el.scrollLeft / el.clientWidth));
+                }}
+                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white"
+              >
+                {promotions.map((p) => (
+                  <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
                 ))}
               </div>
-            )}
-          </div>
+              {promotions.length > 1 && (
+                <div className="mt-2 flex justify-center gap-1.5">
+                  {promotions.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        const el = bannerRef.current;
+                        if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                      }}
+                      aria-label={t('shop.go_to_banner', { n: i + 1 })}
+                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* category rail — scrolls away with the banner, not pinned. When a
@@ -285,62 +295,77 @@ export default function MenuPage() {
             (overflow-x-auto also clips the y-axis unless it has room to
             spare). */}
         <div className="no-scrollbar -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-1 pt-2 md:mx-0 md:px-0">
-          <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
-            {settings === null ? (
-              // Same reasoning as the header logo above: settings hasn't
-              // loaded yet, so render an empty placeholder instead of the
-              // ✨ default — avoids the "wrong icon then real one" flash.
-              <span className="h-12 w-12" />
-            ) : settings.all_category_image_url ? (
-              // Bare layout box — no bg/border/overflow-hidden — so a
-              // transparent-PNG category photo sits directly on the page,
-              // same treatment as the sauce swatches in ProductSheet. The
-              // selected state is a drop-shadow that hugs the photo's real
-              // silhouette instead of a ring around a rectangle.
-              <span className="flex h-12 w-12 items-center justify-center">
-                <img
-                  src={settings.all_category_image_url}
-                  alt=""
-                  className="h-12 w-12 object-contain transition-[filter] duration-200"
-                  style={activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
-                />
-              </span>
-            ) : (
-              <span
-                className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
-                  activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
-                }`}
-              >
-                ✨
-              </span>
-            )}
-            <span className={`text-[10px] font-semibold ${activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>{t('shop.all')}</span>
-          </button>
-          {categories.filter((c) => c.is_active).map((c) => (
-            <button key={c.id} onClick={() => setActiveCat(c.id)} className="flex shrink-0 flex-col items-center gap-1.5">
-              {c.image_url ? (
-                <span className="flex h-12 w-12 items-center justify-center">
-                  <img
-                    src={c.image_url}
-                    alt=""
-                    className="h-12 w-12 object-contain transition-[filter] duration-200"
-                    style={activeCat === c.id ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
-                  />
-                </span>
-              ) : (
-                <span
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
-                    activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
-                  }`}
-                >
-                  {c.icon}
-                </span>
-              )}
-              <span className={`max-w-[56px] truncate text-[10px] font-semibold ${activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
-                {c.name}
-              </span>
-            </button>
-          ))}
+          {loading ? (
+            // Six placeholder circles — a plausible category-rail count —
+            // instead of the real "Tout" button + empty categories array
+            // (categories haven't loaded yet, so today it'd otherwise just
+            // show one lonely "Tout" until the fetch resolves).
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex shrink-0 flex-col items-center gap-1.5">
+                <Skeleton className="h-12 w-12 rounded-xl" />
+                <Skeleton className="h-2.5 w-8 rounded" />
+              </div>
+            ))
+          ) : (
+            <>
+              <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
+                {settings === null ? (
+                  // Same reasoning as the header logo above: settings hasn't
+                  // loaded yet, so render an empty placeholder instead of the
+                  // ✨ default — avoids the "wrong icon then real one" flash.
+                  <span className="h-12 w-12" />
+                ) : settings.all_category_image_url ? (
+                  // Bare layout box — no bg/border/overflow-hidden — so a
+                  // transparent-PNG category photo sits directly on the page,
+                  // same treatment as the sauce swatches in ProductSheet. The
+                  // selected state is a drop-shadow that hugs the photo's real
+                  // silhouette instead of a ring around a rectangle.
+                  <span className="flex h-12 w-12 items-center justify-center">
+                    <img
+                      src={settings.all_category_image_url}
+                      alt=""
+                      className="h-12 w-12 object-contain transition-[filter] duration-200"
+                      style={activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                    />
+                  </span>
+                ) : (
+                  <span
+                    className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
+                      activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                    }`}
+                  >
+                    ✨
+                  </span>
+                )}
+                <span className={`text-[10px] font-semibold ${activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>{t('shop.all')}</span>
+              </button>
+              {categories.filter((c) => c.is_active).map((c) => (
+                <button key={c.id} onClick={() => setActiveCat(c.id)} className="flex shrink-0 flex-col items-center gap-1.5">
+                  {c.image_url ? (
+                    <span className="flex h-12 w-12 items-center justify-center">
+                      <img
+                        src={c.image_url}
+                        alt=""
+                        className="h-12 w-12 object-contain transition-[filter] duration-200"
+                        style={activeCat === c.id ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
+                        activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                      }`}
+                    >
+                      {c.icon}
+                    </span>
+                  )}
+                  <span className={`max-w-[56px] truncate text-[10px] font-semibold ${activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
+                    {c.name}
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
         </div>
 
         {/* inline search — opened from the bottom nav, which also scrolls the
@@ -367,7 +392,25 @@ export default function MenuPage() {
 
         {/* product grid */}
         {loading ? (
-          <Spinner label={t('shop.loading')} />
+          // Eight card-shaped placeholders matching ProductCard's own
+          // proportions (aspect-[5/4] image + two text lines), in the same
+          // grid the real cards will render into — so the skeleton doesn't
+          // reflow into a different shape once data lands.
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-soft-sm ring-1 ring-zinc-100">
+                <Skeleton className="aspect-[5/4] w-full rounded-none" />
+                <div className="flex flex-1 flex-col gap-2 p-3">
+                  <Skeleton className="h-3 w-4/5 rounded" />
+                  <Skeleton className="h-3 w-2/5 rounded" />
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    <Skeleton className="h-4 w-12 rounded" />
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : visible.length === 0 ? (
           <p className="py-16 text-center text-sm text-zinc-400">{search ? t('shop.no_results', { q: search }) : t('shop.empty')}</p>
         ) : (
@@ -385,7 +428,7 @@ export default function MenuPage() {
           initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           onClick={() => setCartOpen(true)}
-          className="fixed inset-x-4 bottom-20 z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-zinc-900 px-5 py-4 text-white shadow-2xl transition active:scale-[0.98]"
+          className="fixed inset-x-4 bottom-20 z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-zinc-900 px-5 py-4 text-white shadow-soft-xl transition active:scale-[0.98]"
         >
           <span className="flex items-center gap-2 text-sm font-semibold">
             <ShoppingBasket size={18} className="text-brand-400" />
