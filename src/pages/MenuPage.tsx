@@ -21,6 +21,13 @@ import { useLang } from '../lib/i18n';
 // server, never trusted from storage.
 const LAST_ORDER_KEY = 'restolink:lastOrderId';
 
+// Same treatment as the sauce/supplement swatches in ProductSheet: stacked
+// drop-shadows (not a box ring) so the selected state traces the category
+// photo's own alpha silhouette — works whether the PNG is round, square, or
+// an odd shape. Brand orange instead of the sauce picker's green.
+const CATEGORY_SELECTED_FILTER =
+  'drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 3px rgba(249,115,22,0.65)) drop-shadow(0 0 6px rgba(249,115,22,0.35))';
+
 export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -238,42 +245,61 @@ export default function MenuPage() {
           </div>
         )}
 
-        {/* category rail — square icons; scrolls away with the banner, not
-            pinned. Extra top padding keeps the selection ring's box-shadow
-            from being clipped by the scroll container (overflow-x-auto also
-            clips the y-axis unless it has room to spare). */}
+        {/* category rail — scrolls away with the banner, not pinned. When a
+            category has a photo it's rendered bare (object-contain, no
+            frame) so a transparent-PNG image floats on the page like the
+            sauce swatches; categories without a photo fall back to an emoji
+            in a rounded tile. Extra top padding keeps the drop-shadow /
+            selection ring from being clipped by the scroll container
+            (overflow-x-auto also clips the y-axis unless it has room to
+            spare). */}
         <div className="no-scrollbar -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-1 pt-2 md:mx-0 md:px-0">
           <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
-            <span
-              className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl text-xl transition ${
-                settings?.all_category_image_url
-                  ? `bg-white ${activeCat === 'all' ? 'ring-2 ring-brand-500' : 'ring-1 ring-zinc-200'}`
-                  : activeCat === 'all'
-                    ? 'bg-brand-50 ring-2 ring-brand-500'
-                    : 'bg-zinc-100'
-              }`}
-            >
-              {settings?.all_category_image_url ? (
-                <img src={settings.all_category_image_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                '✨'
-              )}
-            </span>
+            {settings?.all_category_image_url ? (
+              // Bare layout box — no bg/border/overflow-hidden — so a
+              // transparent-PNG category photo sits directly on the page,
+              // same treatment as the sauce swatches in ProductSheet. The
+              // selected state is a drop-shadow that hugs the photo's real
+              // silhouette instead of a ring around a rectangle.
+              <span className="flex h-12 w-12 items-center justify-center">
+                <img
+                  src={settings.all_category_image_url}
+                  alt=""
+                  className="h-12 w-12 object-contain transition-[filter] duration-200"
+                  style={activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                />
+              </span>
+            ) : (
+              <span
+                className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
+                  activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                }`}
+              >
+                ✨
+              </span>
+            )}
             <span className={`text-[10px] font-semibold ${activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>{t('shop.all')}</span>
           </button>
           {categories.filter((c) => c.is_active).map((c) => (
             <button key={c.id} onClick={() => setActiveCat(c.id)} className="flex shrink-0 flex-col items-center gap-1.5">
-              <span
-                className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl text-xl transition ${
-                  c.image_url
-                    ? `bg-white ${activeCat === c.id ? 'ring-2 ring-brand-500' : 'ring-1 ring-zinc-200'}`
-                    : activeCat === c.id
-                      ? 'bg-brand-50 ring-2 ring-brand-500'
-                      : 'bg-zinc-100'
-                }`}
-              >
-                {c.image_url ? <img src={c.image_url} alt="" className="h-full w-full object-cover" /> : c.icon}
-              </span>
+              {c.image_url ? (
+                <span className="flex h-12 w-12 items-center justify-center">
+                  <img
+                    src={c.image_url}
+                    alt=""
+                    className="h-12 w-12 object-contain transition-[filter] duration-200"
+                    style={activeCat === c.id ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                  />
+                </span>
+              ) : (
+                <span
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
+                    activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                  }`}
+                >
+                  {c.icon}
+                </span>
+              )}
               <span className={`max-w-[56px] truncate text-[10px] font-semibold ${activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
                 {c.name}
               </span>
