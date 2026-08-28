@@ -25,8 +25,18 @@ const LAST_ORDER_KEY = 'restolink:lastOrderId';
 // drop-shadows (not a box ring) so the selected state traces the category
 // photo's own alpha silhouette — works whether the PNG is round, square, or
 // an odd shape. Brand orange instead of the sauce picker's green.
+//
+// Tuned down from the sauce version: sauce swatches are 56px (h-14) and can
+// carry a 6px blur without it reading as fog. Category tiles are 48px
+// (h-12), so the same blur radius was proportionally much larger — it ate
+// into the photo's own edges and looked like smudging rather than a crisp
+// outline. Halving the blur radii (and trimming the far layer's opacity)
+// keeps the glow a thin line hugging the silhouette instead of a haze.
+// Note: this only fixes it for photos with a hard alpha edge (no soft
+// feather baked into the PNG) — a source image with gradual edge
+// transparency will still look soft no matter what blur value is used here.
 const CATEGORY_SELECTED_FILTER =
-  'drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 3px rgba(249,115,22,0.65)) drop-shadow(0 0 6px rgba(249,115,22,0.35))';
+  'drop-shadow(0 0 1px #f97316) drop-shadow(0 0 1px #f97316) drop-shadow(0 0 1.5px rgba(249,115,22,0.6)) drop-shadow(0 0 3px rgba(249,115,22,0.3))';
 
 export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
