@@ -75,6 +75,22 @@ const dict: Record<Lang, Record<string, string>> = {
     // Language switcher
     'lang.switch': 'Langue',
 
+    // Admin — Staff page
+    'staff.title': 'Personnel & rôles',
+    'staff.subtitle': 'Changez le rôle de chaque compte ici — plus besoin de passer par Supabase.',
+    'staff.access_denied': 'Réservé aux administrateurs.',
+    'staff.load_error': 'Échec du chargement du personnel.',
+    'staff.update_error': 'Échec de la mise à jour du rôle.',
+    'staff.joined': 'inscrit',
+    'staff.you': 'vous',
+    'staff.empty': 'Aucun compte pour le moment.',
+    'staff.self_note': 'Vous ne pouvez pas modifier votre propre rôle ici — demandez à un autre administrateur.',
+    'staff.role.admin': 'Administrateur',
+    'staff.role.cashier': 'Caissier',
+    'staff.role.kitchen': 'Cuisine',
+    'staff.role.delivery_driver': 'Livreur',
+    'staff.role.pending': 'En attente',
+
     // Admin — Settings page
     'settings.title': 'Paramètres',
     'settings.subtitle': 'Infos du restaurant, livraison, notifications, image de marque — tout au même endroit.',
@@ -144,6 +160,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'nav.inventory': 'Inventaire',
     'nav.schema': 'Schéma SQL',
     'nav.settings': 'Paramètres',
+    'nav.staff': 'Personnel',
     'nav.customer_menu': 'Menu client',
     'nav.sign_out': 'Déconnexion',
     'nav.administrator': 'Administrateur',
@@ -434,6 +451,22 @@ const dict: Record<Lang, Record<string, string>> = {
     // Language switcher
     'lang.switch': 'اللغة',
 
+    // Admin — Staff page
+    'staff.title': 'الموظفون والرتب',
+    'staff.subtitle': 'بدّل رتبة أي حساب من هنا — بلا ما تحتاج تدخل لـ Supabase.',
+    'staff.access_denied': 'خاص بالأدمينات فقط.',
+    'staff.load_error': 'تعذر تحميل لائحة الموظفين.',
+    'staff.update_error': 'فشل تحديث الرتبة.',
+    'staff.joined': 'انضم',
+    'staff.you': 'نتا',
+    'staff.empty': 'ما كاين حتى حساب حاليا.',
+    'staff.self_note': 'ما تقدرش تبدل الرتبة ديالك من هنا — اطلب من أدمين آخر.',
+    'staff.role.admin': 'أدمين',
+    'staff.role.cashier': 'كاسيي',
+    'staff.role.kitchen': 'مطبخ',
+    'staff.role.delivery_driver': 'موصل',
+    'staff.role.pending': 'فالانتظار',
+
     // Admin — Settings page
     'settings.title': 'الإعدادات',
     'settings.subtitle': 'معلومات المطعم، التوصيل، الإشعارات، الهوية البصرية — كل شيء في مكان واحد.',
@@ -503,6 +536,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'nav.inventory': 'المخزون',
     'nav.schema': 'مخطط SQL',
     'nav.settings': 'الإعدادات',
+    'nav.staff': 'الموظفون',
     'nav.customer_menu': 'قائمة الزبون',
     'nav.sign_out': 'تسجيل الخروج',
     'nav.administrator': 'مدير',

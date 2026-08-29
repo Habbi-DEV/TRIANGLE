@@ -14,6 +14,7 @@ import TablesPage from './pages/admin/TablesPage';
 import InventoryPage from './pages/admin/InventoryPage';
 import SchemaPage from './pages/admin/SchemaPage';
 import SettingsPage from './pages/admin/SettingsPage';
+import StaffPage from './pages/admin/StaffPage';
 import { loadSettings } from './lib/settings';
 
 export default function App() {
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="schema" element={<SchemaPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="staff" element={<StaffPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

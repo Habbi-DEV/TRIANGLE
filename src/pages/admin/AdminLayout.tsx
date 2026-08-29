@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Armchair, Database, ExternalLink, LayoutDashboard, LogOut,
-  Package, ReceiptText, Settings, ShoppingCart, UtensilsCrossed,
+  Package, ReceiptText, Settings, ShoppingCart, UsersRound, UtensilsCrossed,
 } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { api } from '../../lib/api';
@@ -25,6 +25,10 @@ const NAV = [
   // AuthContext yet to hide this link for non-admin staff, so any staff
   // member can open the page but only admins can actually save changes.
   { to: '/admin/settings', labelKey: 'nav.settings', icon: Settings, end: false },
+  // Admin-only, and unlike the link above we CAN hide it client-side: the
+  // page lists every teammate's email, so it's only shown when `role`
+  // (from AuthContext) is 'admin'. /api/staff still enforces this itself.
+  { to: '/admin/staff', labelKey: 'nav.staff', icon: UsersRound, end: false, adminOnly: true },
 ];
 
 function Brand() {
@@ -44,8 +48,9 @@ function Brand() {
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { t } = useLang();
+  const nav = NAV.filter((n) => !n.adminOnly || role === 'admin');
   // Real active-order total from /api/stats, not a count over the latest
   // 60 fetched orders — that cap meant the badge silently stopped
   // climbing once there were more than 60 orders in play.
@@ -74,7 +79,7 @@ export default function AdminLayout() {
         <Brand />
         <div className="mt-4"><LanguageSwitch /></div>
         <nav className="mt-4 flex-1 space-y-1.5">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end} className={linkCls}>
               <n.icon size={17} />
               {t(n.labelKey)}
@@ -112,7 +117,7 @@ export default function AdminLayout() {
           </div>
         </div>
         <nav className="no-scrollbar -mx-1 mt-3 flex gap-1 overflow-x-auto px-1">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink
               key={n.to} to={n.to} end={n.end}
               className={({ isActive }) =>
