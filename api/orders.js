@@ -1,4 +1,5 @@
-import supabase from './db-client.js';
+import supabase from './_lib/db-client.js';
+import { setCors, requireStaff, requireAdmin } from './_lib/auth.js';
 
 const ORDER_TYPES = ['dine_in', 'takeaway', 'delivery'];
 const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'];
@@ -14,24 +15,8 @@ async function getDeliveryFee() {
   return Number(data.delivery_fee) || 0;
 }
 
-async function requireStaff(req, res) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return null;
-  }
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) {
-    res.status(401).json({ error: 'Invalid session' });
-    return null;
-  }
-  return user;
-}
-
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCors(req, res, 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
@@ -305,7 +290,7 @@ export default async function handler(req, res) {
 
     // ---------------------------------------------------------- DELETE
     if (req.method === 'DELETE') {
-      if (!(await requireStaff(req, res))) return;
+      if (!(await requireAdmin(req, res))) return;
       const { id } = req.body || {};
       await supabase.from('order_items').delete().eq('order_id', Number(id));
       const { error } = await supabase.from('orders').delete().eq('id', Number(id));

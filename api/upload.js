@@ -1,4 +1,5 @@
-import supabase from './db-client.js';
+import supabase from './_lib/db-client.js';
+import { setCors, requireAdmin } from './_lib/auth.js';
 
 // Only real, rasterized image formats. SVG is deliberately excluded: it can
 // carry embedded <script>/on* handlers and gets rendered as HTML by browsers
@@ -26,30 +27,8 @@ const ALLOWED_FOLDERS = new Set([
 ]);
 const DEFAULT_FOLDER = 'Menu Triangle';
 
-async function requireAdmin(req, res) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return null;
-  }
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) {
-    res.status(401).json({ error: 'Invalid session' });
-    return null;
-  }
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'admin') {
-    res.status(403).json({ error: 'Admin access required' });
-    return null;
-  }
-  return user;
-}
-
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCors(req, res, 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {

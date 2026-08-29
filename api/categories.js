@@ -1,18 +1,5 @@
-import supabase from './db-client.js';
-
-async function requireStaff(req, res) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return null;
-  }
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) {
-    res.status(401).json({ error: 'Invalid session' });
-    return null;
-  }
-  return user;
-}
+import supabase from './_lib/db-client.js';
+import { setCors, requireStaff } from './_lib/auth.js';
 
 // Serves two tables behind one route — `categories` and `promotions` (the
 // full-width banner carousel under the top bar) — since the project is
@@ -24,9 +11,7 @@ const TABLES = { category: 'categories', promotion: 'promotions' };
 const tableFor = (type) => TABLES[type] || TABLES.category;
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCors(req, res, 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {

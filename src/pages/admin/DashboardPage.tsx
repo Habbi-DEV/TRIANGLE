@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bike, Coins, Flame, ReceiptText, ShoppingBag, TrendingUp, UtensilsCrossed } from 'lucide-react';
+import { api } from '../../lib/api';
 import useLiveOrders from '../../hooks/useLiveOrders';
 import StatusBadge from '../../components/StatusBadge';
 import { OrderTypeTag, orderContext } from '../../components/OrderTypeTag';
@@ -15,7 +16,7 @@ export default function DashboardPage() {
   const { orders, loading } = useLiveOrders(12, 5000);
 
   useEffect(() => {
-    const load = () => fetch('/api/stats').then((r) => r.json()).then(setStats).catch(console.error);
+    const load = () => api<Stats>('/api/stats').then(setStats).catch(console.error);
     load();
     const iv = setInterval(load, 10000);
     return () => clearInterval(iv);

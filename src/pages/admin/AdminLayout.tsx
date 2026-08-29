@@ -5,6 +5,7 @@ import {
   Package, ReceiptText, Settings, ShoppingCart, UtensilsCrossed,
 } from 'lucide-react';
 import supabase from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
@@ -50,7 +51,7 @@ export default function AdminLayout() {
   // climbing once there were more than 60 orders in play.
   const [activeCount, setActiveCount] = useState(0);
   useEffect(() => {
-    const load = () => fetch('/api/stats').then((r) => r.json()).then((s: Stats) => setActiveCount(s.active_orders)).catch(console.error);
+    const load = () => api<Stats>('/api/stats').then((s) => setActiveCount(s.active_orders)).catch(console.error);
     load();
     const iv = setInterval(load, 8000);
     return () => clearInterval(iv);

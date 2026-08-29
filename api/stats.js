@@ -1,12 +1,15 @@
-import supabase from './db-client.js';
+import supabase from './_lib/db-client.js';
+import { setCors, requireStaff } from './_lib/auth.js';
 
 const ACTIVE = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCors(req, res, 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
+
+  // CRITIQUE (trouvé à l'audit) : cette route n'avait aucune authentification —
+  // le chiffre d'affaires du jour et le nombre de commandes étaient publics.
+  if (!(await requireStaff(req, res))) return;
 
   try {
     const start = new Date();
