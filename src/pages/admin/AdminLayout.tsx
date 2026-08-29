@@ -101,7 +101,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* mobile top bar */}
-      <header className="sticky top-0 z-40 bg-zinc-950 px-4 pb-2 pt-3 lg:hidden">
+      <header className="sticky top-0 z-40 bg-zinc-950 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
         <div className="flex items-center justify-between">
           <Brand />
           <div className="flex items-center gap-2">

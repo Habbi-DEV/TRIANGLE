@@ -190,7 +190,7 @@ export default function MenuPage() {
         {/* header — sticky identity bar only (logo, name, language, cart). Kept
             separate from the banner/categories below so it's always the very
             first thing on screen, pinned, instead of the banner pushing it down. */}
-        <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
+        <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur md:mx-0 md:px-0 md:pt-3">
           <div className="flex items-center gap-2.5">
             <div
               className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${
