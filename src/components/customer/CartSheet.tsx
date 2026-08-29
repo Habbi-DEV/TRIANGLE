@@ -128,7 +128,7 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[88vh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
+            className="flex max-h-[88vh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-soft-xl"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
           >
@@ -166,9 +166,9 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                           <p className="text-sm font-bold text-burnt">{money(unitPrice * l.qty)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => dec(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm" aria-label={t('cart.decrease')}><Minus size={13} /></button>
+                          <button onClick={() => dec(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-soft-sm" aria-label={t('cart.decrease')}><Minus size={13} /></button>
                           <span className="w-5 text-center text-sm font-bold">{l.qty}</span>
-                          <button onClick={() => inc(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm" aria-label={t('cart.increase')}><Plus size={13} /></button>
+                          <button onClick={() => inc(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-soft-sm" aria-label={t('cart.increase')}><Plus size={13} /></button>
                           <button onClick={() => remove(l.key)} className="ms-1 text-zinc-300 hover:text-red-500" aria-label={t('cart.remove')}><Trash2 size={16} /></button>
                         </div>
                       </li>

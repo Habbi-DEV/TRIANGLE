@@ -34,7 +34,7 @@ function Brand() {
         {settings?.logo_url ? <img src={settings.logo_url} alt="" className="h-full w-full object-contain" /> : '🍽️'}
       </div>
       <div>
-        <p className="font-display text-[15px] font-extrabold leading-none text-white">{settings?.restaurant_name || 'Restolink'}</p>
+        <p className="font-display text-[15px] font-extrabold leading-none text-white">{settings?.restaurant_name || 'TRIANGLE'}</p>
         <p className="text-[10px] font-medium tracking-wide text-zinc-500">POS · RMS</p>
       </div>
     </div>

@@ -70,7 +70,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl"
+            className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-soft-xl"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
           >
@@ -216,7 +216,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                 <div className="flex items-center gap-4 rounded-full bg-zinc-100 px-2 py-1.5">
                   <button
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-700 shadow-sm active:scale-90"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-700 shadow-soft-sm active:scale-90"
                     aria-label={t('shop.decrease_qty')}
                   >
                     <Minus size={16} />
@@ -224,7 +224,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                   <span className="w-6 text-center font-display text-lg font-bold">{qty}</span>
                   <button
                     onClick={() => setQty((q) => Math.min(20, q + 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-700 shadow-sm active:scale-90"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-700 shadow-soft-sm active:scale-90"
                     aria-label={t('shop.increase_qty')}
                   >
                     <Plus size={16} />

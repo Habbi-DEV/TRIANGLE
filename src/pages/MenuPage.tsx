@@ -10,7 +10,8 @@ import ProductCard from '../components/customer/ProductCard';
 import ProductSheet from '../components/customer/ProductSheet';
 import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
-import Spinner from '../components/ui/Spinner';
+import Skeleton from '../components/ui/Skeleton';
+import InstallBanner from '../components/InstallBanner';
 import { playChime, unlockChime } from '../lib/chime';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../lib/orderStatus';
 import { useLang } from '../lib/i18n';
@@ -20,6 +21,31 @@ import { useLang } from '../lib/i18n';
 // is stored — the actual order data is always re-fetched fresh from the
 // server, never trusted from storage.
 const LAST_ORDER_KEY = 'restolink:lastOrderId';
+
+// Same treatment as the sauce/supplement swatches in ProductSheet: stacked
+// drop-shadows (not a box ring) so the selected state traces the category
+// photo's own alpha silhouette — works whether the PNG is round, square, or
+// an odd shape. Brand orange instead of the sauce picker's green.
+//
+// Tuned down from the sauce version: sauce swatches are 56px (h-14) and can
+// carry a 6px blur without it reading as fog. Category tiles are 48px
+// (h-12), so the same blur radius was proportionally much larger — it ate
+// into the photo's own edges and looked like smudging rather than a crisp
+// outline. Halving the blur radii keeps the glow a thin line hugging the
+// silhouette instead of a haze.
+//
+// The reference "neon bowl" mock has a second ingredient this was missing:
+// a thin WHITE rim sitting right at the photo's edge, with the orange glow
+// starting outside that white line rather than touching the pixels
+// directly. That gap is what reads as a crisp lit outline instead of a
+// smudge — without it, the orange blur blends straight into the photo's
+// own edge colors and looks like bleeding rather than a glow. CSS applies
+// stacked drop-shadows in order, each one drawn from the combined result so
+// far, so listing the white layers first (near-zero blur, so they trace the
+// silhouette tightly) and the orange layers after (larger blur) naturally
+// produces white-then-orange working outward from the edge.
+const CATEGORY_SELECTED_FILTER =
+  'drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 3px rgba(249,115,22,0.55))';
 
 export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -129,7 +155,7 @@ export default function MenuPage() {
           setOrderUnseen(true);
           playChime();
           if ('Notification' in window && Notification.permission === 'granted') {
-            const n = new Notification(settings?.restaurant_name || 'Restolink', {
+            const n = new Notification(settings?.restaurant_name || 'TRIANGLE', {
               body: [ORDER_STATUS_LABEL[updated.status], ORDER_STATUS_HINT[updated.status]].filter(Boolean).join(' — '),
               icon: settings?.logo_url || '/favicon.svg',
               // Replaces any earlier notification for this same order
@@ -166,15 +192,28 @@ export default function MenuPage() {
             first thing on screen, pinned, instead of the banner pushing it down. */}
         <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
           <div className="flex items-center gap-2.5">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${settings?.logo_url ? '' : 'rounded-xl bg-brand-500 shadow-sm shadow-orange-500/30'}`}>
-              {settings?.logo_url ? (
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${
+                settings === null ? '' : settings.logo_url ? '' : 'rounded-xl bg-brand-500 shadow-sm shadow-orange-500/30'
+              }`}
+            >
+              {/* settings === null means the /api/settings fetch hasn't resolved
+                  yet on this page load — render nothing rather than the
+                  placeholder logo/emoji, so the visitor never sees a wrong
+                  brand flash before the real one swaps in a moment later.
+                  Once settings has actually loaded, an empty logo_url is a
+                  genuine "no logo configured" state, so the 🍽️ fallback is
+                  still correct there. */}
+              {settings === null ? null : settings.logo_url ? (
                 <img src={settings.logo_url} alt="" className="h-full w-full object-contain" />
               ) : (
                 '🍽️'
               )}
             </div>
-            <h1 className="font-display text-[17px] font-extrabold tracking-tight text-zinc-900">{settings?.restaurant_name || 'Restolink'}</h1>
-            <div className="ml-auto flex items-center gap-2">
+            <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900">
+              {settings === null ? '' : settings.restaurant_name || 'TRIANGLE'}
+            </h1>
+            <div className="ms-auto flex shrink-0 items-center gap-2">
               <div className="flex rounded-full bg-zinc-100 p-0.5">
                 <button
                   onClick={() => setLang('fr')}
@@ -205,80 +244,134 @@ export default function MenuPage() {
           </div>
         </header>
 
-        {/* promo banner carousel — right below the pinned header, scrolls away normally */}
-        {promotions.length > 0 && (
+        {/* PWA install banner — collapses away once dismissed or installed */}
+        <div className="-mx-4 md:mx-0">
+          <InstallBanner />
+        </div>
+
+        {/* promo banner carousel — right below the pinned header, scrolls away
+            normally. Skeleton while loading: we don't yet know whether this
+            restaurant even has promotions, so we show a plausible banner
+            shape and let it collapse away once the real promotions array
+            resolves (possibly empty). */}
+        {loading ? (
           <div className="pt-3">
-            <div
-              ref={bannerRef}
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                setBannerIdx(Math.round(el.scrollLeft / el.clientWidth));
-              }}
-              className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white"
-            >
-              {promotions.map((p) => (
-                <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
-              ))}
-            </div>
-            {promotions.length > 1 && (
-              <div className="mt-2 flex justify-center gap-1.5">
-                {promotions.map((p, i) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      const el = bannerRef.current;
-                      if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-                    }}
-                    aria-label={t('shop.go_to_banner', { n: i + 1 })}
-                    className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200'}`}
-                  />
+            <Skeleton className="aspect-[2/1] w-full rounded-2xl" />
+          </div>
+        ) : (
+          promotions.length > 0 && (
+            <div className="pt-3">
+              <div
+                ref={bannerRef}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  setBannerIdx(Math.round(el.scrollLeft / el.clientWidth));
+                }}
+                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white"
+              >
+                {promotions.map((p) => (
+                  <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
                 ))}
               </div>
-            )}
-          </div>
+              {promotions.length > 1 && (
+                <div className="mt-2 flex justify-center gap-1.5">
+                  {promotions.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        const el = bannerRef.current;
+                        if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                      }}
+                      aria-label={t('shop.go_to_banner', { n: i + 1 })}
+                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
         )}
 
-        {/* category rail — square icons; scrolls away with the banner, not
-            pinned. Extra top padding keeps the selection ring's box-shadow
-            from being clipped by the scroll container (overflow-x-auto also
-            clips the y-axis unless it has room to spare). */}
+        {/* category rail — scrolls away with the banner, not pinned. When a
+            category has a photo it's rendered bare (object-contain, no
+            frame) so a transparent-PNG image floats on the page like the
+            sauce swatches; categories without a photo fall back to an emoji
+            in a rounded tile. Extra top padding keeps the drop-shadow /
+            selection ring from being clipped by the scroll container
+            (overflow-x-auto also clips the y-axis unless it has room to
+            spare). */}
         <div className="no-scrollbar -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-1 pt-2 md:mx-0 md:px-0">
-          <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
-            <span
-              className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl text-xl transition ${
-                settings?.all_category_image_url
-                  ? `bg-white ${activeCat === 'all' ? 'ring-2 ring-brand-500' : 'ring-1 ring-zinc-200'}`
-                  : activeCat === 'all'
-                    ? 'bg-brand-50 ring-2 ring-brand-500'
-                    : 'bg-zinc-100'
-              }`}
-            >
-              {settings?.all_category_image_url ? (
-                <img src={settings.all_category_image_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                '✨'
-              )}
-            </span>
-            <span className={`text-[10px] font-semibold ${activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>{t('shop.all')}</span>
-          </button>
-          {categories.filter((c) => c.is_active).map((c) => (
-            <button key={c.id} onClick={() => setActiveCat(c.id)} className="flex shrink-0 flex-col items-center gap-1.5">
-              <span
-                className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl text-xl transition ${
-                  c.image_url
-                    ? `bg-white ${activeCat === c.id ? 'ring-2 ring-brand-500' : 'ring-1 ring-zinc-200'}`
-                    : activeCat === c.id
-                      ? 'bg-brand-50 ring-2 ring-brand-500'
-                      : 'bg-zinc-100'
-                }`}
-              >
-                {c.image_url ? <img src={c.image_url} alt="" className="h-full w-full object-cover" /> : c.icon}
-              </span>
-              <span className={`max-w-[56px] truncate text-[10px] font-semibold ${activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
-                {c.name}
-              </span>
-            </button>
-          ))}
+          {loading ? (
+            // Six placeholder circles — a plausible category-rail count —
+            // instead of the real "Tout" button + empty categories array
+            // (categories haven't loaded yet, so today it'd otherwise just
+            // show one lonely "Tout" until the fetch resolves).
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex shrink-0 flex-col items-center gap-1.5">
+                <Skeleton className="h-12 w-12 rounded-xl" />
+                <Skeleton className="h-2.5 w-8 rounded" />
+              </div>
+            ))
+          ) : (
+            <>
+              <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
+                {settings === null ? (
+                  // Same reasoning as the header logo above: settings hasn't
+                  // loaded yet, so render an empty placeholder instead of the
+                  // ✨ default — avoids the "wrong icon then real one" flash.
+                  <span className="h-12 w-12" />
+                ) : settings.all_category_image_url ? (
+                  // Bare layout box — no bg/border/overflow-hidden — so a
+                  // transparent-PNG category photo sits directly on the page,
+                  // same treatment as the sauce swatches in ProductSheet. The
+                  // selected state is a drop-shadow that hugs the photo's real
+                  // silhouette instead of a ring around a rectangle.
+                  <span className="flex h-12 w-12 items-center justify-center">
+                    <img
+                      src={settings.all_category_image_url}
+                      alt=""
+                      className="h-12 w-12 object-contain transition-[filter] duration-200"
+                      style={activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                    />
+                  </span>
+                ) : (
+                  <span
+                    className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
+                      activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                    }`}
+                  >
+                    ✨
+                  </span>
+                )}
+                <span className={`text-[10px] font-semibold ${activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>{t('shop.all')}</span>
+              </button>
+              {categories.filter((c) => c.is_active).map((c) => (
+                <button key={c.id} onClick={() => setActiveCat(c.id)} className="flex shrink-0 flex-col items-center gap-1.5">
+                  {c.image_url ? (
+                    <span className="flex h-12 w-12 items-center justify-center">
+                      <img
+                        src={c.image_url}
+                        alt=""
+                        className="h-12 w-12 object-contain transition-[filter] duration-200"
+                        style={activeCat === c.id ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
+                        activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                      }`}
+                    >
+                      {c.icon}
+                    </span>
+                  )}
+                  <span className={`max-w-[56px] truncate text-[10px] font-semibold ${activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
+                    {c.name}
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
         </div>
 
         {/* inline search — opened from the bottom nav, which also scrolls the
@@ -305,7 +398,25 @@ export default function MenuPage() {
 
         {/* product grid */}
         {loading ? (
-          <Spinner label={t('shop.loading')} />
+          // Eight card-shaped placeholders matching ProductCard's own
+          // proportions (aspect-[5/4] image + two text lines), in the same
+          // grid the real cards will render into — so the skeleton doesn't
+          // reflow into a different shape once data lands.
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-soft-sm ring-1 ring-zinc-100">
+                <Skeleton className="aspect-[5/4] w-full rounded-none" />
+                <div className="flex flex-1 flex-col gap-2 p-3">
+                  <Skeleton className="h-3 w-4/5 rounded" />
+                  <Skeleton className="h-3 w-2/5 rounded" />
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    <Skeleton className="h-4 w-12 rounded" />
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : visible.length === 0 ? (
           <p className="py-16 text-center text-sm text-zinc-400">{search ? t('shop.no_results', { q: search }) : t('shop.empty')}</p>
         ) : (
@@ -323,7 +434,7 @@ export default function MenuPage() {
           initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           onClick={() => setCartOpen(true)}
-          className="fixed inset-x-4 bottom-20 z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-zinc-900 px-5 py-4 text-white shadow-2xl transition active:scale-[0.98]"
+          className="fixed inset-x-4 bottom-20 z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-zinc-900 px-5 py-4 text-white shadow-soft-xl transition active:scale-[0.98]"
         >
           <span className="flex items-center gap-2 text-sm font-semibold">
             <ShoppingBasket size={18} className="text-brand-400" />
@@ -381,7 +492,21 @@ export default function MenuPage() {
           localStorage.setItem(LAST_ORDER_KEY, String(o.id));
         }}
       />
-      {order && trackerOpen && <OrderTracker order={order} onClose={() => setTrackerOpen(false)} onUpdate={setOrder} />}
+      {order && trackerOpen && (
+        <OrderTracker
+          order={order}
+          onClose={() => setTrackerOpen(false)}
+          onUpdate={(updated) =>
+            setOrder((prev) => {
+              // Same chime as the background poller above — this just
+              // covers the case where the tracker itself is open and
+              // doing the polling instead.
+              if (prev && updated.status !== prev.status) playChime();
+              return updated;
+            })
+          }
+        />
+      )}
     </div>
   );
 }

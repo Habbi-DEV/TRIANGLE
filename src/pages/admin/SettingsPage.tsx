@@ -129,7 +129,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type }),
+        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Logo' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');

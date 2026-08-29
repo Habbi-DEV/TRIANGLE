@@ -1,10 +1,11 @@
 import { getCurrentLang } from './i18n';
 
 // Algeria-only build: single currency, always Algerian Dinar. Written as a
-// suffix ("1 250 Da"), which is how DA amounts are normally read/written
-// here — unlike a symbol like €/$ that goes before the number.
+// suffix ("1 250 da"), which is how DA amounts are normally read/written
+// here — unlike a symbol like €/$ that goes before the number. No decimal
+// places: prices are always whole dinars in this app.
 export const money = (n: number): string =>
-  `${(Math.round((Number(n) || 0) * 100) / 100).toFixed(2)} Da`;
+  `${Math.round(Number(n) || 0)} da`;
 
 export const orderNumber = (id: number): string => `#${id + 1000}`;
 

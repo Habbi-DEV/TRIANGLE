@@ -257,7 +257,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'login.feature1': "Caisse avec saisie de commande en un geste",
     'login.feature2': 'Flux de commandes en direct — Sur place · À emporter · Livraison',
     'login.feature3': 'Menu, tables et inventaire dans un seul tableau de bord',
-    'login.footer': 'Restolink POS · propulsé par Supabase Realtime',
+    'login.footer': 'TRIANGLE · propulsé par Supabase Realtime',
     'login.staff_sign_in': 'Connexion du personnel',
     'login.access_dashboard': 'Accédez au tableau de bord, à la caisse et au flux de commandes.',
     'login.or': 'ou',
@@ -331,6 +331,11 @@ const dict: Record<Lang, Record<string, string>> = {
     'menu.create_product': 'Créer le produit',
 
     // Customer — e-menu shell (header, nav, search, empty states)
+    'pwa.install_title': 'Installer TRIANGLE',
+    'pwa.install_body': 'Accès rapide depuis votre écran d\u2019accueil, même sans connexion.',
+    'pwa.install_cta': 'Installer',
+    'pwa.install_dismiss': 'Plus tard',
+
     'shop.all': 'Tout',
     'shop.loading': 'Chargement du menu…',
     'shop.empty': 'Rien ici pour le moment — essayez une autre catégorie !',
@@ -612,7 +617,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'login.feature1': 'صندوق دفع مع إدخال الطلب بنقرة واحدة',
     'login.feature2': 'بث الطلبات المباشر — في المطعم · استلام · توصيل',
     'login.feature3': 'القائمة والطاولات والمخزون في لوحة تحكم واحدة',
-    'login.footer': 'Restolink POS · مدعوم بـ Supabase Realtime',
+    'login.footer': 'TRIANGLE · مدعوم بـ Supabase Realtime',
     'login.staff_sign_in': 'تسجيل دخول الموظفين',
     'login.access_dashboard': 'الوصول إلى لوحة التحكم والصندوق وبث الطلبات.',
     'login.or': 'أو',
@@ -686,6 +691,11 @@ const dict: Record<Lang, Record<string, string>> = {
     'menu.create_product': 'إنشاء المنتج',
 
     // Customer — e-menu shell (header, nav, search, empty states)
+    'pwa.install_title': 'ثبّت تطبيق TRIANGLE',
+    'pwa.install_body': 'وصول سريع من شاشة هاتفك، حتى بلا نت.',
+    'pwa.install_cta': 'تثبيت',
+    'pwa.install_dismiss': 'لاحقاً',
+
     'shop.all': 'الكل',
     'shop.loading': 'جارٍ تحميل القائمة…',
     'shop.empty': 'لا يوجد شيء هنا بعد — جرّب تصنيفاً آخر!',

@@ -15,6 +15,24 @@
   --color-brand-800: #9a3412;
   --color-brand-900: #7c2d12;
   --color-burnt: #e65100;
+
+  /* "Soft shadow" scale — replaces Tailwind's default shadow-sm/md/lg/2xl
+     wherever a card, sheet, or floating element needs depth. Tailwind's
+     stock shadows use a fairly dark, tight umbra that reads as a hard
+     edge at a glance; these use a lower opacity and a wider spread so the
+     element looks like it's gently lifted off the page rather than
+     outlined. Two layers each: a broad, faint "ambient" shadow plus a
+     tighter "contact" shadow close to the element, which is what makes a
+     shadow read as soft rather than flat. Neutral zinc, not brand orange —
+     the existing brand-colored glows (shadow-orange-500/30 on CTAs) are a
+     separate, intentional accent and are left as-is.
+     Registering these under --shadow-* (Tailwind v4's shadow namespace)
+     generates the utilities shadow-soft-sm / shadow-soft / shadow-soft-lg /
+     shadow-soft-xl automatically — no plugin needed. */
+  --shadow-soft-sm: 0 1px 2px rgba(24, 24, 27, 0.04), 0 3px 8px -2px rgba(24, 24, 27, 0.07);
+  --shadow-soft: 0 2px 4px rgba(24, 24, 27, 0.04), 0 10px 24px -6px rgba(24, 24, 27, 0.10);
+  --shadow-soft-lg: 0 4px 8px rgba(24, 24, 27, 0.05), 0 18px 40px -10px rgba(24, 24, 27, 0.14);
+  --shadow-soft-xl: 0 8px 16px rgba(24, 24, 27, 0.06), 0 28px 64px -12px rgba(24, 24, 27, 0.18);
 }
 
 html {
