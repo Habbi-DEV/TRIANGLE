@@ -262,7 +262,6 @@ const dict: Record<Lang, Record<string, string>> = {
     'login.access_dashboard': 'Accédez au tableau de bord, à la caisse et au flux de commandes.',
     'login.or': 'ou',
     'login.continue_google': 'Continuer avec Google',
-    'login.demo_account': 'Compte démo',
 
     // Admin — Menu management page
     'common.upload_failed': "Échec de l'envoi",
@@ -622,7 +621,6 @@ const dict: Record<Lang, Record<string, string>> = {
     'login.access_dashboard': 'الوصول إلى لوحة التحكم والصندوق وبث الطلبات.',
     'login.or': 'أو',
     'login.continue_google': 'المتابعة عبر Google',
-    'login.demo_account': 'حساب تجريبي',
 
     // Admin — Menu management page
     'common.upload_failed': 'فشل الرفع',
