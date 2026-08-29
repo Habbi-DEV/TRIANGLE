@@ -10,7 +10,8 @@ import ProductCard from '../components/customer/ProductCard';
 import ProductSheet from '../components/customer/ProductSheet';
 import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
-import Spinner from '../components/ui/Spinner';
+import Skeleton from '../components/ui/Skeleton';
+import InstallBanner from '../components/InstallBanner';
 import { playChime, unlockChime } from '../lib/chime';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../lib/orderStatus';
 import { useLang } from '../lib/i18n';
@@ -209,8 +210,10 @@ export default function MenuPage() {
                 '🍽️'
               )}
             </div>
-            <h1 className="font-display text-[17px] font-extrabold tracking-tight text-zinc-900">{settings?.restaurant_name || 'Restolink'}</h1>
-            <div className="ml-auto flex items-center gap-2">
+            <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900">
+              {settings === null ? '' : settings.restaurant_name || 'TRIANGLE'}
+            </h1>
+            <div className="ms-auto flex shrink-0 items-center gap-2">
               <div className="flex rounded-full bg-zinc-100 p-0.5">
                 <button
                   onClick={() => setLang('fr')}
@@ -241,37 +244,52 @@ export default function MenuPage() {
           </div>
         </header>
 
-        {/* promo banner carousel — right below the pinned header, scrolls away normally */}
-        {promotions.length > 0 && (
+        {/* PWA install banner — collapses away once dismissed or installed */}
+        <div className="-mx-4 md:mx-0">
+          <InstallBanner />
+        </div>
+
+        {/* promo banner carousel — right below the pinned header, scrolls away
+            normally. Skeleton while loading: we don't yet know whether this
+            restaurant even has promotions, so we show a plausible banner
+            shape and let it collapse away once the real promotions array
+            resolves (possibly empty). */}
+        {loading ? (
           <div className="pt-3">
-            <div
-              ref={bannerRef}
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                setBannerIdx(Math.round(el.scrollLeft / el.clientWidth));
-              }}
-              className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white"
-            >
-              {promotions.map((p) => (
-                <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
-              ))}
-            </div>
-            {promotions.length > 1 && (
-              <div className="mt-2 flex justify-center gap-1.5">
-                {promotions.map((p, i) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      const el = bannerRef.current;
-                      if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-                    }}
-                    aria-label={t('shop.go_to_banner', { n: i + 1 })}
-                    className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200'}`}
-                  />
+            <Skeleton className="aspect-[2/1] w-full rounded-2xl" />
+          </div>
+        ) : (
+          promotions.length > 0 && (
+            <div className="pt-3">
+              <div
+                ref={bannerRef}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  setBannerIdx(Math.round(el.scrollLeft / el.clientWidth));
+                }}
+                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white"
+              >
+                {promotions.map((p) => (
+                  <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
                 ))}
               </div>
-            )}
-          </div>
+              {promotions.length > 1 && (
+                <div className="mt-2 flex justify-center gap-1.5">
+                  {promotions.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        const el = bannerRef.current;
+                        if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                      }}
+                      aria-label={t('shop.go_to_banner', { n: i + 1 })}
+                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* category rail — scrolls away with the banner, not pinned. When a
