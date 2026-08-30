@@ -71,3 +71,29 @@ const STEP_INDEX: Record<DeliveryStatus, number> = {
 export function deliveryStepIndex(status: DeliveryStatus): number {
   return STEP_INDEX[status];
 }
+
+// Reasons a driver can give when cancelling a delivery mid-route (arrived
+// but the customer isn't reachable, refused it, etc.) — see
+// CancelOrderModal + api/driver-orders.js's 'cancel' action.
+export type DriverCancelReason = 'no_answer' | 'refused' | 'not_found' | 'other';
+
+const CANCEL_REASON_LABEL: Record<Lang, Record<DriverCancelReason, string>> = {
+  fr: {
+    no_answer: 'Le client ne répond pas au téléphone',
+    refused: 'Le client a refusé la commande',
+    not_found: "Impossible de trouver le client / l'adresse",
+    other: 'Autre raison',
+  },
+  ar: {
+    no_answer: 'الزبون لا يجيب على الهاتف',
+    refused: 'الزبون رفض استلام الطلبية',
+    not_found: 'تعذر العثور على الزبون / العنوان',
+    other: 'سبب آخر',
+  },
+};
+
+export const DRIVER_CANCEL_REASONS: DriverCancelReason[] = ['no_answer', 'refused', 'not_found', 'other'];
+
+export function driverCancelReasonLabel(reason: DriverCancelReason): string {
+  return CANCEL_REASON_LABEL[getCurrentLang()][reason];
+}

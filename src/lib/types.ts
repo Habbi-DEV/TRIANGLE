@@ -127,6 +127,12 @@ export interface Order {
   customer_name: string | null;
   customer_phone: string | null;
   delivery_address: string | null;
+  /** Coordinates picked by the customer on the checkout map (or
+   *  reverse-geocoded from that pick). Null when they only typed a text
+   *  address — every UI that uses these must fall back to the address
+   *  string alone. */
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
   notes: string | null;
   subtotal: number;
   /** Snapshot of settings.delivery_fee at order time (0 unless order_type
@@ -143,6 +149,10 @@ export interface Order {
   driver_id?: string | null;
   delivery_status?: DeliveryStatus;
   delivered_at?: string | null;
+  /** Set when a driver cancels the order mid-route (customer unreachable,
+   *  refused, not found…). Null for every other order, including
+   *  admin/kitchen cancellations. */
+  cancel_reason?: string | null;
 }
 
 export interface InventoryLog {

@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Phone, MapPin, Banknote, Loader2, CheckCircle2 } from 'lucide-react';
+import { Phone, MapPin, Banknote, Loader2, CheckCircle2, Ban } from 'lucide-react';
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
 import {
   DELIVERY_STATUS_LABEL, deliveryStepIndex, driverActionLabel, nextDriverAction,
 } from '../../lib/driverStatus';
+import type { DriverCancelReason } from '../../lib/driverStatus';
+import RouteMap from './RouteMap';
+import CancelOrderModal from './CancelOrderModal';
 import type { Order } from '../../lib/types';
 
 const STEPS = ['accepted', 'picked_up', 'on_the_way', 'delivered'] as const;
@@ -46,10 +49,16 @@ function Stepper({ stepIndex }: { stepIndex: number }) {
 export default function ActiveOrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }) {
   const { t } = useLang();
   const [busy, setBusy] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const status = order.delivery_status ?? 'unassigned';
   const stepIndex = deliveryStepIndex(status);
   const action = nextDriverAction(status);
   const phone = order.customer_phone?.trim();
+  // Cancellable any time after acceptance, up until it's actually delivered
+  // — e.g. the driver reached the address but the customer isn't
+  // reachable or refuses the order.
+  const canCancel = status !== 'delivered';
 
   const advance = async () => {
     if (!action) return;
@@ -61,6 +70,22 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
       alert(err instanceof Error ? err.message : t('driver.update_failed'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const cancelOrder = async (reason: DriverCancelReason, note: string) => {
+    setCancelling(true);
+    try {
+      await api('/api/driver-orders', {
+        method: 'PUT',
+        body: JSON.stringify({ id: order.id, action: 'cancel', reason, note }),
+      });
+      setCancelOpen(false);
+      onUpdated();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('driver.update_failed'));
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -94,6 +119,11 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">{order.notes}</p>
         )}
 
+        <div>
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('driver.route')}</p>
+          <RouteMap destLat={order.delivery_lat} destLng={order.delivery_lng} destAddress={order.delivery_address} />
+        </div>
+
         <div className="flex items-center justify-between rounded-xl bg-zinc-50 px-3.5 py-3 ring-1 ring-zinc-200">
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-600">
             <Banknote size={18} className="text-emerald-600" />
@@ -125,6 +155,26 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
           </button>
         )}
       </div>
+
+      {canCancel && (
+        <div className="flex justify-center pb-4">
+          <button
+            type="button"
+            onClick={() => setCancelOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-600"
+          >
+            <Ban size={13} />
+            {t('driver.cancel_order')}
+          </button>
+        </div>
+      )}
+
+      <CancelOrderModal
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={cancelOrder}
+        busy={cancelling}
+      />
     </div>
   );
 }

@@ -72,6 +72,18 @@ const dict: Record<Lang, Record<string, string>> = {
     'cart.increase': 'Augmenter',
     'cart.remove': 'Supprimer',
 
+    // Cart — checkout location picker (map)
+    'cart.pick_on_map': '📍 Choisir sur la carte',
+    'cart.pick_on_map.title': 'Votre position de livraison',
+    'cart.pick_on_map.hint': 'Déplacez l\u2019épingle ou utilisez votre position actuelle, puis confirmez.',
+    'cart.pick_on_map.use_my_location': 'Utiliser ma position actuelle',
+    'cart.pick_on_map.locating': 'Localisation…',
+    'cart.pick_on_map.confirm': 'Confirmer cette position',
+    'cart.pick_on_map.location_set': 'Position confirmée sur la carte',
+    'cart.pick_on_map.clear': 'Retirer',
+    'cart.pick_on_map.geolocation_error': "Impossible d'obtenir votre position — vérifiez que la localisation est autorisée.",
+    'cart.pick_on_map.load_error': 'La carte n\u2019a pas pu se charger. Vérifiez votre connexion.',
+
     // Language switcher
     'lang.switch': 'Langue',
 
@@ -200,6 +212,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.action.complete': 'Terminer',
     'orders.action.delivered': 'Livrée',
     'orders.action.cancel': 'Annuler',
+    'orders.cancel_reason': "Motif d'annulation (livreur)",
 
     // Driver Dashboard
     'driver.title': 'Livreur',
@@ -220,6 +233,20 @@ const dict: Record<Lang, Record<string, string>> = {
     'driver.step.picked_up': 'Récupérée',
     'driver.step.on_the_way': 'En route',
     'driver.step.delivered': 'Livrée',
+    'driver.route': 'Itinéraire',
+    'driver.open_in_maps': 'Ouvrir la navigation Google Maps',
+    'driver.locating_you': 'Localisation de votre position…',
+    'driver.no_location': "Position exacte non fournie par le client — utilisez l'adresse ci-dessus.",
+    'driver.cancelled': 'Annulée',
+    'driver.cancel_order': 'Annuler la commande',
+    'driver.cancel_order.title': 'Annuler cette livraison ?',
+    'driver.cancel_order.prompt': 'Pourquoi annulez-vous cette commande ?',
+    'driver.cancel_order.note_placeholder': 'Précisez la raison…',
+    'driver.cancel_order.note_required': 'Merci de préciser la raison.',
+    'driver.cancel_order.confirm': "Confirmer l'annulation",
+    'driver.cancel_order.cancelling': 'Annulation…',
+    'driver.cancel_order.back': 'Retour',
+    'driver.cancel_order.success': 'Commande annulée.',
 
     // Admin — Tables page
     'tables.title': 'Tables',
@@ -464,6 +491,16 @@ const dict: Record<Lang, Record<string, string>> = {
     'cart.error_name': 'الاسم مطلوب للتوصيل.',
     'cart.error_phone': 'رقم هاتف صحيح مطلوب.',
     'cart.error_address': 'عنوان التوصيل مطلوب.',
+    'cart.pick_on_map': '📍 تحديد الموقع على الخريطة',
+    'cart.pick_on_map.title': 'موقع التوصيل الخاص بك',
+    'cart.pick_on_map.hint': 'حرّك الدبوس أو استخدم موقعك الحالي، ثم أكّد.',
+    'cart.pick_on_map.use_my_location': 'استخدام موقعي الحالي',
+    'cart.pick_on_map.locating': 'جارٍ تحديد الموقع…',
+    'cart.pick_on_map.confirm': 'تأكيد هذا الموقع',
+    'cart.pick_on_map.location_set': 'تم تأكيد الموقع على الخريطة',
+    'cart.pick_on_map.clear': 'إزالة',
+    'cart.pick_on_map.geolocation_error': 'تعذر تحديد موقعك — تأكد من السماح بخدمة الموقع.',
+    'cart.pick_on_map.load_error': 'تعذر تحميل الخريطة. تحقق من اتصالك بالإنترنت.',
     'cart.error_generic': 'تعذّر إرسال الطلب. حاول مجدداً.',
     'cart.decrease': 'إنقاص',
     'cart.increase': 'زيادة',
@@ -597,6 +634,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.action.complete': 'إنهاء',
     'orders.action.delivered': 'تم التوصيل',
     'orders.action.cancel': 'إلغاء',
+    'orders.cancel_reason': 'سبب الإلغاء (من السائق)',
 
     // Driver Dashboard
     'driver.title': 'سائق',
@@ -617,6 +655,20 @@ const dict: Record<Lang, Record<string, string>> = {
     'driver.step.picked_up': 'تم الاستلام',
     'driver.step.on_the_way': 'في الطريق',
     'driver.step.delivered': 'تم التوصيل',
+    'driver.route': 'الطريق',
+    'driver.open_in_maps': 'فتح التنقل في خرائط Google',
+    'driver.locating_you': 'جارٍ تحديد موقعك…',
+    'driver.no_location': 'لم يحدد الزبون موقعًا دقيقًا — استخدم العنوان أعلاه.',
+    'driver.cancelled': 'ملغاة',
+    'driver.cancel_order': 'إلغاء الطلبية',
+    'driver.cancel_order.title': 'إلغاء هذه الطلبية؟',
+    'driver.cancel_order.prompt': 'لماذا تريد إلغاء هذه الطلبية؟',
+    'driver.cancel_order.note_placeholder': 'اذكر السبب…',
+    'driver.cancel_order.note_required': 'الرجاء توضيح السبب.',
+    'driver.cancel_order.confirm': 'تأكيد الإلغاء',
+    'driver.cancel_order.cancelling': 'جارٍ الإلغاء…',
+    'driver.cancel_order.back': 'رجوع',
+    'driver.cancel_order.success': 'تم إلغاء الطلبية.',
 
     // Admin — Tables page
     'tables.title': 'الطاولات',

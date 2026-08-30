@@ -3,6 +3,7 @@ import { MapPin, Banknote, Loader2, CheckCircle2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
+import OrderMiniMap from './OrderMiniMap';
 import type { Order } from '../../lib/types';
 
 export default function AvailableOrderCard({ order, onAccepted }: { order: Order; onAccepted: () => void }) {
@@ -46,6 +47,9 @@ export default function AvailableOrderCard({ order, onAccepted }: { order: Order
           <MapPin size={15} className="mt-0.5 shrink-0 text-brand-500" />
           <span className="truncate">{order.delivery_address}</span>
         </div>
+        {order.delivery_lat != null && order.delivery_lng != null && (
+          <OrderMiniMap lat={order.delivery_lat} lng={order.delivery_lng} />
+        )}
         <div className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-zinc-800">
           <Banknote size={15} className="text-emerald-600" />
           {money(order.total)}

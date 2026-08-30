@@ -84,6 +84,7 @@ export default async function handler(req, res) {
       const {
         order_type, table_number,
         customer_name, customer_phone, delivery_address,
+        delivery_lat, delivery_lng,
         notes, items,
       } = body;
 
@@ -169,6 +170,13 @@ export default async function handler(req, res) {
         // without any extra math elsewhere.
         rows.push({ product_id: p.id, product_name: p.name, unit_price, quantity, sauces: chosenSauces, supplements: chosenSupplements });
       }
+      // Optional pin the customer dropped on the checkout map. Best-effort:
+      // silently dropped (stays null) if missing or not a finite number,
+      // rather than failing the whole order over it — the text address is
+      // still the source of truth for delivery.
+      const hasCoords = order_type === 'delivery'
+        && Number.isFinite(Number(delivery_lat)) && Number.isFinite(Number(delivery_lng));
+
       subtotal = Math.round(subtotal * 100) / 100;
       const delivery_fee = order_type === 'delivery' ? await getDeliveryFee() : 0;
       const total = Math.round((subtotal + delivery_fee) * 100) / 100;
@@ -182,6 +190,8 @@ export default async function handler(req, res) {
           customer_name: order_type === 'delivery' ? String(customer_name).trim() : null,
           customer_phone: order_type === 'delivery' ? String(customer_phone).trim() : null,
           delivery_address: order_type === 'delivery' ? String(delivery_address).trim() : null,
+          delivery_lat: hasCoords ? Number(delivery_lat) : null,
+          delivery_lng: hasCoords ? Number(delivery_lng) : null,
           notes: notes ? String(notes).trim() : null,
           // Algeria: cash only, no other payment method is offered.
           payment_method: 'cash',

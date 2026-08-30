@@ -8,8 +8,10 @@ export default function DriverActivePage() {
   const { t } = useLang();
   const { orders, loading, refresh } = useDriverOrders('mine');
 
-  const active = orders.filter((o) => o.delivery_status !== 'delivered');
-  const recent = orders.filter((o) => o.delivery_status === 'delivered').slice(0, 5);
+  const active = orders.filter((o) => o.delivery_status !== 'delivered' && o.status !== 'cancelled');
+  const recent = orders
+    .filter((o) => o.delivery_status === 'delivered' || o.status === 'cancelled')
+    .slice(0, 5);
 
   if (loading) {
     return (
@@ -45,7 +47,11 @@ export default function DriverActivePage() {
               <div key={order.id} className="flex items-center justify-between rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-zinc-100">
                 <span className="font-semibold text-zinc-700">#{order.id + 1000}</span>
                 <span className="text-zinc-400">{order.customer_name}</span>
-                <span className="font-bold text-emerald-600">{t('driver.delivered')}</span>
+                {order.status === 'cancelled' ? (
+                  <span className="font-bold text-red-500">{t('driver.cancelled')}</span>
+                ) : (
+                  <span className="font-bold text-emerald-600">{t('driver.delivered')}</span>
+                )}
               </div>
             ))}
           </div>

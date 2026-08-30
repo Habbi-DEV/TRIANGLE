@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Bike, ChevronRight, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Bike, ChevronRight, MapPin, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed, X } from 'lucide-react';
 import { useCartStore, selectSubtotal } from '../../stores/cartStore';
 import { api } from '../../lib/api';
 import { money } from '../../lib/format';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
+import LocationPickerModal from './LocationPickerModal';
 import type { Order, OrderType, RestaurantTable } from '../../lib/types';
 
 const TYPE_OPTIONS: { value: OrderType; labelKey: string; hintKey: string; Icon: typeof Bike }[] = [
@@ -35,6 +36,8 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [mapOpen, setMapOpen] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Delivery fee only applies once the customer has picked "Delivery" —
   // dine-in/takeaway totals are unaffected by settings.delivery_fee.
@@ -57,6 +60,8 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
       setStep('cart');
       setErrors({});
       setServerError('');
+      setCoords(null);
+      setMapOpen(false);
     }
   }, [open]);
 
@@ -97,6 +102,8 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
           customer_name: orderType === 'delivery' ? name : undefined,
           customer_phone: orderType === 'delivery' ? phone : undefined,
           delivery_address: orderType === 'delivery' ? address : undefined,
+          delivery_lat: orderType === 'delivery' ? coords?.lat : undefined,
+          delivery_lng: orderType === 'delivery' ? coords?.lng : undefined,
           notes: notes || undefined,
           // Algeria: cash only — the API forces this server-side too.
           payment_method: 'cash',
@@ -119,6 +126,7 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
   };
 
   return (
+    <>
     <AnimatePresence>
       {open && (
         <motion.div
@@ -236,6 +244,23 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                       <div>
                         <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('cart.delivery_address')} rows={2} className={`w-full resize-none rounded-xl border px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-200 ${errors.address ? 'border-red-300' : 'border-zinc-200'}`} />
                         {errors.address && <p className="mt-1 text-xs font-medium text-red-500">{errors.address}</p>}
+                        <button
+                          type="button"
+                          onClick={() => setMapOpen(true)}
+                          className="mt-2 flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700"
+                        >
+                          <MapPin size={14} />
+                          {t('cart.pick_on_map')}
+                        </button>
+                        {coords && (
+                          <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
+                            <MapPin size={12} />
+                            {t('cart.pick_on_map.location_set')}
+                            <button type="button" onClick={() => setCoords(null)} className="ms-auto text-emerald-500 hover:text-emerald-700" aria-label={t('cart.pick_on_map.clear')}>
+                              <X size={12} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -294,5 +319,17 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
         </motion.div>
       )}
     </AnimatePresence>
+
+    <LocationPickerModal
+      open={mapOpen}
+      onClose={() => setMapOpen(false)}
+      initial={coords}
+      onConfirm={(lat, lng, addressGuess) => {
+        setCoords({ lat, lng });
+        if (!address.trim() && addressGuess) setAddress(addressGuess);
+        setMapOpen(false);
+      }}
+    />
+    </>
   );
 }

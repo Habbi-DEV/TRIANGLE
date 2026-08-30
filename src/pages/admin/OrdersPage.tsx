@@ -167,6 +167,11 @@ export default function OrdersPage() {
                 </div>
 
                 {o.notes && <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-700">📝 {o.notes}</p>}
+                {o.status === 'cancelled' && o.cancel_reason && (
+                  <p className="mt-2 rounded-lg bg-red-50 px-2 py-1 text-[11px] text-red-700">
+                    🚫 {t('orders.cancel_reason')} : {o.cancel_reason}
+                  </p>
+                )}
 
                 <div className="mt-3 flex items-center justify-between border-t border-zinc-50 pt-3">
                   <span className="font-display text-base font-bold text-zinc-900">{money(o.total)}</span>
