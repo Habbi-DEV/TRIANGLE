@@ -1,5 +1,6 @@
 import supabase from './_lib/db-client.js';
 import { setCors, requireStaff, requireAdmin } from './_lib/auth.js';
+import { broadcastDriverEvent, DRIVER_EVENTS } from './_lib/broadcast.js';
 
 const ORDER_TYPES = ['dine_in', 'takeaway', 'delivery'];
 const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'];
@@ -251,6 +252,19 @@ export default async function handler(req, res) {
       const { data, error } = await supabase
         .from('orders').update({ status }).eq('id', Number(id)).select().single();
       if (error) throw error;
+
+      // Driver Dashboard notification — instant, independent of RLS (see
+      // api/_lib/broadcast.js). Kitchen marking a delivery order "ready" is
+      // the moment it should appear on every driver's "available" list;
+      // cancelling one that was already sitting there (still unassigned)
+      // should make it disappear from that list just as fast.
+      if (existing.order_type === 'delivery') {
+        if (status === 'ready') {
+          await broadcastDriverEvent(DRIVER_EVENTS.READY, existing.id);
+        } else if (status === 'cancelled' && existing.status === 'ready' && !existing.driver_id) {
+          await broadcastDriverEvent(DRIVER_EVENTS.REMOVED, existing.id);
+        }
+      }
 
       // STOCK RESTORE (new): cancelling an order used to leave stock exactly
       // where it was after the sale — the customer's items came back but the

@@ -1,5 +1,6 @@
 import supabase from './_lib/db-client.js';
 import { setCors, requireAuth } from './_lib/auth.js';
+import { broadcastDriverEvent, DRIVER_EVENTS } from './_lib/broadcast.js';
 
 // Only these two roles may use the driver endpoints. Admins are included so
 // staff can test/support the flow from an admin account without needing a
@@ -109,6 +110,13 @@ export default async function handler(req, res) {
         }
         if (error) throw error;
         return res.status(404).json({ error: 'Order not found' });
+      }
+
+      // Tell every other driver's "available" tab right away — see
+      // api/_lib/broadcast.js for why this can't just rely on Realtime's
+      // normal RLS-filtered postgres_changes feed.
+      if (action === 'accept') {
+        await broadcastDriverEvent(DRIVER_EVENTS.TAKEN, data.id);
       }
 
       return res.status(200).json(data);

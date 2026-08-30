@@ -8,6 +8,7 @@ import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { printInvoice } from '../../lib/invoice';
 import { useLang } from '../../lib/i18n';
+import { DELIVERY_STATUS_LABEL } from '../../lib/driverStatus';
 import type { Order, OrderStatus, OrderType } from '../../lib/types';
 
 const STATUS_FILTERS: { value: OrderStatus | 'all'; labelKey: string }[] = [
@@ -34,9 +35,18 @@ function nextAction(o: Order): { to: OrderStatus; labelKey: string } | null {
     case 'confirmed': return { to: 'preparing', labelKey: 'orders.action.start_prep' };
     case 'preparing': return { to: 'ready', labelKey: 'orders.action.mark_ready' };
     case 'ready':
-      return o.order_type === 'delivery'
-        ? { to: 'out_for_delivery', labelKey: 'orders.action.dispatch' }
-        : { to: 'completed', labelKey: 'orders.action.complete' };
+      // Delivery orders are handed off to the Driver Dashboard the moment
+      // they're marked "ready" — a driver self-assigns via /driver, then
+      // drives the rest of the lifecycle (picked_up -> out_for_delivery,
+      // delivered -> completed; see api/driver-orders.js). There is
+      // deliberately NO manual "send to driver" action here anymore: it
+      // used to flip status straight to out_for_delivery, which skipped
+      // driver assignment entirely and made the order invisible to the
+      // Driver Dashboard's "available" list (that list only shows
+      // status === 'ready') — orders dispatched that way never got a
+      // driver_id and silently got stuck. Kitchen/cashier just mark it
+      // ready; the driver flow takes it from there.
+      return o.order_type === 'delivery' ? null : { to: 'completed', labelKey: 'orders.action.complete' };
     case 'out_for_delivery': return { to: 'completed', labelKey: 'orders.action.delivered' };
     default: return null;
   }
@@ -172,6 +182,25 @@ export default function OrdersPage() {
                     <StatusBadge status={o.status} />
                   </div>
                 </div>
+
+                {/* Driver Dashboard visibility: kitchen/cashier can see at a
+                   glance whether a delivery is still waiting for a driver
+                   to accept it, or where the assigned driver is in the
+                   pickup workflow — without needing the /driver screen. */}
+                {o.order_type === 'delivery' && o.status !== 'cancelled' && o.status !== 'completed' && (
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold">
+                    {(!o.delivery_status || o.delivery_status === 'unassigned') ? (
+                      o.status === 'ready' ? (
+                        <span className="flex items-center gap-1.5 text-amber-600">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                          {t('orders.waiting_for_driver')}
+                        </span>
+                      ) : null
+                    ) : (
+                      <span className="text-indigo-600">🛵 {DELIVERY_STATUS_LABEL[o.delivery_status]}</span>
+                    )}
+                  </p>
+                )}
 
                 {(action || cancellable) && (
                   <div className="mt-3 flex gap-2">

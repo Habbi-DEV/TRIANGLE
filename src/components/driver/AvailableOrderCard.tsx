@@ -11,18 +11,25 @@ export default function AvailableOrderCard({ order, onAccepted }: { order: Order
   const [taken, setTaken] = useState(false);
 
   const accept = async () => {
+    if (busy || taken) return;
     setBusy(true);
     try {
       await api('/api/driver-orders', { method: 'PUT', body: JSON.stringify({ id: order.id, action: 'accept' }) });
       onAccepted();
     } catch (err) {
-      // 409 = someone else already accepted it — just refresh the list
-      // instead of showing a scary error for what's a normal race.
-      setTaken(true);
-      onAccepted();
-      console.warn(err instanceof Error ? err.message : err);
-    } finally {
-      setBusy(false);
+      const message = err instanceof Error ? err.message : '';
+      // 409 = someone else already accepted it a moment earlier — a normal
+      // race, not a real error. The atomic conditional UPDATE in
+      // api/driver-orders.js guarantees this never results in two drivers
+      // both holding the same order; the loser here just needs their list
+      // refreshed. Any other failure is a real problem and should say so.
+      if (message.includes('already moved on')) {
+        setTaken(true);
+        onAccepted();
+      } else {
+        alert(message || t('driver.update_failed'));
+        setBusy(false);
+      }
     }
   };
 
