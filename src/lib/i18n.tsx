@@ -200,6 +200,26 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.action.delivered': 'Livrée',
     'orders.action.cancel': 'Annuler',
 
+    // Driver Dashboard
+    'driver.title': 'Livreur',
+    'driver.nav.active': 'En cours',
+    'driver.nav.available': 'Disponibles',
+    'driver.logout': 'Déconnexion',
+    'driver.call': 'Appeler',
+    'driver.accept': 'Accepter',
+    'driver.cod_amount': 'À encaisser (espèces)',
+    'driver.update_failed': "Échec de la mise à jour, réessayez.",
+    'driver.no_active': 'Aucune livraison en cours',
+    'driver.no_active_hint': "Acceptez une commande depuis l'onglet Disponibles pour commencer.",
+    'driver.no_available': 'Aucune commande disponible',
+    'driver.no_available_hint': 'Les commandes prêtes en livraison apparaîtront ici.',
+    'driver.recent': 'Livrées récemment',
+    'driver.delivered': 'Livrée',
+    'driver.step.accepted': 'Acceptée',
+    'driver.step.picked_up': 'Récupérée',
+    'driver.step.on_the_way': 'En route',
+    'driver.step.delivered': 'Livrée',
+
     // Admin — Tables page
     'tables.title': 'Tables',
     'tables.available': 'disponible',
@@ -575,6 +595,26 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.action.complete': 'إنهاء',
     'orders.action.delivered': 'تم التوصيل',
     'orders.action.cancel': 'إلغاء',
+
+    // Driver Dashboard
+    'driver.title': 'سائق',
+    'driver.nav.active': 'الحالية',
+    'driver.nav.available': 'المتاحة',
+    'driver.logout': 'تسجيل الخروج',
+    'driver.call': 'اتصال',
+    'driver.accept': 'قبول',
+    'driver.cod_amount': 'المبلغ المطلوب (نقدًا)',
+    'driver.update_failed': 'فشل التحديث، أعد المحاولة.',
+    'driver.no_active': 'لا توجد توصيلات حالية',
+    'driver.no_active_hint': 'اقبل طلبًا من قسم المتاحة للبدء.',
+    'driver.no_available': 'لا توجد طلبات متاحة',
+    'driver.no_available_hint': 'ستظهر هنا طلبات التوصيل الجاهزة.',
+    'driver.recent': 'تم توصيلها مؤخرًا',
+    'driver.delivered': 'تم التوصيل',
+    'driver.step.accepted': 'مقبولة',
+    'driver.step.picked_up': 'تم الاستلام',
+    'driver.step.on_the_way': 'في الطريق',
+    'driver.step.delivered': 'تم التوصيل',
 
     // Admin — Tables page
     'tables.title': 'الطاولات',

@@ -15,6 +15,9 @@ import InventoryPage from './pages/admin/InventoryPage';
 import SchemaPage from './pages/admin/SchemaPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import StaffPage from './pages/admin/StaffPage';
+import DriverLayout from './pages/driver/DriverLayout';
+import DriverActivePage from './pages/driver/DriverActivePage';
+import DriverAvailablePage from './pages/driver/DriverAvailablePage';
 import { loadSettings } from './lib/settings';
 
 export default function App() {
@@ -56,6 +59,19 @@ export default function App() {
             <Route path="schema" element={<SchemaPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="staff" element={<StaffPage />} />
+          </Route>
+
+          {/* Delivery Driver Dashboard — mobile-first, separate shell from /admin */}
+          <Route
+            path="/driver"
+            element={
+              <ProtectedRoute allowedRoles={['delivery_driver']}>
+                <DriverLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<DriverActivePage />} />
+            <Route path="available" element={<DriverAvailablePage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

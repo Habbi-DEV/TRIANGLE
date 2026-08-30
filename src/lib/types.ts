@@ -11,6 +11,11 @@ export type OrderStatus =
 
 export type TableStatus = 'available' | 'occupied' | 'reserved' | 'cleaning';
 
+/** Driver-facing sub-status (Driver Dashboard). Independent of OrderStatus —
+ *  meaningful only when order_type === 'delivery'. See
+ *  public/schema_driver_dashboard.sql. */
+export type DeliveryStatus = 'unassigned' | 'accepted' | 'picked_up' | 'on_the_way' | 'delivered';
+
 export interface Category {
   id: number;
   name: string;
@@ -133,6 +138,11 @@ export interface Order {
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
+  /** Driver Dashboard fields — present once schema_driver_dashboard.sql has
+   *  been applied; undefined on installs that haven't migrated yet. */
+  driver_id?: string | null;
+  delivery_status?: DeliveryStatus;
+  delivered_at?: string | null;
 }
 
 export interface InventoryLog {
