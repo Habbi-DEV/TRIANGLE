@@ -10,7 +10,7 @@ import LanguageSwitch from '../components/LanguageSwitch';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role, loading } = useAuth();
   const { t } = useLang();
   const settings = useSettings();
   const [email, setEmail] = useState('');
@@ -19,9 +19,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [googleBusy, setGoogleBusy] = useState(false);
 
+  // Wait until the profile's role has actually loaded before redirecting —
+  // navigating straight to /admin as soon as `user` exists (the old
+  // behaviour) always won 'the race' against role loading, so a
+  // delivery_driver account never got routed anywhere but /admin.
   useEffect(() => {
-    if (user) navigate('/admin');
-  }, [user, navigate]);
+    if (!user || loading) return;
+    navigate(role === 'delivery_driver' ? '/driver' : '/admin', { replace: true });
+  }, [user, role, loading, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,9 +36,10 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
       setBusy(false);
-    } else {
-      navigate('/admin');
     }
+    // No navigate() here on success — the effect above takes over once
+    // AuthContext has resolved the signed-in user's role, and routes
+    // delivery_driver accounts to /driver instead of /admin.
   };
 
   const handleGoogle = async () => {
