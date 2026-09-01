@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Users } from 'lucide-react';
+import { Lock, Plus, Trash2, Users } from 'lucide-react';
 import type { Order, RestaurantTable, TableStatus } from '../../lib/types';
 import { api } from '../../lib/api';
 import { orderNumber } from '../../lib/format';
@@ -23,6 +23,7 @@ export default function TablesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ table_number: '', seats: '2' });
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const load = () => {
     Promise.all([
@@ -42,8 +43,19 @@ export default function TablesPage() {
   const activeOrderFor = (tableNumber: number) =>
     orders.find((o) => o.table_number === tableNumber && ACTIVE_STATUSES.includes(o.status) && o.order_type === 'dine_in');
 
+  // Single source of truth: a table with an open dine-in order IS occupied,
+  // regardless of the manual flag stored on the row — the manual flag only
+  // governs tables with no open order.
+  const effectiveStatus = (tbl: RestaurantTable): TableStatus =>
+    activeOrderFor(tbl.table_number) ? 'occupied' : tbl.status;
+
   const setStatus = async (tbl: RestaurantTable, status: TableStatus) => {
-    await api('/api/tables', { method: 'PUT', body: JSON.stringify({ id: tbl.id, status }) }).catch(console.error);
+    setActionError('');
+    try {
+      await api('/api/tables', { method: 'PUT', body: JSON.stringify({ id: tbl.id, status }) });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('tables.error_add_failed'));
+    }
     load();
   };
 
@@ -70,7 +82,12 @@ export default function TablesPage() {
 
   const removeTable = async (tbl: RestaurantTable) => {
     if (!confirm(t('tables.remove_confirm', { n: tbl.table_number }))) return;
-    await api('/api/tables', { method: 'DELETE', body: JSON.stringify({ id: tbl.id }) }).catch(console.error);
+    setActionError('');
+    try {
+      await api('/api/tables', { method: 'DELETE', body: JSON.stringify({ id: tbl.id }) });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('tables.error_add_failed'));
+    }
     load();
   };
 
@@ -81,30 +98,44 @@ export default function TablesPage() {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-zinc-900">{t('tables.title')}</h1>
-          <p className="text-sm text-zinc-500">
-            {tables.filter((tbl) => tbl.status === 'available').length} {t('tables.available')} ·{' '}
-            {tables.filter((tbl) => tbl.status === 'occupied').length} {t('tables.occupied')} ·{' '}
-            {tables.filter((tbl) => tbl.status === 'reserved').length} {t('tables.reserved')} ·{' '}
-            {tables.filter((tbl) => tbl.status === 'cleaning').length} {t('tables.cleaning')}
-          </p>
+        <p className="text-sm text-zinc-500">
+          {tables.filter((tbl) => effectiveStatus(tbl) === 'available').length} {t('tables.available')} ·{' '}
+          {tables.filter((tbl) => effectiveStatus(tbl) === 'occupied').length} {t('tables.occupied')} ·{' '}
+          {tables.filter((tbl) => effectiveStatus(tbl) === 'reserved').length} {t('tables.reserved')} ·{' '}
+          {tables.filter((tbl) => effectiveStatus(tbl) === 'cleaning').length} {t('tables.cleaning')}
+        </p>
         </div>
         <button onClick={() => setModalOpen(true)} className="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/30 hover:bg-brand-600">
           <Plus size={16} /> {t('tables.add_table')}
         </button>
       </div>
 
+      {actionError && <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{actionError}</p>}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {tables.map((tbl) => {
-          const meta = STATUS_META[tbl.status];
           const active = activeOrderFor(tbl.table_number);
+          const effStatus: TableStatus = active ? 'occupied' : tbl.status;
+          const meta = STATUS_META[effStatus];
           return (
-            <div key={tbl.id} className={`rounded-2xl bg-white p-4 shadow-sm ring-1 transition ${tbl.status === 'occupied' ? 'ring-brand-200' : 'ring-zinc-100'}`}>
-              <div className="flex items-start justify-between">
+            <div key={tbl.id} className={`rounded-2xl bg-white p-4 shadow-sm ring-1 transition ${effStatus === 'occupied' ? 'ring-brand-200' : 'ring-zinc-100'}`}>
+              <div className="flex items-start justify-between gap-1">
                 <div>
                   <p className="font-display text-2xl font-extrabold text-zinc-900">T{tbl.table_number}</p>
-                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-zinc-400"><Users size={11} /> {tbl.seats} {t('tables.seats')}</p>
+                  <p className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[11px] text-zinc-400"><Users size={11} /> {tbl.seats} {t('tables.seats')}</p>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${meta.cls}`}>{t(meta.key)}</span>
+                <div className="flex items-center gap-1">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${meta.cls}`}>{t(meta.key)}</span>
+                  <button
+                    onClick={() => removeTable(tbl)}
+                    disabled={!!active}
+                    title={active ? t('tables.status_locked') : t('tables.delete_table')}
+                    aria-label={t('tables.delete_table')}
+                    className="rounded-lg p-1.5 text-zinc-300 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-300"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
 
               {active && (
@@ -113,20 +144,30 @@ export default function TablesPage() {
                 </p>
               )}
 
-              <div className="mt-3 flex gap-1.5">
+              {/* 2×2 grid — a 5-across flex row overflowed narrow mobile cards
+                  (flex items can't shrink below their label width). */}
+              <div className="mt-3 grid grid-cols-2 gap-1.5">
                 {(['available', 'occupied', 'reserved', 'cleaning'] as TableStatus[]).map((s) => (
                   <button
                     key={s}
                     onClick={() => setStatus(tbl, s)}
-                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold transition ${tbl.status === s ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}
+                    disabled={!!active}
+                    title={active ? t('tables.status_locked') : undefined}
+                    className={`rounded-lg px-1 py-1.5 text-[10px] font-bold transition disabled:cursor-not-allowed ${
+                      effStatus === s
+                        ? 'bg-zinc-900 text-white'
+                        : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 disabled:opacity-50 disabled:hover:bg-zinc-100'
+                    }`}
                   >
                     {t(STATUS_META[s].key)}
                   </button>
                 ))}
-                <button onClick={() => removeTable(tbl)} className="rounded-lg bg-zinc-100 px-2 text-zinc-400 hover:bg-red-50 hover:text-red-500" aria-label={t('tables.delete_table')}>
-                  <Trash2 size={12} />
-                </button>
               </div>
+              {active && (
+                <p className="mt-1.5 flex items-center gap-1 text-[10px] text-zinc-400">
+                  <Lock size={10} /> {t('tables.status_locked')}
+                </p>
+              )}
             </div>
           );
         })}
