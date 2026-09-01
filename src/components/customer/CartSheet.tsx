@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Bike, Check, ChevronRight, MapPin, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed, X, Zap } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Map, MapPin, Minus, Plus, ShoppingBag, Trash2, X, Zap } from 'lucide-react';
 import { useCartStore, selectSubtotal } from '../../stores/cartStore';
 import { api } from '../../lib/api';
 import { money } from '../../lib/format';
@@ -10,10 +10,13 @@ import { useLang } from '../../lib/i18n';
 import LocationPickerModal from './LocationPickerModal';
 import type { Order, OrderType, RestaurantTable } from '../../lib/types';
 
-const TYPE_OPTIONS: { value: OrderType; labelKey: string; hintKey: string; Icon: typeof Bike }[] = [
-  { value: 'dine_in', labelKey: 'orderType.dine_in', hintKey: 'orderType.dine_in.hint', Icon: UtensilsCrossed },
+// Dine-in and delivery use custom brand icons (PNG, black-on-transparent —
+// CSS `invert` flips them white when the card is selected/orange); takeaway
+// keeps the Lucide shopping bag.
+const TYPE_OPTIONS: { value: OrderType; labelKey: string; hintKey: string; Icon?: typeof ShoppingBag; img?: string }[] = [
+  { value: 'dine_in', labelKey: 'orderType.dine_in', hintKey: 'orderType.dine_in.hint', img: '/icons/sur-place.png' },
   { value: 'takeaway', labelKey: 'orderType.takeaway', hintKey: 'orderType.takeaway.hint', Icon: ShoppingBag },
-  { value: 'delivery', labelKey: 'orderType.delivery', hintKey: 'orderType.delivery.hint', Icon: Bike },
+  { value: 'delivery', labelKey: 'orderType.delivery', hintKey: 'orderType.delivery.hint', img: '/icons/livraison.png' },
 ];
 
 // Small numbered-step header ("① Comment souhaitez-vous être servi ?") used
@@ -216,11 +219,15 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                             }`}
                           >
                             {selected && (
-                              <span className="absolute -end-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm ring-1 ring-brand-100">
+                              <span className="absolute end-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm ring-1 ring-brand-100">
                                 <Check size={12} strokeWidth={3} />
                               </span>
                             )}
-                            <opt.Icon size={20} />
+                            {opt.img ? (
+                              <img src={opt.img} alt="" className={`h-7 w-7 object-contain ${selected ? 'invert' : ''}`} />
+                            ) : (
+                              opt.Icon && <opt.Icon size={22} />
+                            )}
                             <span className="text-xs font-bold">{t(opt.labelKey)}</span>
                             <span className={`text-[10px] leading-tight ${selected ? 'text-white/80' : 'opacity-70'}`}>{t(opt.hintKey)}</span>
                           </button>
@@ -265,23 +272,26 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                         }
                       />
                       <div className="space-y-2.5">
-                        <div>
-                          <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.name ? 'border-red-300' : 'border-zinc-200'}`}>
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" /></svg>
-                            </span>
-                            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className="w-full bg-transparent text-sm outline-none" />
+                        {/* name + phone side by side */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div>
+                            <div className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.name ? 'border-red-300' : 'border-zinc-200'}`}>
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" /></svg>
+                              </span>
+                              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className="w-full min-w-0 bg-transparent text-sm outline-none" />
+                            </div>
+                            {errors.name && <p className="mt-1 text-xs font-medium text-red-500">{errors.name}</p>}
                           </div>
-                          {errors.name && <p className="mt-1 text-xs font-medium text-red-500">{errors.name}</p>}
-                        </div>
-                        <div>
-                          <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.phone ? 'border-red-300' : 'border-zinc-200'}`}>
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.4 1.9.6 2.9.7a2 2 0 0 1 1.7 2z" /></svg>
-                            </span>
-                            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className="w-full bg-transparent text-sm outline-none" />
+                          <div>
+                            <div className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.phone ? 'border-red-300' : 'border-zinc-200'}`}>
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.4 1.9.6 2.9.7a2 2 0 0 1 1.7 2z" /></svg>
+                              </span>
+                              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className="w-full min-w-0 bg-transparent text-sm outline-none" />
+                            </div>
+                            {errors.phone && <p className="mt-1 text-xs font-medium text-red-500">{errors.phone}</p>}
                           </div>
-                          {errors.phone && <p className="mt-1 text-xs font-medium text-red-500">{errors.phone}</p>}
                         </div>
                         <div>
                           <div className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.address ? 'border-red-300' : 'border-zinc-200'}`}>
@@ -299,7 +309,7 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                           className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 px-3.5 py-3 text-start transition hover:border-brand-200 hover:bg-brand-50/40"
                         >
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-                            <MapPin size={16} />
+                            <Map size={16} />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm font-bold text-zinc-900">{t('cart.pick_on_map')}</span>
@@ -378,7 +388,10 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
       initial={coords}
       onConfirm={(lat, lng, addressGuess) => {
         setCoords({ lat, lng });
-        if (!address.trim() && addressGuess) setAddress(addressGuess);
+        // A map confirm is the customer's latest explicit choice — always
+        // replace the field, even over a manually typed address, so the
+        // text never contradicts the pin.
+        if (addressGuess) setAddress(addressGuess);
         setMapOpen(false);
       }}
     />

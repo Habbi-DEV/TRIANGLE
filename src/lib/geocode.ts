@@ -1,8 +1,8 @@
 /**
  * Reverse-geocodes a lat/lng into a human-readable address using OSM's free
- * Nominatim API — no API key needed. Best-effort only: the customer's typed
- * address field is always the source of truth for delivery; this just
- * pre-fills a suggestion when they pick a spot on the map. Returns null on
+ * Nominatim API — no API key needed. Best-effort only: when the customer
+ * confirms a spot on the map, the result replaces whatever is in the
+ * address field (the map pick is their latest explicit choice). Returns null on
  * any failure (offline, rate-limited, no result) rather than throwing, so
  * callers can silently fall back to "let the customer type it themselves".
  */
