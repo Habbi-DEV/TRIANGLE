@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Bike, ChevronRight, MapPin, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed, X } from 'lucide-react';
+import { ArrowLeft, Bike, Check, ChevronRight, MapPin, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed, X, Zap } from 'lucide-react';
 import { useCartStore, selectSubtotal } from '../../stores/cartStore';
 import { api } from '../../lib/api';
 import { money } from '../../lib/format';
@@ -14,6 +15,19 @@ const TYPE_OPTIONS: { value: OrderType; labelKey: string; hintKey: string; Icon:
   { value: 'takeaway', labelKey: 'orderType.takeaway', hintKey: 'orderType.takeaway.hint', Icon: ShoppingBag },
   { value: 'delivery', labelKey: 'orderType.delivery', hintKey: 'orderType.delivery.hint', Icon: Bike },
 ];
+
+// Small numbered-step header ("① Comment souhaitez-vous être servi ?") used
+// throughout the checkout step, so every section reads as one guided flow
+// instead of a plain stacked form.
+function SectionHeader({ n, title, action }: { n: number; title: string; action?: ReactNode }) {
+  return (
+    <div className="mb-2.5 flex items-center gap-2">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">{n}</span>
+      <p className="font-display text-[15px] font-bold text-zinc-900">{title}</p>
+      {action && <span className="ms-auto">{action}</span>}
+    </div>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -185,32 +199,40 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                 </ul>
               ) : (
                 <div className="space-y-5">
-                  {/* order type */}
+                  {/* 1 — order type */}
                   <div>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('cart.how_order')}</p>
+                    <SectionHeader n={1} title={t('cart.how_order')} />
                     <div className="grid grid-cols-3 gap-2">
-                      {TYPE_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setOrderType(opt.value)}
-                          className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-2 py-3 text-center transition ${
-                            orderType === opt.value
-                              ? 'border-brand-500 bg-brand-50 text-brand-700'
-                              : 'border-zinc-100 bg-white text-zinc-500 hover:border-zinc-200'
-                          }`}
-                        >
-                          <opt.Icon size={20} />
-                          <span className="text-xs font-bold">{t(opt.labelKey)}</span>
-                          <span className="text-[10px] leading-tight opacity-70">{t(opt.hintKey)}</span>
-                        </button>
-                      ))}
+                      {TYPE_OPTIONS.map((opt) => {
+                        const selected = orderType === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => setOrderType(opt.value)}
+                            className={`relative flex flex-col items-center gap-1 rounded-2xl border-2 px-2 py-3 text-center transition ${
+                              selected
+                                ? 'border-brand-500 bg-brand-500 text-white shadow-md shadow-orange-500/30'
+                                : 'border-zinc-100 bg-white text-zinc-500 hover:border-zinc-200'
+                            }`}
+                          >
+                            {selected && (
+                              <span className="absolute -end-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm ring-1 ring-brand-100">
+                                <Check size={12} strokeWidth={3} />
+                              </span>
+                            )}
+                            <opt.Icon size={20} />
+                            <span className="text-xs font-bold">{t(opt.labelKey)}</span>
+                            <span className={`text-[10px] leading-tight ${selected ? 'text-white/80' : 'opacity-70'}`}>{t(opt.hintKey)}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* dine-in: table picker */}
+                  {/* 2 — dine-in: table picker */}
                   {orderType === 'dine_in' && (
                     <div>
-                      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('cart.table_number')}</p>
+                      <SectionHeader n={2} title={t('cart.table_number')} />
                       <div className="grid grid-cols-6 gap-2">
                         {availableTables.map((tbl) => (
                           <button
@@ -230,30 +252,65 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                     </div>
                   )}
 
-                  {/* delivery: customer details */}
+                  {/* 2 — delivery: customer details + map */}
                   {orderType === 'delivery' && (
-                    <div className="space-y-3">
-                      <div>
-                        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className={`w-full rounded-xl border px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-200 ${errors.name ? 'border-red-300' : 'border-zinc-200'}`} />
-                        {errors.name && <p className="mt-1 text-xs font-medium text-red-500">{errors.name}</p>}
-                      </div>
-                      <div>
-                        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className={`w-full rounded-xl border px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-200 ${errors.phone ? 'border-red-300' : 'border-zinc-200'}`} />
-                        {errors.phone && <p className="mt-1 text-xs font-medium text-red-500">{errors.phone}</p>}
-                      </div>
-                      <div>
-                        <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('cart.delivery_address')} rows={2} className={`w-full resize-none rounded-xl border px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-200 ${errors.address ? 'border-red-300' : 'border-zinc-200'}`} />
-                        {errors.address && <p className="mt-1 text-xs font-medium text-red-500">{errors.address}</p>}
+                    <div>
+                      <SectionHeader
+                        n={2}
+                        title={t('cart.delivery_info')}
+                        action={
+                          <span className="flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-bold text-brand-600">
+                            <Zap size={11} /> {t('cart.express_delivery')}
+                          </span>
+                        }
+                      />
+                      <div className="space-y-2.5">
+                        <div>
+                          <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.name ? 'border-red-300' : 'border-zinc-200'}`}>
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" /></svg>
+                            </span>
+                            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className="w-full bg-transparent text-sm outline-none" />
+                          </div>
+                          {errors.name && <p className="mt-1 text-xs font-medium text-red-500">{errors.name}</p>}
+                        </div>
+                        <div>
+                          <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.phone ? 'border-red-300' : 'border-zinc-200'}`}>
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.4 1.9.6 2.9.7a2 2 0 0 1 1.7 2z" /></svg>
+                            </span>
+                            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className="w-full bg-transparent text-sm outline-none" />
+                          </div>
+                          {errors.phone && <p className="mt-1 text-xs font-medium text-red-500">{errors.phone}</p>}
+                        </div>
+                        <div>
+                          <div className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.address ? 'border-red-300' : 'border-zinc-200'}`}>
+                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                              <MapPin size={14} />
+                            </span>
+                            <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('cart.delivery_address')} rows={2} className="w-full resize-none bg-transparent text-sm outline-none" />
+                          </div>
+                          {errors.address && <p className="mt-1 text-xs font-medium text-red-500">{errors.address}</p>}
+                        </div>
+
                         <button
                           type="button"
                           onClick={() => setMapOpen(true)}
-                          className="mt-2 flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700"
+                          className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 px-3.5 py-3 text-start transition hover:border-brand-200 hover:bg-brand-50/40"
                         >
-                          <MapPin size={14} />
-                          {t('cart.pick_on_map')}
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                            <MapPin size={16} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-bold text-zinc-900">{t('cart.pick_on_map')}</span>
+                            <span className="block text-[11px] text-zinc-400">{t('cart.pick_on_map.hint_short')}</span>
+                          </span>
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
+                            <ChevronRight size={14} className="rtl:rotate-180" />
+                          </span>
                         </button>
                         {coords && (
-                          <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
+                          <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
                             <MapPin size={12} />
                             {t('cart.pick_on_map.location_set')}
                             <button type="button" onClick={() => setCoords(null)} className="ms-auto text-emerald-500 hover:text-emerald-700" aria-label={t('cart.pick_on_map.clear')}>
@@ -265,28 +322,23 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
                     </div>
                   )}
 
-                  {/* notes */}
+                  {/* notes — step number shifts up when there's no step 2 (takeaway) */}
                   <div>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('cart.kitchen_notes')}</p>
+                    <SectionHeader n={orderType === 'takeaway' ? 2 : 3} title={t('cart.kitchen_notes')} />
                     <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('cart.kitchen_notes.placeholder')} className="w-full resize-none rounded-xl border border-zinc-200 px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-200" />
                   </div>
 
-                  {/* payment — Algeria: cash only, shown as a fixed, non-interactive
-                      indicator rather than a choice since there's nothing to pick. */}
-                  <div>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('cart.payment')}</p>
-                    <div className="flex items-center gap-2 rounded-xl border-2 border-brand-500 bg-brand-50 px-3.5 py-2.5 text-sm font-bold text-brand-700">
-                      💶 {t('payment.cash')}
-                    </div>
-                  </div>
+                  {/* payment method is fixed (Algeria: cash only) and enforced
+                      server-side — no UI needed for a choice the customer
+                      doesn't actually make. */}
 
                   {/* totals */}
-                  <div className="space-y-1.5 rounded-2xl bg-zinc-50 p-4 text-sm">
+                  <div className="space-y-1.5 rounded-2xl bg-orange-50/70 p-4 text-sm">
                     <div className="flex justify-between text-zinc-500"><span>{t('common.subtotal')}</span><span>{money(subtotal)}</span></div>
                     {deliveryFee > 0 && (
                       <div className="flex justify-between text-zinc-500"><span>{t('common.delivery_fee')}</span><span>{money(deliveryFee)}</span></div>
                     )}
-                    <div className="flex justify-between border-t border-zinc-200 pt-2 font-display text-base font-bold text-zinc-900"><span>{t('common.total')}</span><span className="text-burnt">{money(total)}</span></div>
+                    <div className="flex justify-between border-t border-dashed border-orange-200 pt-2 font-display text-base font-bold text-zinc-900"><span>{t('common.total')}</span><span className="text-burnt">{money(total)}</span></div>
                   </div>
 
                   {serverError && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{serverError}</p>}

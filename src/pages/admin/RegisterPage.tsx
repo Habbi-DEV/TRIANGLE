@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Minus, Plus, Printer, Search, Trash2 } from 'lucide-react';
+import { Check, Minus, Plus, Printer, Search, ShoppingCart, Trash2, X } from 'lucide-react';
 import type { Category, Order, Product, RestaurantTable } from '../../lib/types';
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
@@ -29,6 +29,11 @@ export default function RegisterPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'ticket' | 'live'>('ticket');
   const [flash, setFlash] = useState('');
+  // Below `lg` the ticket/live panel is a slide-up sheet (like the
+  // customer-facing cart) instead of a permanent side column — there just
+  // isn't room for both the product grid and a full ticket side by side on
+  // a phone/tablet screen.
+  const [mobileTicketOpen, setMobileTicketOpen] = useState(false);
 
   const { orders, loading: feedLoading, refresh } = useLiveOrders(25, 5000);
   const settings = useSettings();
@@ -120,9 +125,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-0px)] flex-col lg:h-screen lg:flex-row">
+    <div className="lg:flex lg:h-screen">
       {/* -------- product grid side -------- */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-col lg:flex-1 lg:overflow-hidden">
         <div className="border-b border-zinc-200 bg-white p-4">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-display text-xl font-bold text-zinc-900">{t('register.title')}</h1>
@@ -145,11 +150,11 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="thin-scroll flex-1 overflow-y-auto p-4">
+        <div className="thin-scroll p-4 pb-24 lg:flex-1 lg:overflow-y-auto lg:pb-4">
           {loading ? (
             <Spinner label={t('register.loading_products')} />
           ) : (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 2xl:grid-cols-5">
               {visible.map((p) => {
                 const disabled = !p.is_available || p.stock <= 0;
                 return (
@@ -180,9 +185,52 @@ export default function RegisterPage() {
         </div>
       </div>
 
+      {/* -------- mobile/tablet: backdrop + floating ticket button -------- */}
+      {mobileTicketOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-zinc-950/40 lg:hidden"
+          onClick={() => setMobileTicketOpen(false)}
+        />
+      )}
+      {!mobileTicketOpen && (
+        <button
+          type="button"
+          onClick={() => setMobileTicketOpen(true)}
+          className="fixed inset-x-4 z-30 flex items-center justify-between gap-3 rounded-full bg-zinc-900 px-5 py-3.5 text-white shadow-2xl transition active:scale-[0.98] lg:hidden"
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <ShoppingCart size={18} />
+            {t('register.ticket')}
+            {lines.length > 0 && (
+              <span className="rounded-full bg-brand-500 px-2 py-0.5 text-xs font-bold">{lines.length}</span>
+            )}
+          </span>
+          <span className="font-display text-sm font-extrabold">{money(total)}</span>
+        </button>
+      )}
+
       {/* -------- right panel: ticket / live feed -------- */}
-      <aside className="flex w-full shrink-0 flex-col border-t border-zinc-200 bg-white lg:w-[380px] lg:border-l lg:border-t-0">
-        <div className="flex border-b border-zinc-100">
+      <aside
+        className={`${mobileTicketOpen ? 'flex' : 'hidden'} fixed inset-x-0 bottom-0 z-30 max-h-[85vh] w-full flex-col rounded-t-3xl border-t border-zinc-200 bg-white shadow-2xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-[380px] lg:shrink-0 lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none`}
+      >
+        {/* mobile-only grabber + close (this panel is a permanent side
+            column on lg — the close control only makes sense as a sheet) */}
+        <div className="shrink-0 lg:hidden">
+          <div className="flex justify-center pt-2"><span className="h-1.5 w-10 rounded-full bg-zinc-200" /></div>
+          <div className="flex items-center justify-between px-4 pt-1.5">
+            <p className="font-display text-sm font-bold text-zinc-900">{t('register.title')}</p>
+            <button
+              onClick={() => setMobileTicketOpen(false)}
+              className="rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+              aria-label={t('common.close')}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 border-b border-zinc-100">
           {(['ticket', 'live'] as const).map((tabKey) => (
             <button
               key={tabKey} onClick={() => setTab(tabKey)}
@@ -193,10 +241,10 @@ export default function RegisterPage() {
           ))}
         </div>
 
-        {flash && <div className="mx-3 mt-3 rounded-xl bg-brand-50 px-3 py-2 text-xs font-bold text-brand-700">{flash}</div>}
+        {flash && <div className="mx-3 mt-3 shrink-0 rounded-xl bg-brand-50 px-3 py-2 text-xs font-bold text-brand-700">{flash}</div>}
 
         {tab === 'ticket' ? (
-          <div className="thin-scroll flex flex-1 flex-col overflow-y-auto p-4">
+          <div className="thin-scroll flex flex-1 flex-col overflow-y-auto p-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
             {/* order type */}
             <div className="grid grid-cols-3 gap-2">
               {TYPES.map((opt) => (
@@ -213,7 +261,7 @@ export default function RegisterPage() {
             {/* conditional fields */}
             {orderType === 'dine_in' && (
               <div className="mt-3">
-                <div className="grid grid-cols-6 gap-1.5">
+                <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
                   {tables.map((tbl) => (
                     <button
                       key={tbl.id} onClick={() => tbl.status !== 'occupied' && setTableNumber(tbl.table_number)}
@@ -281,7 +329,7 @@ export default function RegisterPage() {
             </button>
           </div>
         ) : (
-          <div className="thin-scroll flex-1 overflow-y-auto p-3">
+          <div className="thin-scroll flex-1 overflow-y-auto p-3" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
             {feedLoading ? (
               <Spinner />
             ) : orders.length === 0 ? (
