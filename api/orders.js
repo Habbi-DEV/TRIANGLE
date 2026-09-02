@@ -16,6 +16,25 @@ async function getDeliveryFee() {
   return Number(data.delivery_fee) || 0;
 }
 
+// A second dine-in order placed on a table that already has one 'pending'
+// (not yet acknowledged by the kitchen) is merged into that same order
+// instead of creating a separate ticket — this is the common case of a
+// customer adding one more item right after ordering. Once the kitchen has
+// moved the order past 'pending' (confirmed/preparing/ready/out_for_delivery),
+// merging is no longer safe (the kitchen may already be acting on it), so a
+// new order is created instead — a second "round" for that table.
+async function findMergeableOrderForTable(tableNumber) {
+  const { data } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('table_number', tableNumber)
+    .eq('order_type', 'dine_in')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  return data && data.length > 0 ? data[0].id : null;
+}
+
 export default async function handler(req, res) {
   setCors(req, res, 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -180,6 +199,33 @@ export default async function handler(req, res) {
       subtotal = Math.round(subtotal * 100) / 100;
       const delivery_fee = order_type === 'delivery' ? await getDeliveryFee() : 0;
       const total = Math.round((subtotal + delivery_fee) * 100) / 100;
+
+      // MERGE PATH (dine-in only): if this table already has a 'pending'
+      // order, add these items onto it instead of opening a second ticket.
+      // schema.sql's recalc_order_totals() trigger re-derives subtotal/total
+      // on every order_items change, so nothing needs to be recomputed here
+      // beyond inserting the rows — same trigger that also runs the stock
+      // decrement (see the NOTE below) fires for a merge exactly as it does
+      // for a brand-new order.
+      if (order_type === 'dine_in') {
+        const mergeOrderId = await findMergeableOrderForTable(Number(table_number));
+        if (mergeOrderId != null) {
+          const { data: savedItems, error: iErr } = await supabase
+            .from('order_items')
+            .insert(rows.map((r) => ({ ...r, order_id: mergeOrderId })))
+            .select();
+          if (iErr) throw iErr;
+
+          const { data: mergedOrder, error: mErr } = await supabase
+            .from('orders').select('*').eq('id', mergeOrderId).single();
+          if (mErr) throw mErr;
+
+          const { data: allItems } = await supabase
+            .from('order_items').select('*').eq('order_id', mergeOrderId).order('id');
+
+          return res.status(200).json({ ...mergedOrder, items: allItems || [], merged: true });
+        }
+      }
 
       const { data: order, error: oErr } = await supabase
         .from('orders')
