@@ -56,6 +56,12 @@ export default function TablesPage() {
   const effectiveStatus = (tbl: RestaurantTable): TableStatus =>
     activeOrdersFor(tbl.table_number).length > 0 ? 'occupied' : tbl.status;
 
+  // Single source of truth: a table with an open dine-in order IS occupied,
+  // regardless of the manual flag stored on the row — the manual flag only
+  // governs tables with no open order.
+  const effectiveStatus = (tbl: RestaurantTable): TableStatus =>
+    activeOrderFor(tbl.table_number) ? 'occupied' : tbl.status;
+
   const setStatus = async (tbl: RestaurantTable, status: TableStatus) => {
     setActionError('');
     try {
@@ -121,8 +127,12 @@ export default function TablesPage() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {tables.map((tbl) => {
+<<<<<<< HEAD
           const activeOrders = activeOrdersFor(tbl.table_number);
           const active = activeOrders.length > 0;
+=======
+          const active = activeOrderFor(tbl.table_number);
+>>>>>>> 7048bfc207c99754d4639c80ba5313633b4feb85
           const effStatus: TableStatus = active ? 'occupied' : tbl.status;
           const meta = STATUS_META[effStatus];
           return (
