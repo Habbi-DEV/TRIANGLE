@@ -261,10 +261,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'tables.loading': 'Chargement du plan de salle…',
     'tables.seats': 'places',
     'tables.order_open': 'Commande {{id}} ouverte',
-<<<<<<< HEAD
     'tables.orders_open_count': '{{n}} commandes ouvertes',
-=======
->>>>>>> 7048bfc207c99754d4639c80ba5313633b4feb85
     'tables.status_locked': 'Commande en cours — terminez-la pour changer le statut',
     'tables.delete_table': 'Supprimer la table',
     'tables.table_number': 'Numéro de table *',
@@ -691,10 +688,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'tables.loading': 'جارٍ تحميل مخطط الصالة…',
     'tables.seats': 'مقاعد',
     'tables.order_open': 'الطلب {{id}} مفتوح',
-<<<<<<< HEAD
     'tables.orders_open_count': '{{n}} طلبات مفتوحة',
-=======
->>>>>>> 7048bfc207c99754d4639c80ba5313633b4feb85
     'tables.status_locked': 'طلب جارٍ — أنهِ الطلب أولاً لتغيير الحالة',
     'tables.delete_table': 'حذف الطاولة',
     'tables.table_number': 'رقم الطاولة *',
