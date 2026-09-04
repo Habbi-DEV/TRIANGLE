@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, Search, ShoppingBag, ShoppingBasket, UtensilsCrossed, X } from 'lucide-react';
-import type { Category, Order, Product, Promotion } from '../lib/types';
+import type { Category, Order, OrderStatus, Product, Promotion } from '../lib/types';
 import { ACTIVE_STATUSES } from '../lib/types';
-import { money } from '../lib/format';
+import { money, orderNumber } from '../lib/format';
 import { useSettings } from '../lib/settings';
 import { useCartStore, selectCount, selectSubtotal } from '../stores/cartStore';
 import ProductCard from '../components/customer/ProductCard';
@@ -12,7 +12,8 @@ import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
 import Skeleton from '../components/ui/Skeleton';
 import InstallBanner from '../components/InstallBanner';
-import { playChime, unlockChime } from '../lib/chime';
+import SoundAlertBanner from '../components/shared/SoundAlertBanner';
+import { playStatusChime, startAlarm, stopAlarm, unlockChime } from '../lib/chime';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../lib/orderStatus';
 import { useLang } from '../lib/i18n';
 
@@ -71,12 +72,40 @@ export default function MenuPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [trackerOpen, setTrackerOpen] = useState(false);
   const [orderUnseen, setOrderUnseen] = useState(false);
+  // True while the continuous "your order is ready" alarm (lib/chime.ts)
+  // is ringing — rendered as a fixed banner (below) regardless of whether
+  // the tracker screen happens to be open, so it can't be missed either
+  // way. Cleared only by the customer's own "stop" tap, or once the order
+  // moves past "ready" on its own.
+  const [readyAlarmActive, setReadyAlarmActive] = useState(false);
 
   const { t, lang, setLang } = useLang();
   const settings = useSettings();
   const count = useCartStore(selectCount);
   const subtotal = useCartStore(selectSubtotal);
   const add = useCartStore((s) => s.add);
+
+  // Shared by both places that detect a live status change (the
+  // background poller below, and OrderTracker's onUpdate when its own
+  // screen is open): "ready" on a pickup-style order (dine-in/takeaway)
+  // gets the continuous, hard-to-miss alarm since that's the moment the
+  // customer actually needs to walk over and get their food; every other
+  // transition (including "ready" on a delivery order, which just means
+  // it's now waiting on a driver) gets its own short, distinct sound.
+  // stopAlarm()/setReadyAlarmActive(false) run unconditionally in the
+  // "else" branch — harmless even if no alarm was active — so this stays
+  // a stable callback with no outer state to depend on.
+  const handleStatusTransition = useCallback((prevStatus: OrderStatus, updated: Order) => {
+    if (updated.status === prevStatus) return;
+    if (updated.status === 'ready' && updated.order_type !== 'delivery') {
+      startAlarm();
+      setReadyAlarmActive(true);
+      return;
+    }
+    stopAlarm();
+    setReadyAlarmActive(false);
+    playStatusChime(updated.status);
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -151,9 +180,9 @@ export default function MenuPage() {
         }
         const updated: Order = await res.json();
         if (updated.status !== order.status) {
+          handleStatusTransition(order.status, updated);
           setOrder(updated);
           setOrderUnseen(true);
-          playChime();
           if ('Notification' in window && Notification.permission === 'granted') {
             const n = new Notification(settings?.restaurant_name || 'TRIANGLE', {
               body: [ORDER_STATUS_LABEL[updated.status], ORDER_STATUS_HINT[updated.status]].filter(Boolean).join(' — '),
@@ -175,7 +204,11 @@ export default function MenuPage() {
       }
     }, 15000);
     return () => clearInterval(id);
-  }, [order, trackerOpen, settings?.restaurant_name, settings?.logo_url]);
+  }, [order, trackerOpen, settings?.restaurant_name, settings?.logo_url, handleStatusTransition]);
+
+  // Safety net: never leave the alarm ringing behind if this screen goes
+  // away entirely (e.g. a hard navigation elsewhere in the app).
+  useEffect(() => () => stopAlarm(), []);
 
   const visible = useMemo(() => {
     const sorted = [...products].sort((a, b) => a.name.localeCompare(b.name));
@@ -186,6 +219,16 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-36">
+      {readyAlarmActive && order && (
+        <SoundAlertBanner
+          message={t('shop.ready_alert_msg', { id: orderNumber(order.id) })}
+          stopLabel={t('shop.stop_alert')}
+          onStop={() => {
+            stopAlarm();
+            setReadyAlarmActive(false);
+          }}
+        />
+      )}
       <div className="mx-auto max-w-md px-4 md:max-w-3xl lg:max-w-5xl">
         {/* header — sticky identity bar only (logo, name, language, cart). Kept
             separate from the banner/categories below so it's always the very
@@ -486,6 +529,11 @@ export default function MenuPage() {
         open={cartOpen}
         onClose={() => setCartOpen(false)}
         onPlaced={(o) => {
+          // Defensive reset — a new order can't normally arrive while the
+          // previous one's pickup alarm is still ringing, but don't carry
+          // it over if it somehow is.
+          stopAlarm();
+          setReadyAlarmActive(false);
           setOrder(o);
           setTrackerOpen(true);
           setOrderUnseen(true);
@@ -498,10 +546,10 @@ export default function MenuPage() {
           onClose={() => setTrackerOpen(false)}
           onUpdate={(updated) =>
             setOrder((prev) => {
-              // Same chime as the background poller above — this just
-              // covers the case where the tracker itself is open and
-              // doing the polling instead.
-              if (prev && updated.status !== prev.status) playChime();
+              // Same status-change handling as the background poller
+              // above — this just covers the case where the tracker
+              // itself is open and doing the polling instead.
+              if (prev) handleStatusTransition(prev.status, updated);
               return updated;
             })
           }

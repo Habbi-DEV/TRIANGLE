@@ -10,6 +10,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
 import LanguageSwitch from '../../components/LanguageSwitch';
+import SoundAlertBanner from '../../components/shared/SoundAlertBanner';
+import useNewOrderAlert from '../../hooks/useNewOrderAlert';
+import { unlockChime } from '../../lib/chime';
+import { orderNumber } from '../../lib/format';
 import type { Stats } from '../../lib/types';
 
 const NAV = [
@@ -50,6 +54,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
   const { t } = useLang();
+  const settings = useSettings();
   const nav = NAV.filter((n) => !n.adminOnly || role === 'admin');
   // Real active-order total from /api/stats, not a count over the latest
   // 60 fetched orders — that cap meant the badge silently stopped
@@ -60,6 +65,24 @@ export default function AdminLayout() {
     load();
     const iv = setInterval(load, 8000);
     return () => clearInterval(iv);
+  }, []);
+
+  // New-order alarm: rings continuously (see useNewOrderAlert) until a
+  // staff member hits "stop" below, or every order it's flagged has been
+  // handled elsewhere. Lives here (not on the Orders page) so it fires no
+  // matter which admin screen someone happens to be looking at.
+  // Defaults to on while settings is still loading (null), matching the
+  // toggle's own default in the DB.
+  const soundEnabled = settings ? settings.new_order_sound_enabled : true;
+  const { newOrders, dismiss } = useNewOrderAlert(soundEnabled);
+
+  // Browsers block audio without a prior user gesture, and this alarm is
+  // triggered from a background poll, not a click — so unlock the audio
+  // context on whatever staff taps first, well before it's ever needed.
+  useEffect(() => {
+    const unlock = () => unlockChime();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
   const signOut = async () => {
@@ -74,6 +97,17 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-zinc-100">
+      {newOrders.length > 0 && (
+        <SoundAlertBanner
+          message={
+            newOrders.length === 1
+              ? t('orders.new_order_alert_one', { id: orderNumber(newOrders[0].id) })
+              : t('orders.new_order_alert_many', { n: newOrders.length })
+          }
+          stopLabel={t('orders.stop_alert')}
+          onStop={dismiss}
+        />
+      )}
       {/* desktop sidebar */}
       <aside className="fixed inset-y-0 start-0 z-40 hidden w-64 flex-col bg-zinc-950 p-4 lg:flex">
         <Brand />

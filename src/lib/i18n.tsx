@@ -216,6 +216,9 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.action.delivered': 'Livrée',
     'orders.action.cancel': 'Annuler',
     'orders.cancel_reason': "Motif d'annulation (livreur)",
+    'orders.new_order_alert_one': 'Nouvelle commande {{id}} !',
+    'orders.new_order_alert_many': '{{n}} nouvelles commandes en attente !',
+    'orders.stop_alert': 'Masquer',
 
     // Driver Dashboard
     'driver.title': 'Livreur',
@@ -436,6 +439,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'shop.current_step_live': 'Étape actuelle · en direct',
     'shop.print_receipt': 'Imprimer le reçu',
     'shop.back_to_menu': 'Retour au menu',
+    'shop.ready_alert_msg': 'Votre commande {{id}} est prête ! Passez la récupérer 🎉',
+    'shop.stop_alert': 'Arrêter le son',
   },
   ar: {
     // Common
@@ -643,6 +648,9 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.action.delivered': 'تم التوصيل',
     'orders.action.cancel': 'إلغاء',
     'orders.cancel_reason': 'سبب الإلغاء (من السائق)',
+    'orders.new_order_alert_one': '!طلبية جديدة {{id}}',
+    'orders.new_order_alert_many': 'طلبات جديدة بانتظارك ({{n}})',
+    'orders.stop_alert': 'إخفاء',
 
     // Driver Dashboard
     'driver.title': 'سائق',
@@ -863,6 +871,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'shop.current_step_live': 'الخطوة الحالية · مباشر',
     'shop.print_receipt': 'طباعة الإيصال',
     'shop.back_to_menu': 'العودة إلى القائمة',
+    'shop.ready_alert_msg': '! طلبك {{id}} جاهز — تفضل لاستلامه 🎉',
+    'shop.stop_alert': 'إيقاف التنبيه',
   },
 };
 
