@@ -12,7 +12,7 @@ import { useLang } from '../../lib/i18n';
 import LanguageSwitch from '../../components/LanguageSwitch';
 import SoundAlertBanner from '../../components/shared/SoundAlertBanner';
 import useNewOrderAlert from '../../hooks/useNewOrderAlert';
-import { unlockChime } from '../../lib/chime';
+import { unlockChime, isChimeUnlocked } from '../../lib/chime';
 import { orderNumber } from '../../lib/format';
 import type { Stats } from '../../lib/types';
 
@@ -78,11 +78,41 @@ export default function AdminLayout() {
 
   // Browsers block audio without a prior user gesture, and this alarm is
   // triggered from a background poll, not a click — so unlock the audio
-  // context on whatever staff taps first, well before it's ever needed.
+  // context as early as possible.
+  //
+  // Two paths, because a single "first pointerdown, once" listener misses
+  // the most common real case: staff reach /admin by clicking "Sign in" on
+  // /login, then never touch the screen again while just watching for
+  // orders — exactly the situation this alarm exists for. That click
+  // happens on a different route, before AdminLayout (and this listener)
+  // even mounts, so it's never seen here. But since it's a client-side
+  // route change (no full reload), the browser's "user activation" from
+  // that click is still in effect on this same document — so an
+  // *immediate* unlock attempt on mount typically succeeds using it.
+  //
+  // The event listeners below are the fallback for whenever that doesn't
+  // apply (e.g. a hard refresh landed straight on /admin via a persisted
+  // session, so there was no earlier click at all): unlike the previous
+  // `{ once: true }` version, this keeps trying on every gesture — not
+  // just the first — until the context is actually confirmed running, so
+  // one failed attempt can't lock the alarm out for the rest of the visit.
+  const [soundUnlocked, setSoundUnlocked] = useState(isChimeUnlocked());
   useEffect(() => {
-    const unlock = () => unlockChime();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    return () => window.removeEventListener('pointerdown', unlock);
+    unlockChime();
+    if (isChimeUnlocked()) {
+      setSoundUnlocked(true);
+      return;
+    }
+    const events = ['pointerdown', 'keydown'] as const;
+    const tryUnlock = () => {
+      unlockChime();
+      if (isChimeUnlocked()) {
+        setSoundUnlocked(true);
+        events.forEach((ev) => window.removeEventListener(ev, tryUnlock));
+      }
+    };
+    events.forEach((ev) => window.addEventListener(ev, tryUnlock));
+    return () => events.forEach((ev) => window.removeEventListener(ev, tryUnlock));
   }, []);
 
   const signOut = async () => {
@@ -97,6 +127,22 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-zinc-100">
+      {/* Last-resort manual unlock: covers the rare browser where neither
+          the immediate attempt nor a generic pointerdown/keydown above
+          actually got the context running. One deliberate tap here always
+          works, since it's a direct click on this exact element. */}
+      {!soundUnlocked && (
+        <button
+          type="button"
+          onClick={() => {
+            unlockChime();
+            if (isChimeUnlocked()) setSoundUnlocked(true);
+          }}
+          className="fixed bottom-4 end-4 z-[100] rounded-full bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-zinc-800 active:scale-95"
+        >
+          🔔 {t('orders.enable_sound')}
+        </button>
+      )}
       {newOrders.length > 0 && (
         <SoundAlertBanner
           message={

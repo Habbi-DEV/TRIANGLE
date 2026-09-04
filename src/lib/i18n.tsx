@@ -219,6 +219,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.new_order_alert_one': 'Nouvelle commande {{id}} !',
     'orders.new_order_alert_many': '{{n}} nouvelles commandes en attente !',
     'orders.stop_alert': 'Masquer',
+    'orders.enable_sound': 'Activer le son',
 
     // Driver Dashboard
     'driver.title': 'Livreur',
@@ -441,6 +442,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'shop.back_to_menu': 'Retour au menu',
     'shop.ready_alert_msg': 'Votre commande {{id}} est prête ! Passez la récupérer 🎉',
     'shop.stop_alert': 'Arrêter le son',
+    'shop.enable_sound': 'Activer le son',
   },
   ar: {
     // Common
@@ -651,6 +653,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'orders.new_order_alert_one': '!طلبية جديدة {{id}}',
     'orders.new_order_alert_many': 'طلبات جديدة بانتظارك ({{n}})',
     'orders.stop_alert': 'إخفاء',
+    'orders.enable_sound': 'تفعيل الصوت',
 
     // Driver Dashboard
     'driver.title': 'سائق',
@@ -873,6 +876,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'shop.back_to_menu': 'العودة إلى القائمة',
     'shop.ready_alert_msg': '! طلبك {{id}} جاهز — تفضل لاستلامه 🎉',
     'shop.stop_alert': 'إيقاف التنبيه',
+    'shop.enable_sound': 'تفعيل الصوت',
   },
 };
 

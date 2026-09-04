@@ -13,7 +13,7 @@ import OrderTracker from '../components/customer/OrderTracker';
 import Skeleton from '../components/ui/Skeleton';
 import InstallBanner from '../components/InstallBanner';
 import SoundAlertBanner from '../components/shared/SoundAlertBanner';
-import { playStatusChime, startAlarm, stopAlarm, unlockChime } from '../lib/chime';
+import { playStatusChime, startAlarm, stopAlarm, unlockChime, isChimeUnlocked } from '../lib/chime';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../lib/orderStatus';
 import { useLang } from '../lib/i18n';
 
@@ -78,6 +78,9 @@ export default function MenuPage() {
   // way. Cleared only by the customer's own "stop" tap, or once the order
   // moves past "ready" on its own.
   const [readyAlarmActive, setReadyAlarmActive] = useState(false);
+  // Whether the audio context has actually been unlocked yet — drives the
+  // manual fallback button below (see the unlock effect further down).
+  const [soundUnlocked, setSoundUnlocked] = useState(isChimeUnlocked());
 
   const { t, lang, setLang } = useLang();
   const settings = useSettings();
@@ -152,12 +155,29 @@ export default function MenuPage() {
   }, []);
 
   // Browsers block audio that starts without a user gesture, and the chime
-  // plays from a background timer (not a click) — so unlock it on whatever
-  // the person taps first, well before any status change could need it.
+  // plays from a background timer (not a click) — so unlock it as early as
+  // possible. Tries immediately on mount first (covers a client-side nav
+  // that landed here with user activation already in effect), then keeps
+  // retrying on every subsequent gesture — not just the first, unlike the
+  // previous `{ once: true }` listener — until the context is actually
+  // confirmed running, so one failed attempt can't lock sound out for the
+  // rest of the visit.
   useEffect(() => {
-    const unlock = () => unlockChime();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    return () => window.removeEventListener('pointerdown', unlock);
+    unlockChime();
+    if (isChimeUnlocked()) {
+      setSoundUnlocked(true);
+      return;
+    }
+    const events = ['pointerdown', 'keydown'] as const;
+    const tryUnlock = () => {
+      unlockChime();
+      if (isChimeUnlocked()) {
+        setSoundUnlocked(true);
+        events.forEach((ev) => window.removeEventListener(ev, tryUnlock));
+      }
+    };
+    events.forEach((ev) => window.addEventListener(ev, tryUnlock));
+    return () => events.forEach((ev) => window.removeEventListener(ev, tryUnlock));
   }, []);
 
   // Keeps the bell honest while the tracker itself is closed: OrderTracker
@@ -219,6 +239,21 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-36">
+      {/* Last-resort manual unlock, in case the order/status wasn't placed
+          on this exact page load (e.g. the bell restored a previous order
+          across a reload) and no other gesture happened to unlock it yet. */}
+      {order && !soundUnlocked && (
+        <button
+          type="button"
+          onClick={() => {
+            unlockChime();
+            if (isChimeUnlocked()) setSoundUnlocked(true);
+          }}
+          className="fixed bottom-24 end-4 z-[100] rounded-full bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-zinc-800 active:scale-95"
+        >
+          🔔 {t('shop.enable_sound')}
+        </button>
+      )}
       {readyAlarmActive && order && (
         <SoundAlertBanner
           message={t('shop.ready_alert_msg', { id: orderNumber(order.id) })}

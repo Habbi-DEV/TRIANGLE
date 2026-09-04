@@ -30,6 +30,13 @@ export function unlockChime(): void {
   if (c && c.state === 'suspended') c.resume().catch(() => {});
 }
 
+/** True once the audio context is actually running and chimes can play.
+ *  Used by callers to know whether the unlock actually landed, so they can
+ *  keep retrying on further gestures instead of giving up after one try. */
+export function isChimeUnlocked(): boolean {
+  return ctx !== null && ctx.state === 'running';
+}
+
 interface Note {
   freq: number;
   /** Offset from "now", in seconds. */
