@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Minus, Plus, Printer, Search, ShoppingCart, Trash2, X } from 'lucide-react';
-import type { Category, Order, Product, RestaurantTable } from '../../lib/types';
+import { Check, Droplet, Layers, Minus, Plus, Printer, Search, ShoppingCart, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import type { Category, Order, Product, RestaurantTable, Sauce, Supplement } from '../../lib/types';
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { printInvoice } from '../../lib/invoice';
-import { useCartStore, selectSubtotal } from '../../stores/cartStore';
+import { useCartStore, selectSubtotal, lineKey } from '../../stores/cartStore';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
 import useLiveOrders from '../../hooks/useLiveOrders';
@@ -12,6 +12,21 @@ import StatusBadge from '../../components/StatusBadge';
 import { OrderTypeTag, orderContext } from '../../components/OrderTypeTag';
 import Spinner from '../../components/ui/Spinner';
 import type { OrderType } from '../../lib/types';
+
+// Same treatment as the category rail / sauce swatches on the customer
+// e-menu (MenuPage / ProductSheet) — stacked drop-shadows trace the tile's
+// own alpha silhouette instead of a rectangular ring, so a transparent-PNG
+// category photo reads as "lit up" rather than boxed. Kept identical here
+// so the cashier's category rail looks like the same design system as the
+// front-of-house menu, not a second visual language.
+const CATEGORY_SELECTED_FILTER =
+  'drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 3px rgba(249,115,22,0.55))';
+
+// Sauce/supplement swatch selected-state — identical filter to
+// ProductSheet's SELECTED_FILTER so a sauce picked here looks the same way
+// it would from the customer-facing product sheet.
+const EXTRA_SELECTED_FILTER =
+  'drop-shadow(0 0 1.5px #22c55e) drop-shadow(0 0 1.5px #22c55e) drop-shadow(0 0 3px rgba(34,197,94,0.65)) drop-shadow(0 0 6px rgba(34,197,94,0.35))';
 
 const TYPES: { value: OrderType; labelKey: string; emoji: string }[] = [
   { value: 'dine_in', labelKey: 'orderType.dine_in', emoji: '🍽️' },
@@ -29,6 +44,17 @@ export default function RegisterPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'ticket' | 'live'>('ticket');
   const [flash, setFlash] = useState('');
+  // Grid mode: 'products' is the normal category-filtered product grid;
+  // 'extras' swaps it for the standalone Sauces & Suppléments picker (see
+  // request: these must be their own directly-reachable section, not
+  // something buried inside a per-product modal). Toggled from a pinned
+  // chip in the category rail, exactly like switching category.
+  const [mode, setMode] = useState<'products' | 'extras'>('products');
+  // Which ticket line the extras picker is currently editing. Auto-set to
+  // the line just added whenever a product is tapped, and re-settable by
+  // tapping any other line in the ticket — so "add sauces" is always just
+  // one or two taps away, never a separate flow per product.
+  const [activeLineKey, setActiveLineKey] = useState<string | null>(null);
   // Below `lg` the ticket/live panel is a slide-up sheet (like the
   // customer-facing cart) instead of a permanent side column — there just
   // isn't room for both the product grid and a full ticket side by side on
@@ -38,7 +64,7 @@ export default function RegisterPage() {
   const { orders, loading: feedLoading, refresh } = useLiveOrders(25, 5000);
   const settings = useSettings();
 
-  const { lines, add, inc, dec, remove, clear } = useCartStore();
+  const { lines, add, inc, dec, remove, clear, setLineExtras } = useCartStore();
   const subtotal = useCartStore(selectSubtotal);
 
   const [orderType, setOrderType] = useState<OrderType>('dine_in');
@@ -77,6 +103,37 @@ export default function RegisterPage() {
     return list;
   }, [products, activeCat, search]);
 
+  // The ticket line currently targeted by the extras picker, if any (it may
+  // have been removed from the ticket entirely since it was selected).
+  const targetLine = activeLineKey ? lines.find((l) => l.key === activeLineKey) : undefined;
+  const targetSauces = (targetLine?.product.sauces ?? []).filter((s) => s.is_active);
+  const targetSupplements = (targetLine?.product.supplements ?? []).filter((s) => s.is_active);
+
+  const addProduct = (p: Product) => {
+    add(p, 1);
+    // A fresh tap always targets the plain (no add-ons yet) variant of this
+    // product's line — matches add()'s own default of empty sauces/
+    // supplements, so the key predicted here always matches the line add()
+    // just created or incremented.
+    setActiveLineKey(lineKey(p.id, [], []));
+  };
+
+  const toggleExtraSauce = (s: Sauce) => {
+    if (!targetLine) return;
+    const has = targetLine.sauces.some((x) => x.id === s.id);
+    const nextSauces = has ? targetLine.sauces.filter((x) => x.id !== s.id) : [...targetLine.sauces, s];
+    setLineExtras(targetLine.key, nextSauces, targetLine.supplements);
+    setActiveLineKey(lineKey(targetLine.product.id, nextSauces, targetLine.supplements));
+  };
+
+  const toggleExtraSupplement = (s: Supplement) => {
+    if (!targetLine) return;
+    const has = targetLine.supplements.some((x) => x.id === s.id);
+    const nextSupplements = has ? targetLine.supplements.filter((x) => x.id !== s.id) : [...targetLine.supplements, s];
+    setLineExtras(targetLine.key, targetLine.sauces, nextSupplements);
+    setActiveLineKey(lineKey(targetLine.product.id, targetLine.sauces, nextSupplements));
+  };
+
   const placeOrder = async () => {
     const e: Record<string, string> = {};
     if (lines.length === 0) e.items = t('register.error_items');
@@ -111,6 +168,8 @@ export default function RegisterPage() {
         }),
       });
       clear();
+      setActiveLineKey(null);
+      setMode('products');
       setTableNumber(null); setName(''); setPhone(''); setAddress(''); setNotes('');
       setFlash(t('register.sent_to_kitchen', { n: orderNumber(order.id) }));
       setTimeout(() => setFlash(''), 3500);
@@ -140,18 +199,191 @@ export default function RegisterPage() {
               />
             </div>
           </div>
-          <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
-            <button onClick={() => setActiveCat('all')} className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${activeCat === 'all' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>{t('register.all')}</button>
-            {categories.map((c) => (
-              <button key={c.id} onClick={() => setActiveCat(c.id)} className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${activeCat === c.id ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>
-                {c.icon} {c.name}
+          {/* category rail — same visual language as the customer e-menu's
+              rail (MenuPage): a photo tile when the category has one,
+              falling back to its emoji in a rounded tile, with the same
+              orange "lit silhouette" selected state. Kept as its own
+              horizontal scroller here (compact icon-strip form) rather than
+              the menu's larger circular tiles, since the register also
+              needs room for the search bar above it — but the tile
+              artwork, ordering, and selection treatment are identical so a
+              cashier recognizes the same categories at a glance. A pinned
+              "Sauces & Suppléments" chip always sits right after "Tout" —
+              its own directly-reachable section rather than something
+              buried inside a per-product screen. */}
+          <div className="no-scrollbar mt-3 flex gap-3 overflow-x-auto pb-1 pt-1">
+            <button
+              onClick={() => { setMode('products'); setActiveCat('all'); }}
+              className="flex shrink-0 flex-col items-center gap-1"
+            >
+              {settings === null ? (
+                <span className="h-11 w-11" />
+              ) : settings.all_category_image_url ? (
+                <span className="flex h-11 w-11 items-center justify-center">
+                  <img
+                    src={settings.all_category_image_url}
+                    alt=""
+                    className="h-11 w-11 object-contain transition-[filter] duration-200"
+                    style={mode === 'products' && activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                  />
+                </span>
+              ) : (
+                <span
+                  className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg transition ${
+                    mode === 'products' && activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                  }`}
+                >
+                  ✨
+                </span>
+              )}
+              <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'products' && activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>
+                {t('register.all')}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setMode('extras')}
+              className="flex shrink-0 flex-col items-center gap-1"
+            >
+              <span
+                className={`flex h-11 w-11 items-center justify-center rounded-xl transition ${
+                  mode === 'extras' ? 'bg-brand-50 text-brand-600 ring-2 ring-brand-500' : 'bg-zinc-100 text-zinc-500'
+                }`}
+              >
+                <SlidersHorizontal size={19} />
+              </span>
+              <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'extras' ? 'text-brand-600' : 'text-zinc-500'}`}>
+                {t('register.extras_tab')}
+              </span>
+            </button>
+
+            {categories.filter((c) => c.is_active).map((c) => (
+              <button
+                key={c.id}
+                onClick={() => { setMode('products'); setActiveCat(c.id); }}
+                className="flex shrink-0 flex-col items-center gap-1"
+              >
+                {c.image_url ? (
+                  <span className="flex h-11 w-11 items-center justify-center">
+                    <img
+                      src={c.image_url}
+                      alt=""
+                      className="h-11 w-11 object-contain transition-[filter] duration-200"
+                      style={mode === 'products' && activeCat === c.id ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                    />
+                  </span>
+                ) : (
+                  <span
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg transition ${
+                      mode === 'products' && activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                    }`}
+                  >
+                    {c.icon}
+                  </span>
+                )}
+                <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'products' && activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
+                  {c.name}
+                </span>
               </button>
             ))}
           </div>
         </div>
 
         <div className="thin-scroll p-4 pb-24 lg:flex-1 lg:overflow-y-auto lg:pb-4">
-          {loading ? (
+          {mode === 'extras' ? (
+            <div>
+              {!targetLine ? (
+                <p className="py-16 text-center text-sm text-zinc-400">
+                  {lines.length === 0 ? t('register.extras_empty_cart') : t('register.extras_select_item')}
+                </p>
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-orange-50">
+                      {targetLine.product.image_url && (
+                        <img src={targetLine.product.image_url} alt="" className="h-full w-full object-cover" />
+                      )}
+                    </span>
+                    <p className="min-w-0 truncate text-xs text-zinc-500">
+                      <span className="font-bold text-zinc-800">{t('register.extras_editing')}</span> {targetLine.product.name}
+                    </p>
+                  </div>
+
+                  {targetSauces.length === 0 && targetSupplements.length === 0 ? (
+                    <p className="py-10 text-center text-xs text-zinc-400">{t('register.extras_none_for_item')}</p>
+                  ) : (
+                    <>
+                      {targetSauces.length > 0 && (
+                        <div className="mb-6">
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('shop.sauces')}</p>
+                          <div className="flex flex-wrap gap-4">
+                            {targetSauces.map((s) => {
+                              const active = targetLine.sauces.some((x) => x.id === s.id);
+                              return (
+                                <button key={s.id} onClick={() => toggleExtraSauce(s)} className="flex w-16 flex-col items-center gap-1.5">
+                                  <span className="flex h-14 w-14 items-center justify-center">
+                                    {s.image_url ? (
+                                      <img
+                                        src={s.image_url} alt=""
+                                        className="h-14 w-14 object-contain transition-[filter] duration-200"
+                                        style={active ? { filter: EXTRA_SELECTED_FILTER } : undefined}
+                                      />
+                                    ) : (
+                                      <span
+                                        className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-[filter] duration-200"
+                                        style={active ? { filter: EXTRA_SELECTED_FILTER } : undefined}
+                                      >
+                                        <Droplet size={18} />
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600'}`}>{s.name}</span>
+                                  {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400">+{money(s.price)}</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {targetSupplements.length > 0 && (
+                        <div>
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('shop.supplements')}</p>
+                          <div className="flex flex-wrap gap-4">
+                            {targetSupplements.map((s) => {
+                              const active = targetLine.supplements.some((x) => x.id === s.id);
+                              return (
+                                <button key={s.id} onClick={() => toggleExtraSupplement(s)} className="flex w-16 flex-col items-center gap-1.5">
+                                  <span className="flex h-14 w-14 items-center justify-center">
+                                    {s.image_url ? (
+                                      <img
+                                        src={s.image_url} alt=""
+                                        className="h-14 w-14 object-contain transition-[filter] duration-200"
+                                        style={active ? { filter: EXTRA_SELECTED_FILTER } : undefined}
+                                      />
+                                    ) : (
+                                      <span
+                                        className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-[filter] duration-200"
+                                        style={active ? { filter: EXTRA_SELECTED_FILTER } : undefined}
+                                      >
+                                        <Layers size={18} />
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600'}`}>{s.name}</span>
+                                  {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400">+{money(s.price)}</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          ) : loading ? (
             <Spinner label={t('register.loading_products')} />
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 2xl:grid-cols-5">
@@ -160,7 +392,7 @@ export default function RegisterPage() {
                 return (
                   <button
                     key={p.id}
-                    onClick={() => !disabled && add(p, 1)}
+                    onClick={() => !disabled && addProduct(p)}
                     disabled={disabled}
                     className={`group overflow-hidden rounded-2xl bg-white text-left shadow-sm ring-1 ring-zinc-100 transition hover:shadow-md active:scale-[0.98] ${disabled ? 'opacity-50' : ''}`}
                   >
@@ -294,18 +526,41 @@ export default function RegisterPage() {
                 <p className="py-8 text-center text-xs text-zinc-400">{t('register.tap_to_build')}</p>
               ) : (
                 <ul className="space-y-2">
-                  {lines.map((l) => (
-                    <li key={l.key} className="flex items-center gap-2 rounded-xl bg-zinc-50 p-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-zinc-900">{l.product.name}</p>
-                        <p className="text-[11px] text-zinc-400">{money(l.product.price)} × {l.qty}</p>
-                      </div>
-                      <button onClick={() => dec(l.key)} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"><Minus size={11} /></button>
-                      <span className="w-4 text-center text-xs font-bold">{l.qty}</span>
-                      <button onClick={() => inc(l.key)} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"><Plus size={11} /></button>
-                      <button onClick={() => remove(l.key)} className="text-zinc-300 hover:text-red-500"><Trash2 size={14} /></button>
-                    </li>
-                  ))}
+                  {lines.map((l) => {
+                    const hasExtras = (l.product.sauces?.some((s) => s.is_active) || l.product.supplements?.some((s) => s.is_active));
+                    const extraNames = [...l.sauces, ...l.supplements].map((s) => s.name);
+                    return (
+                      <li
+                        key={l.key}
+                        onClick={() => setActiveLineKey(l.key)}
+                        className={`flex items-center gap-2 rounded-xl p-2 transition ${
+                          activeLineKey === l.key ? 'bg-brand-50 ring-2 ring-brand-400' : 'bg-zinc-50'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-zinc-900">{l.product.name}</p>
+                          <p className="text-[11px] text-zinc-400">{money(l.product.price)} × {l.qty}</p>
+                          {extraNames.length > 0 && (
+                            <p className="truncate text-[10px] text-brand-600">+ {extraNames.join(', ')}</p>
+                          )}
+                        </div>
+                        {hasExtras && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveLineKey(l.key); setMode('extras'); setMobileTicketOpen(false); }}
+                            title={t('register.extras_tab')}
+                            aria-label={t('register.extras_tab')}
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm"
+                          >
+                            <SlidersHorizontal size={12} />
+                          </button>
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); dec(l.key); }} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"><Minus size={11} /></button>
+                        <span className="w-4 text-center text-xs font-bold">{l.qty}</span>
+                        <button onClick={(e) => { e.stopPropagation(); inc(l.key); }} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"><Plus size={11} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); remove(l.key); if (activeLineKey === l.key) setActiveLineKey(null); }} className="text-zinc-300 hover:text-red-500"><Trash2 size={14} /></button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
               {errors.items && <p className="mt-2 text-[11px] font-medium text-red-500">{errors.items}</p>}

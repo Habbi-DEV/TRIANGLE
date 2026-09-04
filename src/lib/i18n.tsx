@@ -165,6 +165,11 @@ const dict: Record<Lang, Record<string, string>> = {
     'register.delivery_address': 'Adresse de livraison *',
     'register.sent_to_kitchen': 'Commande {{n}} envoyée en cuisine ✅',
     'register.print_invoice': 'Imprimer la facture',
+    'register.extras_tab': 'Sauces & Suppléments',
+    'register.extras_none_for_item': "Cet article n'a pas de sauces ou suppléments configurés.",
+    'register.extras_select_item': "Sélectionnez d'abord un article du ticket pour lui ajouter des sauces ou suppléments.",
+    'register.extras_editing': 'Modification de',
+    'register.extras_empty_cart': 'Ajoutez un produit au ticket, puis revenez ici pour ses sauces et suppléments.',
 
     // Admin — nav & layout
     'nav.dashboard': 'Tableau de bord',
@@ -601,6 +606,11 @@ const dict: Record<Lang, Record<string, string>> = {
     'register.delivery_address': 'عنوان التوصيل *',
     'register.sent_to_kitchen': 'الطلب {{n}} أُرسل إلى المطبخ ✅',
     'register.print_invoice': 'طباعة الفاتورة',
+    'register.extras_tab': 'الصلصات والإضافات',
+    'register.extras_none_for_item': 'لا توجد صلصات أو إضافات مُعدّة لهذا الصنف.',
+    'register.extras_select_item': 'اختر أولاً صنفاً من التذكرة لإضافة الصلصات أو الإضافات إليه.',
+    'register.extras_editing': 'تعديل',
+    'register.extras_empty_cart': 'أضف منتجاً إلى التذكرة، ثم عد إلى هنا لإضافة صلصاته وإضافاته.',
 
     // Admin — nav & layout
     'nav.dashboard': 'لوحة التحكم',
