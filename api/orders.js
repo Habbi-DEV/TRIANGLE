@@ -1,9 +1,36 @@
 import supabase from './_lib/db-client.js';
 import { setCors, requireStaff, requireAdmin } from './_lib/auth.js';
 import { broadcastDriverEvent, DRIVER_EVENTS } from './_lib/broadcast.js';
+import { sendPushToOrder } from './_lib/push.js';
 
 const ORDER_TYPES = ['dine_in', 'takeaway', 'delivery'];
 const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'];
+
+// Push notification body per status, mirroring src/lib/orderStatus.ts's
+// French hints (kept separate rather than shared/imported: that file reads
+// the *browser's* current language via getCurrentLang(), which doesn't
+// exist here — this Node function runs server-side, once, at the moment
+// staff change the status, with no client language context available).
+function pushBodyFor(status, orderType) {
+  switch (status) {
+    case 'confirmed':
+      return 'Votre commande a été acceptée 👍';
+    case 'preparing':
+      return 'La cuisine s’en occupe 👨‍🍳';
+    case 'ready':
+      return orderType === 'delivery'
+        ? 'Prête ! Un livreur va bientôt la prendre en charge.'
+        : 'Prête ! Passez la récupérer 🎉';
+    case 'out_for_delivery':
+      return 'Votre livreur est en route 🛵';
+    case 'completed':
+      return 'Bon appétit ! 🧡';
+    case 'cancelled':
+      return 'Votre commande a été annulée.';
+    default:
+      return 'Le statut de votre commande a été mis à jour.';
+  }
+}
 
 // No VAT/tax in this build (Algeria: not applicable). delivery_fee lives in
 // `settings` (single source of truth, editable from /admin/settings) and is
@@ -355,6 +382,20 @@ export default async function handler(req, res) {
       if (['completed', 'cancelled'].includes(status) && existing.table_number) {
         await supabase.from('tables').update({ status: 'available' }).eq('table_number', existing.table_number);
       }
+
+      // Customer push notification — only for browsers that opted in via
+      // /api/push-subscribe (see push.ts / MenuPage's "enable alerts"
+      // button); sendPushToOrder() itself is a no-op if none did, or if
+      // VAPID isn't configured. French text: there's no per-order language
+      // column to read a preference from, and French is what the rest of
+      // the customer-facing copy defaults to.
+      await sendPushToOrder(existing.id, {
+        title: 'TRIANGLE',
+        body: pushBodyFor(status, existing.order_type),
+        tag: `order-${existing.id}`,
+        url: '/',
+      });
+
       return res.status(200).json(data);
     }
 

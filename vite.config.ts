@@ -35,6 +35,11 @@ export default defineConfig(async ({ mode }) => {
         ],
       },
       workbox: {
+        // Pulls public/push-sw.js's push/notificationclick listeners into
+        // the SW this plugin generates — generateSW (used here, via
+        // runtimeCaching below) doesn't support hand-writing the whole
+        // file, but does support bolting on extra scripts this way.
+        importScripts: ['push-sw.js'],
         // App shell (JS/CSS/HTML/fonts/images built by Vite) — precached
         // automatically by the plugin so the app opens instantly offline.
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,webp,woff2}'],

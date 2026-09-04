@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Printer, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, Printer, XCircle } from 'lucide-react';
 import type { Order, OrderStatus } from '../../lib/types';
 import { orderNumber } from '../../lib/format';
 import { printInvoice } from '../../lib/invoice';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../../lib/orderStatus';
 import { useLang } from '../../lib/i18n';
+import { isPushSupported, subscribeToPush } from '../../lib/push';
 
 const STEPS: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'completed'];
+
+// Remembers which orders this browser already has a push subscription for,
+// so the "enable alerts" button doesn't reappear every time the customer
+// reopens the tracker for the same order.
+const pushKey = (id: number) => `restolink:pushSubscribed:${id}`;
 
 interface Props {
   order: Order;
@@ -21,6 +27,13 @@ interface Props {
 export default function OrderTracker({ order: initial, onClose, onUpdate }: Props) {
   const { t } = useLang();
   const [order, setOrder] = useState<Order>(initial);
+  // 'idle' → show the "enable alerts" button; 'subscribed' → already done
+  // (this session or a previous one); 'denied' → browser-level block, only
+  // fixable from the browser's own site settings, so the button is
+  // replaced with a short explanation instead of retrying forever.
+  const [pushState, setPushState] = useState<'idle' | 'subscribed' | 'denied'>(() =>
+    localStorage.getItem(pushKey(initial.id)) === '1' ? 'subscribed' : 'idle'
+  );
 
   useEffect(() => {
     const iv = setInterval(async () => {
@@ -70,6 +83,28 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
             <div className="mt-8 rounded-2xl bg-brand-50 p-4 text-center text-sm font-medium text-brand-800">
               {ORDER_STATUS_HINT[order.status]}
             </div>
+
+            {isPushSupported() && pushState === 'idle' && (
+              <button
+                onClick={async () => {
+                  const ok = await subscribeToPush(order.id);
+                  if (ok) {
+                    localStorage.setItem(pushKey(order.id), '1');
+                    setPushState('subscribed');
+                  } else if (Notification.permission === 'denied') {
+                    setPushState('denied');
+                  }
+                }}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-200 py-3 text-sm font-bold text-brand-700 transition hover:bg-brand-50 active:scale-[0.98]"
+              >
+                <BellRing size={16} /> {t('shop.enable_push')}
+              </button>
+            )}
+            {isPushSupported() && pushState === 'denied' && (
+              <p className="mt-3 rounded-2xl bg-zinc-50 px-4 py-3 text-center text-xs font-medium text-zinc-500">
+                {t('shop.push_blocked')}
+              </p>
+            )}
 
             <div className="mt-8 flex-1">
               {steps.map((s, i) => {
