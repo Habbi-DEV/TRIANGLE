@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Droplet, Layers, Minus, Plus, Printer, Search, ShoppingCart, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { Check, Droplet, Layers, Minus, Plus, Printer, Search, ShoppingBag, ShoppingCart, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import type { Category, Order, Product, RestaurantTable, Sauce, Supplement } from '../../lib/types';
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
@@ -28,10 +28,15 @@ const CATEGORY_SELECTED_FILTER =
 const EXTRA_SELECTED_FILTER =
   'drop-shadow(0 0 1.5px #22c55e) drop-shadow(0 0 1.5px #22c55e) drop-shadow(0 0 3px rgba(34,197,94,0.65)) drop-shadow(0 0 6px rgba(34,197,94,0.35))';
 
-const TYPES: { value: OrderType; labelKey: string; emoji: string }[] = [
-  { value: 'dine_in', labelKey: 'orderType.dine_in', emoji: '🍽️' },
-  { value: 'takeaway', labelKey: 'orderType.takeaway', emoji: '🥡' },
-  { value: 'delivery', labelKey: 'orderType.delivery', emoji: '🛵' },
+// Same order-type icon set as the customer checkout (CartSheet): custom
+// brand PNGs for dine-in/delivery (black-on-transparent, CSS `invert` flips
+// them white when selected), Lucide's shopping bag for takeaway — kept
+// identical here rather than the old plain emoji so a cashier sees the same
+// visual language customers do.
+const TYPES: { value: OrderType; labelKey: string; hintKey: string; Icon?: typeof ShoppingCart; img?: string }[] = [
+  { value: 'dine_in', labelKey: 'orderType.dine_in', hintKey: 'orderType.dine_in.hint', img: '/icons/sur-place.png' },
+  { value: 'takeaway', labelKey: 'orderType.takeaway', hintKey: 'orderType.takeaway.hint', Icon: ShoppingBag },
+  { value: 'delivery', labelKey: 'orderType.delivery', hintKey: 'orderType.delivery.hint', img: '/icons/livraison.png' },
 ];
 
 export default function RegisterPage() {
@@ -477,17 +482,35 @@ export default function RegisterPage() {
 
         {tab === 'ticket' ? (
           <div className="thin-scroll flex flex-1 flex-col overflow-y-auto p-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
-            {/* order type */}
+            {/* order type — same card design as the customer checkout
+                (CartSheet): brand-filled selected state with a check badge,
+                custom PNG icons for dine-in/delivery (inverted white when
+                selected) and the shopping-bag icon for takeaway. */}
             <div className="grid grid-cols-3 gap-2">
-              {TYPES.map((opt) => (
-                <button
-                  key={opt.value} onClick={() => setOrderType(opt.value)}
-                  className={`rounded-xl border-2 py-2 text-center transition ${orderType === opt.value ? 'border-brand-500 bg-brand-50' : 'border-zinc-100 hover:border-zinc-200'}`}
-                >
-                  <span className="block text-base">{opt.emoji}</span>
-                  <span className={`text-[11px] font-bold ${orderType === opt.value ? 'text-brand-700' : 'text-zinc-500'}`}>{t(opt.labelKey)}</span>
-                </button>
-              ))}
+              {TYPES.map((opt) => {
+                const selected = orderType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setOrderType(opt.value)}
+                    className={`relative flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-2.5 text-center transition ${
+                      selected ? 'border-brand-500 bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'border-zinc-100 bg-white text-zinc-500 hover:border-zinc-200'
+                    }`}
+                  >
+                    {selected && (
+                      <span className="absolute end-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm ring-1 ring-brand-100">
+                        <Check size={9} strokeWidth={3} />
+                      </span>
+                    )}
+                    {opt.img ? (
+                      <img src={opt.img} alt="" className={`h-5 w-5 object-contain ${selected ? 'invert' : ''}`} />
+                    ) : (
+                      opt.Icon && <opt.Icon size={17} />
+                    )}
+                    <span className="text-[11px] font-bold">{t(opt.labelKey)}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* conditional fields */}
