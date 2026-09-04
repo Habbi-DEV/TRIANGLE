@@ -6,7 +6,7 @@ import supabase from './db-client.js';
 // reach the customer even with the site fully closed, unlike the in-page
 // `new Notification()` calls in MenuPage.tsx (those need the tab's JS to
 // still be running). This is the server-side half: MenuPage subscribes the
-// browser via /api/push-subscribe, and api/orders.js calls sendPushToOrder()
+// browser via /api/push (POST), and api/orders.js calls sendPushToOrder()
 // below whenever a subscribed order's status changes.
 //
 // Requires three env vars (Vercel dashboard → Settings → Environment

@@ -384,7 +384,7 @@ export default async function handler(req, res) {
       }
 
       // Customer push notification — only for browsers that opted in via
-      // /api/push-subscribe (see push.ts / MenuPage's "enable alerts"
+      // /api/push (see push.ts / MenuPage's "enable alerts"
       // button); sendPushToOrder() itself is a no-op if none did, or if
       // VAPID isn't configured. French text: there's no per-order language
       // column to read a preference from, and French is what the rest of

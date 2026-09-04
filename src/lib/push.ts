@@ -42,7 +42,7 @@ export async function subscribeToPush(orderId: number): Promise<boolean> {
 
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
-      const res = await fetch('/api/push-vapid-key');
+      const res = await fetch('/api/push');
       if (!res.ok) return false; // server-side push isn't configured yet
       const { publicKey } = await res.json();
       sub = await reg.pushManager.subscribe({
@@ -51,7 +51,7 @@ export async function subscribeToPush(orderId: number): Promise<boolean> {
       });
     }
 
-    const saveRes = await fetch('/api/push-subscribe', {
+    const saveRes = await fetch('/api/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_id: orderId, subscription: sub.toJSON() }),

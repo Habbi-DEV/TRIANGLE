@@ -141,7 +141,7 @@ export default function MenuManagePage() {
         if (pendingGallery.length) {
           await Promise.all(
             pendingGallery.map((url) =>
-              api('/api/product-images', { method: 'POST', body: JSON.stringify({ product_id: created.id, url }) }),
+              api('/api/products?images=1', { method: 'POST', body: JSON.stringify({ product_id: created.id, url }) }),
             ),
           ).catch(console.error);
         }
@@ -357,7 +357,7 @@ export default function MenuManagePage() {
         if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
 
         if (editing) {
-          const saved = await api<ProductImage>('/api/product-images', {
+          const saved = await api<ProductImage>('/api/products?images=1', {
             method: 'POST',
             body: JSON.stringify({ product_id: editing.id, url: data.url }),
           });
@@ -375,7 +375,7 @@ export default function MenuManagePage() {
 
   const removeGalleryImage = async (img: ProductImage) => {
     setGallery((g) => g.filter((x) => x.id !== img.id));
-    await api('/api/product-images', { method: 'DELETE', body: JSON.stringify({ id: img.id }) }).catch(console.error);
+    await api('/api/products?images=1', { method: 'DELETE', body: JSON.stringify({ id: img.id }) }).catch(console.error);
   };
 
   const removePendingGallery = (url: string) => setPendingGallery((g) => g.filter((u) => u !== url));
