@@ -25,17 +25,13 @@ export default function useDriverOnlineStatus() {
       setLoading(false);
       return;
     }
-    supabase
-      .from('profiles')
-      .select('is_online')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (!cancelled) setIsOnline(Boolean(data?.is_online));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    (async () => {
+      const { data } = await supabase.from('profiles').select('is_online').eq('id', user.id).single();
+      if (!cancelled) {
+        setIsOnline(Boolean(data?.is_online));
+        setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
