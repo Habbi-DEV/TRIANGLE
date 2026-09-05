@@ -260,6 +260,39 @@ const dict: Record<Lang, Record<string, string>> = {
     'driver.cancel_order.back': 'Retour',
     'driver.cancel_order.success': 'Commande annulée.',
 
+    // Driver — online/offline status
+    'driver.online': 'En ligne',
+    'driver.offline': 'Hors ligne',
+    'driver.online.hint': 'Vous recevez les nouvelles commandes',
+    'driver.offline.hint': 'Vous ne recevez aucune commande',
+    'driver.going_offline_confirm': 'Passer hors ligne ? Vous ne verrez plus les nouvelles commandes disponibles.',
+
+    // Driver — today stats bar
+    'driver.stats.deliveries_today': 'Livraisons',
+    'driver.stats.earnings_today': 'Encaissé',
+    'driver.stats.avg_time': 'Temps moyen',
+
+    // Driver — bottom nav / history page
+    'driver.nav.history': 'Historique',
+    'driver.history.title': 'Historique des livraisons',
+    'driver.history.range.today': "Aujourd'hui",
+    'driver.history.range.week': '7 jours',
+    'driver.history.range.month': '30 jours',
+    'driver.history.total_deliveries': 'Livraisons',
+    'driver.history.total_earnings': 'Total encaissé',
+    'driver.history.empty': 'Aucune livraison sur cette période.',
+
+    // Driver — available list extras
+    'driver.waiting_long': 'En attente depuis un moment',
+    'driver.swipe_to_accept': 'Glissez pour accepter →',
+    'driver.distance_away': 'à ~{{km}} km',
+    'driver.new_orders_banner.one': '1 nouvelle commande disponible',
+    'driver.new_orders_banner.many': '{{n}} nouvelles commandes disponibles',
+    'driver.new_orders_banner.view': 'Voir',
+
+    // Driver — dark mode
+    'driver.dark_mode': 'Mode sombre',
+
     // Admin — Tables page
     'tables.title': 'Tables',
     'tables.available': 'disponible',
@@ -701,6 +734,39 @@ const dict: Record<Lang, Record<string, string>> = {
     'driver.cancel_order.cancelling': 'جارٍ الإلغاء…',
     'driver.cancel_order.back': 'رجوع',
     'driver.cancel_order.success': 'تم إلغاء الطلبية.',
+
+    // Driver — online/offline status
+    'driver.online': 'متصل',
+    'driver.offline': 'غير متصل',
+    'driver.online.hint': 'تستقبل الطلبات الجديدة',
+    'driver.offline.hint': 'لا تستقبل أي طلبات',
+    'driver.going_offline_confirm': 'الانتقال لوضع غير متصل؟ لن ترى الطلبات المتاحة الجديدة.',
+
+    // Driver — today stats bar
+    'driver.stats.deliveries_today': 'توصيلات',
+    'driver.stats.earnings_today': 'محصّل',
+    'driver.stats.avg_time': 'متوسط الوقت',
+
+    // Driver — bottom nav / history page
+    'driver.nav.history': 'السجل',
+    'driver.history.title': 'سجل التوصيلات',
+    'driver.history.range.today': 'اليوم',
+    'driver.history.range.week': '٧ أيام',
+    'driver.history.range.month': '٣٠ يوم',
+    'driver.history.total_deliveries': 'التوصيلات',
+    'driver.history.total_earnings': 'إجمالي المحصّل',
+    'driver.history.empty': 'لا توجد توصيلات في هذه الفترة.',
+
+    // Driver — available list extras
+    'driver.waiting_long': 'منتظرة منذ وقت طويل',
+    'driver.swipe_to_accept': '← اسحب للقبول',
+    'driver.distance_away': 'تبعد ~{{km}} كم',
+    'driver.new_orders_banner.one': 'طلب جديد متاح',
+    'driver.new_orders_banner.many': '{{n}} طلبات جديدة متاحة',
+    'driver.new_orders_banner.view': 'عرض',
+
+    // Driver — dark mode
+    'driver.dark_mode': 'الوضع الداكن',
 
     // Admin — Tables page
     'tables.title': 'الطاولات',

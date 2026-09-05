@@ -90,7 +90,7 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-soft-lg ring-1 ring-zinc-100">
+    <div className="overflow-hidden rounded-2xl bg-white driver-dark:bg-zinc-900 shadow-soft-lg ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
       {/* Header */}
       <div className="flex items-center justify-between bg-zinc-950 px-4 py-3">
         <div>
@@ -108,9 +108,9 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
 
       {/* Customer + address */}
       <div className="space-y-3 px-4 py-4">
-        <p className="font-display text-xl font-bold text-zinc-900">{order.customer_name || t('common.na')}</p>
+        <p className="font-display text-xl font-bold text-zinc-900 driver-dark:text-white">{order.customer_name || t('common.na')}</p>
 
-        <div className="flex items-start gap-2.5 text-[15px] text-zinc-700">
+        <div className="flex items-start gap-2.5 text-[15px] text-zinc-700 driver-dark:text-zinc-300">
           <MapPin size={18} className="mt-0.5 shrink-0 text-brand-500" />
           <span className="leading-snug">{order.delivery_address || t('common.na')}</span>
         </div>
@@ -124,12 +124,12 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
           <RouteMap destLat={order.delivery_lat} destLng={order.delivery_lng} destAddress={order.delivery_address} />
         </div>
 
-        <div className="flex items-center justify-between rounded-xl bg-zinc-50 px-3.5 py-3 ring-1 ring-zinc-200">
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-600">
+        <div className="flex items-center justify-between rounded-xl bg-zinc-50 driver-dark:bg-zinc-800 px-3.5 py-3 ring-1 ring-zinc-200 driver-dark:ring-zinc-700">
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-600 driver-dark:text-zinc-300">
             <Banknote size={18} className="text-emerald-600" />
             {t('driver.cod_amount')}
           </div>
-          <span className="font-display text-xl font-extrabold text-zinc-900">{money(order.total)}</span>
+          <span className="font-display text-xl font-extrabold text-zinc-900 driver-dark:text-white">{money(order.total)}</span>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
         {phone && (
           <a
             href={`tel:${phone}`}
-            className="flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-4 text-[15px] font-bold text-zinc-800 transition active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 rounded-xl bg-zinc-100 driver-dark:bg-zinc-800 px-5 py-4 text-[15px] font-bold text-zinc-800 driver-dark:text-zinc-200 transition active:scale-[0.98]"
           >
             <Phone size={20} /> {t('driver.call')}
           </a>

@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Scoped dark mode for the Driver Dashboard only (most delivery work
+   happens in the evening/night, and the rest of the app — customer menu,
+   admin — has no dark mode of its own yet). Toggling the `.driver-dark`
+   class on the DriverLayout root activates every `driver-dark:` utility
+   below it, without touching the global `dark:` variant or any other
+   page. See components/driver/DarkModeToggle.tsx. */
+@custom-variant driver-dark (&:where(.driver-dark, .driver-dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;

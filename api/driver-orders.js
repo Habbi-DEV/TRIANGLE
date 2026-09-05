@@ -26,11 +26,14 @@ async function requireDriver(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return null;
   const { data: profile, error } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single();
+    .from('profiles').select('role, is_online').eq('id', user.id).single();
   if (error || !DRIVER_ROLES.has(profile?.role)) {
     res.status(403).json({ error: 'Driver access required' });
     return null;
   }
+  // Attach the profile onto the user object so callers (the GET handler
+  // below) can check is_online without a second round-trip.
+  user.profile = profile;
   return user;
 }
 
@@ -94,18 +97,54 @@ export default async function handler(req, res) {
     // ------------------------------------------------------------- GET
     // ?scope=available -> unclaimed, kitchen-ready delivery orders (the
     //   "Pending Orders" tab — anyone can accept these, first come first
-    //   served).
+    //   served). Only returned while this driver is toggled online — see
+    //   migration_v15_driver_online_status.sql.
     // ?scope=mine (default) -> this driver's current + very recent
     //   deliveries (their active order + short history), newest first.
+    //   Always returned regardless of online status, so a driver who goes
+    //   offline mid-delivery can still see and finish the order they hold.
+    // ?scope=history -> this driver's finished (delivered/cancelled)
+    //   deliveries, for the Earnings/History tab. Optional ?days=N narrows
+    //   the window (default 30, max 90); always available offline or on.
     if (req.method === 'GET') {
-      const scope = req.query.scope === 'available' ? 'available' : 'mine';
+      const scope = ['available', 'history'].includes(req.query.scope) ? req.query.scope : 'mine';
 
-      let q = supabase.from('orders').select('*').eq('order_type', 'delivery');
-      q = scope === 'available'
-        ? q.eq('status', 'ready').is('driver_id', null).eq('delivery_status', 'unassigned')
-        : q.eq('driver_id', user.id);
+      if (scope === 'available') {
+        // Driver hasn't opted in to receiving new orders right now — hand
+        // back an empty list rather than the full unclaimed pool, so
+        // "offline" actually means invisible, not just a UI filter the
+        // client could bypass. Admins are exempt (see DRIVER_ROLES above)
+        // so support staff can still see/test this feed from an admin
+        // account without needing to flip an is_online switch that only
+        // means something for real drivers.
+        if (user.profile?.role === 'delivery_driver' && !user.profile?.is_online) {
+          return res.status(200).json([]);
+        }
 
-      const { data, error } = await q.order('created_at', { ascending: false }).limit(50);
+        const { data, error } = await supabase
+          .from('orders').select('*').eq('order_type', 'delivery')
+          .eq('status', 'ready').is('driver_id', null).eq('delivery_status', 'unassigned')
+          .order('created_at', { ascending: false }).limit(50);
+        if (error) throw error;
+        return res.status(200).json(await attachItems(data || []));
+      }
+
+      if (scope === 'history') {
+        const days = Math.min(90, Math.max(1, Number(req.query.days) || 30));
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+        const { data, error } = await supabase
+          .from('orders').select('*').eq('order_type', 'delivery').eq('driver_id', user.id)
+          .in('status', ['completed', 'cancelled'])
+          .gte('created_at', since)
+          .order('created_at', { ascending: false }).limit(200);
+        if (error) throw error;
+        return res.status(200).json(await attachItems(data || []));
+      }
+
+      const { data, error } = await supabase
+        .from('orders').select('*').eq('order_type', 'delivery').eq('driver_id', user.id)
+        .order('created_at', { ascending: false }).limit(50);
       if (error) throw error;
 
       return res.status(200).json(await attachItems(data || []));
