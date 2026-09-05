@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bell, Search, ShoppingBag, ShoppingBasket, UtensilsCrossed, X } from 'lucide-react';
 import type { Category, Order, OrderStatus, Product, Promotion } from '../lib/types';
@@ -504,6 +505,18 @@ export default function MenuPage() {
             ))}
           </div>
         )}
+
+        {/* Discreet staff/admin entry point. Once this page is installed as
+            a standalone PWA (see vite.config.ts's manifest — start_url is
+            always this customer menu) there's no address bar left to type
+            /login into, so without a link somewhere in the UI itself,
+            staff have no way at all to reach the dashboard. Kept tiny and
+            muted so it doesn't read as a customer-facing action. */}
+        <div className="mt-10 pb-2 text-center">
+          <Link to="/login" className="text-[11px] font-medium text-zinc-300 transition hover:text-zinc-400">
+            {t('shop.staff_access')}
+          </Link>
+        </div>
       </div>
 
       {/* floating cart bar — sits just above the bottom nav */}
