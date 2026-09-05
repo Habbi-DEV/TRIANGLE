@@ -44,7 +44,16 @@ const BLOCKED_IPS = new Set(
 //   const { success } = await ratelimit.limit(ip);
 // ----------------------------------------------------------------------------
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS_PER_WINDOW = 60;
+// 60/min s'est révélé bien trop bas en usage réel : le client appelle
+// /api/driver-orders toutes les 4s pour DEUX scopes en parallèle
+// ('available' tout le temps + 'mine' pendant que l'onglet "En cours" est
+// ouvert) = déjà ~30 requêtes/min à l'arrêt, avant même une seule action du
+// livreur. Ajoutez plusieurs onglets, l'admin/cuisine sur le même Wi-Fi
+// restaurant, ou plusieurs livreurs derrière le même NAT opérateur mobile,
+// et 60/min saute en quelques secondes — d'où le "Too many requests" vu à
+// l'acceptation d'une commande. 300/min (5 req/s) garde une vraie
+// protection anti-abus tout en laissant respirer l'usage normal.
+const MAX_REQUESTS_PER_WINDOW = 300;
 const hits = new Map<string, number[]>();
 
 function isRateLimited(ip: string): boolean {
@@ -75,6 +84,16 @@ export default function middleware(request: Request) {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  // Le preflight OPTIONS ne fait aucun travail côté fonction /api (il est
+  // court-circuité par `if (req.method === 'OPTIONS') return res.status(204)`
+  // dans chaque handler) — le compter dans la même fenêtre que les vraies
+  // requêtes pénalisait le quota du client pour rien. Avec le cache de
+  // preflight ajouté dans _lib/auth.js (Access-Control-Max-Age), ces
+  // requêtes devraient de toute façon devenir rares après le premier appel.
+  if (request.method === 'OPTIONS') {
+    return next();
   }
 
   if (isRateLimited(ip)) {

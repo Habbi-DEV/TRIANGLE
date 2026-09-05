@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigation2, Loader2 } from 'lucide-react';
+import { Navigation2, Loader2, MapPinOff } from 'lucide-react';
 import LeafletMap from '../shared/LeafletMap';
 import { useLang } from '../../lib/i18n';
 
@@ -23,6 +23,7 @@ export default function RouteMap({ destLat, destLng, destAddress }: Props) {
   const { t } = useLang();
   const [me, setMe] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(true);
+  const [mapFailed, setMapFailed] = useState(false);
 
   useEffect(() => {
     if (!('geolocation' in navigator)) {
@@ -57,7 +58,15 @@ export default function RouteMap({ destLat, destLng, destAddress }: Props) {
 
   return (
     <div className="space-y-2">
-      {hasDest ? (
+      {hasDest && mapFailed ? (
+        // The live map is a bonus visual — the "open in Google Maps" button
+        // below is the real navigation tool, so a tile-load failure here
+        // shouldn't strand the driver with a dead grey box.
+        <div className="flex h-40 w-full flex-col items-center justify-center gap-1.5 rounded-xl bg-zinc-50 text-xs font-semibold text-zinc-500 ring-1 ring-zinc-200">
+          <MapPinOff size={18} />
+          {t('driver.map_unavailable')}
+        </div>
+      ) : hasDest ? (
         <div className="h-40 w-full overflow-hidden rounded-xl ring-1 ring-zinc-200">
           <LeafletMap
             center={center}
@@ -67,6 +76,7 @@ export default function RouteMap({ destLat, destLng, destAddress }: Props) {
             fitToMarkers
             interactive
             className="h-full w-full"
+            onLoadError={() => setMapFailed(true)}
           />
         </div>
       ) : (

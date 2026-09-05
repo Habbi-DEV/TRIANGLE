@@ -1,4 +1,5 @@
-import { Navigation2 } from 'lucide-react';
+import { useState } from 'react';
+import { Navigation2, MapPinOff } from 'lucide-react';
 import LeafletMap from '../shared/LeafletMap';
 import { useLang } from '../../lib/i18n';
 
@@ -14,7 +15,26 @@ interface Props {
  */
 export default function OrderMiniMap({ lat, lng }: Props) {
   const { t } = useLang();
+  const [failed, setFailed] = useState(false);
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+  // The mini-map is a nice-to-have preview, not the only way to reach the
+  // address — if the tile provider is unreachable, show a clear fallback
+  // straight to Google Maps instead of a permanently blank box.
+  if (failed) {
+    return (
+      <a
+        href={gmapsUrl}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="mt-1.5 flex h-24 w-full items-center justify-center gap-1.5 rounded-xl bg-zinc-50 text-xs font-semibold text-zinc-500 ring-1 ring-zinc-200"
+      >
+        <MapPinOff size={14} />
+        {t('driver.open_in_maps')}
+      </a>
+    );
+  }
 
   return (
     <div className="relative mt-1.5 h-24 w-full overflow-hidden rounded-xl ring-1 ring-zinc-200">
@@ -24,6 +44,7 @@ export default function OrderMiniMap({ lat, lng }: Props) {
         markers={[{ id: 'dest', lat, lng, color: '#f97316' }]}
         interactive={false}
         className="h-full w-full"
+        onLoadError={() => setFailed(true)}
       />
       <a
         href={gmapsUrl}

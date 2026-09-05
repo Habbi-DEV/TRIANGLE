@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import supabase from '../lib/supabase';
 import { api } from '../lib/api';
+import { onOrderAccepted } from '../lib/driverBus';
 import type { Order } from '../lib/types';
 
 /**
@@ -58,9 +59,14 @@ export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 40
 
     channel.subscribe();
 
+    // See lib/driverBus.ts: closes the "accept doesn't show under En cours
+    // until I refresh" gap for the 'mine' scope, instantly, same-tab.
+    const unsubscribeBus = scope === 'mine' ? onOrderAccepted(refresh) : undefined;
+
     return () => {
       clearInterval(iv);
       supabase.removeChannel(channel);
+      unsubscribeBus?.();
     };
   }, [refresh, pollMs, scope]);
 

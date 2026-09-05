@@ -22,6 +22,15 @@ export function setCors(req, res, methods = 'GET, POST, PUT, DELETE, OPTIONS') {
   }
   res.setHeader('Access-Control-Allow-Methods', methods);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Sans ceci, le navigateur ne met JAMAIS en cache le résultat du preflight
+  // (OPTIONS) — donc CHAQUE appel fetch() qui porte un header Authorization
+  // (c'est-à-dire quasiment tous les appels de l'app, voir lib/api.ts)
+  // déclenche une requête OPTIONS supplémentaire juste avant la vraie
+  // requête. Concrètement : chaque GET/PUT compte double dans le
+  // rate-limiter du middleware (voir middleware.ts), ce qui fait
+  // apparaître "Too many requests" bien avant la vraie limite d'usage.
+  // 86400s = 24h (max accepté par Chrome ; Firefox plafonne à 24h aussi).
+  res.setHeader('Access-Control-Max-Age', '86400');
 }
 
 // ----------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Banknote, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { api } from '../../lib/api';
+import { notifyOrderAccepted } from '../../lib/driverBus';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
 import { distanceKm } from '../../lib/geo';
@@ -35,6 +36,7 @@ export default function AvailableOrderCard({
     setBusy(true);
     try {
       await api('/api/driver-orders', { method: 'PUT', body: JSON.stringify({ id: order.id, action: 'accept' }) });
+      notifyOrderAccepted();
       onAccepted();
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
