@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { BellRing, CheckCircle2, Printer, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, Eye, XCircle } from 'lucide-react';
 import type { Order, OrderStatus } from '../../lib/types';
 import { orderNumber } from '../../lib/format';
-import { printInvoice } from '../../lib/invoice';
+import { viewInvoice } from '../../lib/invoice';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../../lib/orderStatus';
 import { useLang } from '../../lib/i18n';
 import { isPushSupported, subscribeToPush } from '../../lib/push';
@@ -138,10 +138,10 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
         )}
 
         <button
-          onClick={() => printInvoice(order)}
+          onClick={() => viewInvoice(order)}
           className="mt-8 flex w-full items-center justify-center gap-2 rounded-full border-2 border-zinc-200 py-3.5 font-display text-[15px] font-bold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98]"
         >
-          <Printer size={17} /> {t('shop.print_receipt')}
+          <Eye size={17} /> {t('shop.view_receipt')}
         </button>
         <button
           onClick={onClose}

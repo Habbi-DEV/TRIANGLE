@@ -145,6 +145,10 @@ export default function AdminLayout() {
       )}
       {newOrders.length > 0 && (
         <SoundAlertBanner
+          // Remounts the toast (fresh animation + countdown) whenever the
+          // set of pending new orders actually changes, instead of only
+          // when the component first mounts.
+          key={newOrders.map((o) => o.id).join(',')}
           message={
             newOrders.length === 1
               ? t('orders.new_order_alert_one', { id: orderNumber(newOrders[0].id) })
@@ -152,6 +156,10 @@ export default function AdminLayout() {
           }
           stopLabel={t('orders.stop_alert')}
           onStop={dismiss}
+          // Just an FYI — the order itself is already tracked in the
+          // sidebar badge and the Orders page, so the toast doesn't need
+          // to block the screen or wait for a manual dismiss.
+          autoDismissMs={6000}
         />
       )}
       {/* desktop sidebar */}
