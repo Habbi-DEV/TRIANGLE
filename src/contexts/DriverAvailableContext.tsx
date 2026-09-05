@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import useDriverOrders from '../hooks/useDriverOrders';
 import { playNewOrderChime } from '../lib/chime';
 import type { Order } from '../lib/types';
@@ -56,7 +56,21 @@ export function DriverAvailableProvider({ children }: { children: ReactNode }) {
     setNewOrders((prev) => prev.filter((o) => orders.some((live) => live.id === o.id)));
   }, [orders]);
 
-  const dismissNew = () => setNewOrders([]);
+  const dismissNew = useCallback(() => {
+    // Bail out if it's already empty: setNewOrders([]) always creates a
+    // brand-new array reference, so calling it unconditionally made React
+    // see a "changed" value every time, even when there was nothing to
+    // clear. That was the actual bug behind "can't tap Historique/En cours
+    // while on Disponibles": DriverAvailablePage clears the banner in a
+    // useEffect keyed on this very function, `dismissNew` used to be
+    // recreated on every Provider render (no useCallback), so the loop
+    // ran: state change -> Provider re-render -> new dismissNew -> effect
+    // re-fires -> state change -> ... forever, pinning the main thread so
+    // no other tap (including the bottom nav) could get through until a
+    // manual reload. useCallback + this early return make dismissNew a
+    // stable no-op once the banner is already clear.
+    setNewOrders((prev) => (prev.length === 0 ? prev : []));
+  }, []);
 
   return (
     <Ctx.Provider value={{ orders, loading, refresh, newOrders, dismissNew }}>
