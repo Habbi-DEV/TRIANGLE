@@ -22,7 +22,7 @@ const INVOICE_STRINGS = {
     notes: 'Notes',
     thanks: 'Merci pour votre commande ! 🧡',
     popup_blocked: "Merci d'autoriser les pop-ups pour afficher la facture.",
-    print: 'Imprimer',
+    back: 'Retour',
     types: { dine_in: 'Sur place', takeaway: 'À emporter', delivery: 'Livraison' } as Record<Order['order_type'], string>,
   },
   ar: {
@@ -40,7 +40,7 @@ const INVOICE_STRINGS = {
     notes: 'ملاحظات',
     thanks: 'شكراً لطلبكم! 🧡',
     popup_blocked: 'الرجاء السماح بالنوافذ المنبثقة لعرض الفاتورة.',
-    print: 'طباعة',
+    back: 'رجوع',
     types: { dine_in: 'في المطعم', takeaway: 'استلام', delivery: 'توصيل' } as Record<Order['order_type'], string>,
   },
 } as const;
@@ -53,10 +53,12 @@ const INVOICE_STRINGS = {
  * page instead of a hardcoded name, with 'TRIANGLE' / the plate emoji as
  * the same fallback used everywhere else in the app.
  *
- * `withPrintButton` adds a screen-only "Print" button at the top (hidden in
- * @media print) for the "just view it" flow — see viewInvoice() below.
+ * `withBackButton` adds a screen-only "Back" button at the top (hidden in
+ * @media print) that closes this tab/window — used by the "just view it"
+ * customer flow, which has no browser chrome of its own to go back with.
+ * See viewInvoice() below.
  */
-function buildReceiptHtml(order: Order, withPrintButton: boolean): string {
+function buildReceiptHtml(order: Order, withBackButton: boolean): string {
   const lang = getCurrentLang();
   const L = INVOICE_STRINGS[lang];
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
@@ -119,14 +121,14 @@ function buildReceiptHtml(order: Order, withPrintButton: boolean): string {
     direction: ${dir};
     background: #fff;
   }
-  .print-bar { position: sticky; top: 0; display: flex; justify-content: center; padding-bottom: 16px; background: #fff; }
-  .print-btn {
+  .top-bar { position: sticky; top: 0; display: flex; justify-content: center; padding-bottom: 16px; background: #fff; }
+  .back-btn {
     display: inline-flex; align-items: center; gap: 6px;
-    background: #f97316; color: #fff; border: none; border-radius: 999px;
+    background: #f4f4f5; color: #18181b; border: none; border-radius: 999px;
     padding: 10px 20px; font-size: 13px; font-weight: 700; font-family: inherit;
     cursor: pointer;
   }
-  .print-btn:active { transform: scale(0.97); }
+  .back-btn:active { transform: scale(0.97); }
   .brand { text-align: center; margin-bottom: 4px; }
   .brand .logo-wrap {
     display: inline-flex; align-items: center; justify-content: center;
@@ -155,14 +157,14 @@ function buildReceiptHtml(order: Order, withPrintButton: boolean): string {
   .payment { margin-top: 10px; font-size: 12px; color: #52525b; text-transform: capitalize; }
   .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #a1a1aa; }
   @media print {
-    .print-bar { display: none; }
+    .top-bar { display: none; }
     body { padding: 0; max-width: 100%; }
     @page { margin: 12mm; }
   }
 </style>
 </head>
 <body>
-  ${withPrintButton ? `<div class="print-bar"><button class="print-btn" onclick="window.print()">🖨️ ${L.print}</button></div>` : ''}
+  ${withBackButton ? `<div class="top-bar"><button class="back-btn" onclick="window.close()">🔙 ${L.back}</button></div>` : ''}
   <div class="brand">
     <div class="logo-wrap">
       ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="" />` : '<span class="logo-emoji">🍽️</span>'}
@@ -233,9 +235,9 @@ export function printInvoice(order: Order): void {
 
 /**
  * Opens the receipt for the given order so the customer can simply look at
- * it — no print dialog pops up on its own. A small "Print" button sits at
- * the top of the page (hidden when actually printing) for anyone who does
- * want a paper copy.
+ * it — no print dialog, no print button. A small "Back" button sits at the
+ * top of the page and closes the tab/window, since it has no browser
+ * chrome of its own to navigate back with.
  */
 export function viewInvoice(order: Order): void {
   openReceiptWindow(buildReceiptHtml(order, true));
