@@ -19,6 +19,8 @@ import type { Order } from '../lib/types';
  * same authenticated refresh() — so every driver's list updates at
  * essentially the same moment, and the accept race window shrinks to
  * milliseconds instead of a full poll interval.
+ *
+ * Exposes optimistic helpers for 0ms accept / advance / cancel.
  */
 export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 4000) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -33,6 +35,18 @@ export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 40
       setLoading(false);
     }
   }, [scope]);
+
+  const patchOrder = useCallback((id: number, patch: Partial<Order>) => {
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } as Order : o)));
+  }, []);
+
+  const removeOrder = useCallback((id: number) => {
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  }, []);
+
+  const addOrder = useCallback((order: Order) => {
+    setOrders((prev) => [order, ...prev]);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -77,5 +91,5 @@ export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 40
     };
   }, [refresh, pollMs, scope]);
 
-  return { orders, loading, refresh };
+  return { orders, loading, refresh, patchOrder, removeOrder, addOrder, setOrders };
 }

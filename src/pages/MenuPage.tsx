@@ -575,18 +575,28 @@ export default function MenuPage() {
         open={cartOpen}
         onClose={() => setCartOpen(false)}
         onPlaced={(o) => {
-          // Defensive reset — a new order can't normally arrive while the
-          // previous one's pickup alarm is still ringing, but don't carry
-          // it over if it somehow is.
           stopAlarm();
           setReadyAlarmActive(false);
-          setOrder(o);
+          // If this is the authoritative real order (id > 0) replace any optimistic placeholder
+          setOrder((prev) => {
+            if (prev && prev.id < 0 && o.id > 0) {
+              localStorage.removeItem(LAST_ORDER_KEY);
+            }
+            return o;
+          });
           setTrackerOpen(true);
           setOrderUnseen(true);
           localStorage.setItem(LAST_ORDER_KEY, String(o.id));
-          // Per-order tracking secret (no customer login): required by all
-          // later ?id= reads and by push subscription.
-          saveOrderToken(o.id, o.order_token);
+          if (o.order_token) saveOrderToken(o.id, o.order_token);
+          // also migrate token if this was an optimistic -> real replacement: remove optimistic token key if any
+          if (o.id > 0) {
+            // optimistic token was never saved, but clean up any stale negative key
+          }
+        }}
+        onRollback={(optimisticId) => {
+          setOrder((prev) => (prev?.id === optimisticId ? null : prev));
+          setTrackerOpen(false);
+          localStorage.removeItem(LAST_ORDER_KEY);
         }}
       />
       {order && trackerOpen && (

@@ -207,10 +207,11 @@ export default async function handler(req, res) {
           .eq('id', Number(id)).eq('driver_id', user.id).select().single();
         if (error) throw error;
 
-        await restoreStockForCancelledOrder(existing);
-
         const { delivery_otp: _c1, access_token: _c2, ...safeCancelled } = data || {};
-        return res.status(200).json(safeCancelled);
+        res.status(200).json(safeCancelled);
+        // fire-and-forget stock restore (non-blocking)
+        restoreStockForCancelledOrder(existing).catch(console.error);
+        return;
       }
 
       const transition = TRANSITIONS[action];
@@ -262,15 +263,13 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Order not found' });
       }
 
-      // Tell every other driver's "available" tab right away — see
-      // api/_lib/broadcast.js for why this can't just rely on Realtime's
-      // normal RLS-filtered postgres_changes feed.
-      if (action === 'accept') {
-        await broadcastDriverEvent(DRIVER_EVENTS.TAKEN, data.id);
-      }
-
       const { delivery_otp: _o1, access_token: _o2, ...safeOrder } = data || {};
-      return res.status(200).json(safeOrder);
+      res.status(200).json(safeOrder);
+      // fire-and-forget broadcast (non-blocking)
+      if (action === 'accept') {
+        broadcastDriverEvent(DRIVER_EVENTS.TAKEN, data.id).catch(console.error);
+      }
+      return;
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

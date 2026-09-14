@@ -241,7 +241,7 @@ export default async function handler(req, res) {
       if (iErr) return internalError(res, iErr, 'orders items');
 
       if (order_type === 'dine_in') {
-        await supabase.from('tables').update({ status: 'occupied' }).eq('table_number', tableNum);
+        supabase.from('tables').update({ status: 'occupied' }).eq('table_number', tableNum).catch(console.error);
       }
       // Never expose delivery_otp to the customer browser; only access_token for tracking + push.
       const { delivery_otp: _otp, ...safeOrder } = order;
@@ -273,18 +273,24 @@ export default async function handler(req, res) {
 
       const { data, error } = await supabase.from('orders').update({ status }).eq('id', orderId).select().single();
       if (error) return internalError(res, error, 'orders update');
-      await audit(supabase, { actorId: staff.id, action: `order.${status}`, entity: 'orders', entityId: orderId });
+      const { delivery_otp: _o, access_token: _t, ...safe } = data;
+      // Return to client immediately (0ms perceived) — side effects run fire-and-forget
+      res.status(200).json(safe);
+
+      // ---- Non-blocking background actions (fire-and-forget) ----
+      audit(supabase, { actorId: staff.id, action: `order.${status}`, entity: 'orders', entityId: orderId }).catch(console.error);
 
       if (existing.order_type === 'delivery') {
-        if (status === 'ready') await broadcastDriverEvent(DRIVER_EVENTS.READY, existing.id);
+        if (status === 'ready') broadcastDriverEvent(DRIVER_EVENTS.READY, existing.id).catch(console.error);
         else if (status === 'cancelled' && existing.status === 'ready' && !existing.driver_id) {
-          await broadcastDriverEvent(DRIVER_EVENTS.REMOVED, existing.id);
+          broadcastDriverEvent(DRIVER_EVENTS.REMOVED, existing.id).catch(console.error);
         }
       }
 
       if (status === 'cancelled' && existing.status !== 'cancelled') {
-        const { data: cancelledItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', existing.id);
-        if (cancelledItems?.length) {
+        (async () => {
+          const { data: cancelledItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', existing.id);
+          if (!cancelledItems?.length) return;
           const { data: currentProducts } = await supabase.from('products').select('id, stock').in('id', cancelledItems.map((i) => i.product_id));
           const stockById = Object.fromEntries((currentProducts || []).map((p) => [p.id, p.stock ?? 0]));
           await Promise.all(cancelledItems.flatMap((it) => [
@@ -294,19 +300,21 @@ export default async function handler(req, res) {
               notes: `Order #${existing.id + 1000} cancelled — stock restored`,
             }),
           ])).catch((err) => console.error(`Stock restore failed for cancelled order #${existing.id}:`, err));
-        }
+        })().catch(console.error);
       }
 
       if (['completed', 'cancelled'].includes(status) && existing.table_number && existing.order_type === 'dine_in') {
-        await supabase.from('tables').update({ status: 'available' }).eq('table_number', existing.table_number);
+        supabase.from('tables').update({ status: 'available' }).eq('table_number', existing.table_number).then(() => {}).catch(console.error);
       }
 
-      await sendPushToOrder(existing.id, {
+      sendPushToOrder(existing.id, {
         title: 'TRIANGLE', body: pushBodyFor(status, existing.order_type),
         tag: `order-${existing.id}`, url: '/',
-      });
-      const { delivery_otp: _o, access_token: _t, ...safe } = data;
-      return res.status(200).json(safe);
+      }).catch(console.error);
+      // Telegram Bot / Webhooks / printing would also be fire-and-forget here:
+      // fetch(TELEGRAM_WEBHOOK, {...}).catch(console.error) — never await.
+
+      return;
     }
 
     // ---------------------------------------------------------- DELETE (admin)

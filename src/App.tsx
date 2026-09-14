@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './lib/i18n';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleGuard from './components/RoleGuard';
+import { ToastProvider } from './components/ui/ToastProvider';
 import MenuPage from './pages/MenuPage';
 import LoginPage from './pages/LoginPage';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -36,6 +37,7 @@ export default function App() {
 
   return (
     <LanguageProvider>
+    <ToastProvider>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -82,6 +84,7 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </ToastProvider>
     </LanguageProvider>
   );
 }

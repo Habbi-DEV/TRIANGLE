@@ -3,10 +3,12 @@ import { Phone, MapPin, Banknote, Loader2, CheckCircle2, Ban } from 'lucide-reac
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
+import { useToast } from '../ui/ToastProvider';
 import {
   DELIVERY_STATUS_LABEL, deliveryStepIndex, driverActionLabel, nextDriverAction,
 } from '../../lib/driverStatus';
 import type { DriverCancelReason } from '../../lib/driverStatus';
+import type { DeliveryStatus } from '../../lib/types';
 import RouteMap from './RouteMap';
 import CancelOrderModal from './CancelOrderModal';
 import type { Order } from '../../lib/types';
@@ -48,29 +50,33 @@ function Stepper({ stepIndex }: { stepIndex: number }) {
 
 export default function ActiveOrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }) {
   const { t } = useLang();
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  // Delivery proof: the customer sees a 4-digit code in their tracker; the
-  // driver must ask for it at the door and type it here to close the order.
-  // The API rejects 'delivered' without the matching code (fake-delivery
-  // prevention) — and the code is never sent to the driver app itself.
   const [otp, setOtp] = useState('');
-  const status = order.delivery_status ?? 'unassigned';
+  // optimistic overlay: instant UI before server confirms
+  const [optimisticStatus, setOptimisticStatus] = useState<DeliveryStatus | null>(null);
+  const [optimisticCancelled, setOptimisticCancelled] = useState(false);
+  const status = (optimisticCancelled ? 'cancelled' as unknown as DeliveryStatus : (optimisticStatus ?? order.delivery_status ?? 'unassigned')) as DeliveryStatus;
+  // we keep original order.status for cancelled check via optimisticCancelled flag
+  const effectiveOrder = optimisticCancelled ? { ...order, status: 'cancelled' as const } : optimisticStatus ? { ...order, delivery_status: optimisticStatus } : order;
   const stepIndex = deliveryStepIndex(status);
   const action = nextDriverAction(status);
   const phone = order.customer_phone?.trim();
-  // Cancellable any time after acceptance, up until it's actually delivered
-  // — e.g. the driver reached the address but the customer isn't
-  // reachable or refuses the order.
-  const canCancel = status !== 'delivered';
+  const canCancel = !optimisticCancelled && status !== 'delivered' && order.status !== 'cancelled';
 
   const advance = async () => {
     if (!action) return;
     if (action === 'delivered' && otp.trim().length !== 4) {
-      alert(t('driver.otp_required'));
+      toast(t('driver.otp_required'), 'error');
       return;
     }
+    // 0ms optimistic
+    const prevStatus = order.delivery_status ?? 'unassigned';
+    const nextMap: Record<string, DeliveryStatus> = { picked_up: 'picked_up', on_the_way: 'on_the_way', delivered: 'delivered' } as const;
+    const nextStatus = nextMap[action] ?? null;
+    if (nextStatus) setOptimisticStatus(nextStatus);
     setBusy(true);
     try {
       await api('/api/driver-orders', {
@@ -78,15 +84,23 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
         body: JSON.stringify({ id: order.id, action, ...(action === 'delivered' ? { otp: otp.trim() } : {}) }),
       });
       setOtp('');
+      toast(driverActionLabel(action), 'success');
       onUpdated();
     } catch (err) {
-      alert(err instanceof Error ? err.message : t('driver.update_failed'));
+      setOptimisticStatus(prevStatus as DeliveryStatus);
+      // if it was delivered we stay at on_the_way
+      if (action === 'delivered') setOptimisticStatus('on_the_way');
+      const msg = err instanceof Error ? err.message : t('driver.update_failed');
+      toast(msg, 'error');
     } finally {
       setBusy(false);
+      // clear optimistic after short delay to let realtime take over, but keep until next fetch
+      setTimeout(() => setOptimisticStatus(null), 4000);
     }
   };
 
   const cancelOrder = async (reason: DriverCancelReason, note: string) => {
+    setOptimisticCancelled(true);
     setCancelling(true);
     try {
       await api('/api/driver-orders', {
@@ -94,24 +108,36 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
         body: JSON.stringify({ id: order.id, action: 'cancel', reason, note }),
       });
       setCancelOpen(false);
+      toast(t('driver.cancel_order.success'), 'success');
       onUpdated();
     } catch (err) {
-      alert(err instanceof Error ? err.message : t('driver.update_failed'));
+      setOptimisticCancelled(false);
+      const msg = err instanceof Error ? err.message : t('driver.update_failed');
+      toast(msg, 'error');
     } finally {
       setCancelling(false);
     }
   };
+
+  if (optimisticCancelled) {
+    return (
+      <div className="overflow-hidden rounded-2xl bg-white driver-dark:bg-zinc-900 p-6 text-center shadow-soft ring-1 ring-zinc-100">
+        <p className="font-display text-lg font-bold text-red-600">{t('driver.cancelled')}</p>
+        <p className="mt-1 text-sm text-zinc-500">{t('driver.cancel_order.success')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white driver-dark:bg-zinc-900 shadow-soft-lg ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
       {/* Header */}
       <div className="flex items-center justify-between bg-zinc-950 px-4 py-3">
         <div>
-          <p className="font-display text-lg font-extrabold text-white">{orderNumber(order.id)}</p>
-          <p className="text-[11px] text-zinc-400">{timeAgo(order.created_at)}</p>
+          <p className="font-display text-lg font-extrabold text-white">{orderNumber(effectiveOrder.id)}</p>
+          <p className="text-[11px] text-zinc-400">{timeAgo(effectiveOrder.created_at)}</p>
         </div>
         <span className="rounded-full bg-brand-500/15 px-3 py-1 text-xs font-bold text-brand-400 ring-1 ring-brand-500/30">
-          {DELIVERY_STATUS_LABEL[status]}
+          {DELIVERY_STATUS_LABEL[status as DeliveryStatus] ?? status}
         </span>
       </div>
 

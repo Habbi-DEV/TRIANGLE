@@ -8,6 +8,7 @@ import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { printInvoice } from '../../lib/invoice';
 import { useLang } from '../../lib/i18n';
+import { useToast } from '../../components/ui/ToastProvider';
 import { DELIVERY_STATUS_LABEL } from '../../lib/driverStatus';
 import type { Order, OrderStatus, OrderType } from '../../lib/types';
 
@@ -54,7 +55,8 @@ function nextAction(o: Order): { to: OrderStatus; labelKey: string } | null {
 
 export default function OrdersPage() {
   const { t } = useLang();
-  const { orders, loading, refresh } = useLiveOrders(120, 4000);
+  const { toast } = useToast();
+  const { orders, loading, patchOrder, removeOrder, addOrder } = useLiveOrders(120, 4000) as ReturnType<typeof useLiveOrders> & { patchOrder: (id:number,p:Partial<Order>)=>void; removeOrder:(id:number)=>void; addOrder:(o:Order)=>void };
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<OrderType | 'all'>('all');
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -79,14 +81,36 @@ export default function OrdersPage() {
   }, []);
 
   const setStatus = async (id: number, status: OrderStatus) => {
+    const prev = orders.find((o) => o.id === id);
+    if (!prev) return;
+    const prevStatus = prev.status;
+    // 0ms optimistic
+    patchOrder(id, { status });
     setBusyId(id);
     try {
       await api(`/api/orders`, { method: 'PUT', body: JSON.stringify({ id, status }) });
-      refresh();
+      toast(t(`status.${status}`), 'success');
     } catch (err) {
-      alert(err instanceof Error ? err.message : t('orders.update_failed'));
+      patchOrder(id, { status: prevStatus });
+      const msg = err instanceof Error ? err.message : t('orders.update_failed');
+      toast(msg, 'error');
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const deleteOrder = async (id: number) => {
+    const prev = orders.find((o) => o.id === id);
+    if (!prev) return;
+    if (!confirm(t('orders.delete_confirm', { id: orderNumber(id) }))) return;
+    removeOrder(id);
+    try {
+      await api('/api/orders', { method: 'DELETE', body: JSON.stringify({ id }) });
+      toast(t('orders.delete_order'), 'success');
+    } catch (err) {
+      addOrder(prev);
+      const msg = err instanceof Error ? err.message : t('orders.update_failed');
+      toast(msg, 'error');
     }
   };
 
@@ -236,11 +260,7 @@ export default function OrdersPage() {
                     )}
                     {o.status === 'cancelled' && (
                       <button
-                        onClick={async () => {
-                          if (!confirm(t('orders.delete_confirm', { id: orderNumber(o.id) }))) return;
-                          await api('/api/orders', { method: 'DELETE', body: JSON.stringify({ id: o.id }) });
-                          refresh();
-                        }}
+                        onClick={() => deleteOrder(o.id)}
                         className="rounded-xl border border-zinc-200 p-2 text-zinc-400 hover:text-red-500"
                         aria-label={t('orders.delete_order')}
                       >

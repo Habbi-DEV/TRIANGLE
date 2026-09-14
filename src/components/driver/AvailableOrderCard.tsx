@@ -5,6 +5,7 @@ import { api } from '../../lib/api';
 import { notifyOrderAccepted } from '../../lib/driverBus';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
+import { useToast } from '../ui/ToastProvider';
 import { distanceKm } from '../../lib/geo';
 import OrderMiniMap from './OrderMiniMap';
 import type { Order } from '../../lib/types';
@@ -27,31 +28,34 @@ export default function AvailableOrderCard({
   myPosition?: [number, number] | null;
 }) {
   const { t } = useLang();
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [taken, setTaken] = useState(false);
   const [dragX, setDragX] = useState(0);
 
   const accept = async () => {
     if (busy || taken) return;
+    // 0ms optimistic: disappear instantly
+    setTaken(true);
     setBusy(true);
     try {
       await api('/api/driver-orders', { method: 'PUT', body: JSON.stringify({ id: order.id, action: 'accept' }) });
       notifyOrderAccepted();
+      // fire-and-forget background sync (no await blocking)
       onAccepted();
+      toast(t('driver.accept'), 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
-      // 409 = someone else already accepted it a moment earlier — a normal
-      // race, not a real error. The atomic conditional UPDATE in
-      // api/driver-orders.js guarantees this never results in two drivers
-      // both holding the same order; the loser here just needs their list
-      // refreshed. Any other failure is a real problem and should say so.
       if (message.includes('already moved on')) {
-        setTaken(true);
+        // race lost but optimistic already hid it — keep hidden and sync
         onAccepted();
+        toast(message, 'info');
       } else {
-        alert(message || t('driver.update_failed'));
+        // rollback
+        setTaken(false);
         setBusy(false);
         setDragX(0);
+        toast(message || t('driver.update_failed'), 'error');
       }
     }
   };

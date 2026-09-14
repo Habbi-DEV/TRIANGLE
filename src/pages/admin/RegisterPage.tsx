@@ -11,6 +11,7 @@ import useLiveOrders from '../../hooks/useLiveOrders';
 import StatusBadge from '../../components/StatusBadge';
 import { OrderTypeTag, orderContext } from '../../components/OrderTypeTag';
 import Spinner from '../../components/ui/Spinner';
+import { useToast } from '../../components/ui/ToastProvider';
 import type { OrderType } from '../../lib/types';
 
 // Same treatment as the category rail / sauce swatches on the customer
@@ -66,7 +67,8 @@ export default function RegisterPage() {
   // a phone/tablet screen.
   const [mobileTicketOpen, setMobileTicketOpen] = useState(false);
 
-  const { orders, loading: feedLoading, refresh } = useLiveOrders(25, 5000);
+  const { orders, loading: feedLoading, refresh, addOrder, removeOrder, upsertOrder } = useLiveOrders(25, 5000) as ReturnType<typeof useLiveOrders> & { addOrder: (o: Order) => void; removeOrder: (id: number) => void; upsertOrder: (o: Order) => void };
+  const { toast } = useToast();
   const settings = useSettings();
 
   const { lines, add, inc, dec, remove, clear, setLineExtras } = useCartStore();
@@ -151,21 +153,54 @@ export default function RegisterPage() {
     }
     setErrors(e);
     if (Object.keys(e).length > 0) return;
+    if (placing) return;
 
+    // ---- Optimistic (0ms) ----
+    const snapshot = [...lines];
+    const snap = { orderType, tableNumber, name, phone, address, notes };
+    const optimisticId = -Math.floor(Date.now());
+    const optimistic: Order = {
+      id: optimisticId,
+      order_type: snap.orderType,
+      status: 'pending',
+      table_number: snap.orderType === 'dine_in' ? snap.tableNumber : null,
+      customer_name: snap.orderType === 'delivery' ? snap.name : null,
+      customer_phone: snap.orderType === 'delivery' ? snap.phone : null,
+      delivery_address: snap.orderType === 'delivery' ? snap.address : null,
+      delivery_lat: null, delivery_lng: null,
+      notes: snap.notes || null,
+      subtotal, delivery_fee: deliveryFee, total,
+      payment_method: 'cash',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      items: snapshot.map((l, i) => {
+        const unit = l.product.price + l.sauces.reduce((n, s) => n + s.price, 0) + l.supplements.reduce((n, s) => n + s.price, 0);
+        return { id: optimisticId * 1000 - i, order_id: optimisticId, product_id: l.product.id, product_name: l.product.name, unit_price: unit, quantity: l.qty, line_total: Math.round(unit * l.qty * 100) / 100, sauces: l.sauces.map((s) => ({ name: s.name, price: s.price })), supplements: l.supplements.map((s) => ({ name: s.name, price: s.price })) };
+      }),
+    } as Order;
+
+    // instant UI: clear ticket + show in live feed
+    clear();
+    setActiveLineKey(null);
+    setMode('products');
+    setTableNumber(null); setName(''); setPhone(''); setAddress(''); setNotes('');
+    addOrder(optimistic);
+    setFlash(t('register.sent_to_kitchen', { n: orderNumber(optimistic.id) }));
+    setTab('live');
     setPlacing(true);
+
     try {
-      const order = await api<Order>('/api/orders', {
+      const real = await api<Order>('/api/orders', {
         method: 'POST',
         body: JSON.stringify({
-          order_type: orderType,
-          table_number: orderType === 'dine_in' ? tableNumber : undefined,
-          customer_name: orderType === 'delivery' ? name : undefined,
-          customer_phone: orderType === 'delivery' ? phone : undefined,
-          delivery_address: orderType === 'delivery' ? address : undefined,
-          notes: notes || undefined,
-          // Algeria: cash only — the API forces this server-side too.
+          order_type: snap.orderType,
+          table_number: snap.orderType === 'dine_in' ? snap.tableNumber : undefined,
+          customer_name: snap.orderType === 'delivery' ? snap.name : undefined,
+          customer_phone: snap.orderType === 'delivery' ? snap.phone : undefined,
+          delivery_address: snap.orderType === 'delivery' ? snap.address : undefined,
+          notes: snap.notes || undefined,
           payment_method: 'cash',
-          items: lines.map((l) => ({
+          items: snapshot.map((l) => ({
             product_id: l.product.id,
             quantity: l.qty,
             sauce_ids: l.sauces.map((s) => s.id),
@@ -173,17 +208,19 @@ export default function RegisterPage() {
           })),
         }),
       });
-      clear();
-      setActiveLineKey(null);
-      setMode('products');
-      setTableNumber(null); setName(''); setPhone(''); setAddress(''); setNotes('');
-      setFlash(t('register.sent_to_kitchen', { n: orderNumber(order.id) }));
+      // replace optimistic with authoritative (keep position, update id/meta)
+      removeOrder(optimisticId);
+      upsertOrder(real);
+      setFlash(t('register.sent_to_kitchen', { n: orderNumber(real.id) }));
       setTimeout(() => setFlash(''), 3500);
-      setTab('live');
-      refresh();
-      loadAll();
+      toast(t('register.sent_to_kitchen', { n: orderNumber(real.id) }), 'success');
     } catch (err) {
-      setErrors({ items: err instanceof Error ? err.message : t('register.error_generic') });
+      // rollback
+      removeOrder(optimisticId);
+      useCartStore.setState({ lines: snapshot });
+      const msg = err instanceof Error ? err.message : t('register.error_generic');
+      setErrors({ items: msg });
+      toast(msg, 'error');
     } finally {
       setPlacing(false);
     }

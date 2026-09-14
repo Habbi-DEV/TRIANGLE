@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { money } from '../../lib/format';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
+import { useToast } from '../ui/ToastProvider';
 import LocationPickerModal from './LocationPickerModal';
 import type { Order, OrderType, RestaurantTable } from '../../lib/types';
 
@@ -36,10 +37,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onPlaced: (order: Order) => void;
+  onRollback?: (optimisticId: number) => void;
 }
 
-export default function CartSheet({ open, onClose, onPlaced }: Props) {
+export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props) {
   const { t } = useLang();
+  const { toast } = useToast();
   const { lines, inc, dec, remove, clear } = useCartStore();
   const subtotal = useCartStore(selectSubtotal);
   const settings = useSettings();
@@ -102,30 +105,70 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
 
   const placeOrder = async () => {
     if (!validate()) return;
-    // Asked here (not on page load) so it's tied to a real click and to a
-    // moment that actually explains why: they're placing an order we could
-    // notify them about. Fire-and-forget — doesn't block submission, and a
-    // "default" (undecided) check means we never re-prompt after a Block.
+    if (placing) return;
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
+
+    // ---- Optimistic UI (0ms) ----
+    const snapshot = [...lines];
+    const snapTable = tableNumber;
+    const snapName = name, snapPhone = phone, snapAddress = address, snapNotes = notes, snapCoords = coords ? { ...coords } : null;
+    const optimisticId = -Math.floor(Date.now());
+    const optimisticOrder: Order = {
+      id: optimisticId,
+      order_type: orderType,
+      status: 'pending',
+      table_number: orderType === 'dine_in' ? tableNumber : null,
+      customer_name: orderType === 'delivery' ? name : null,
+      customer_phone: orderType === 'delivery' ? phone : null,
+      delivery_address: orderType === 'delivery' ? address : null,
+      delivery_lat: coords?.lat ?? null,
+      delivery_lng: coords?.lng ?? null,
+      notes: notes || null,
+      subtotal,
+      delivery_fee: deliveryFee,
+      total,
+      payment_method: 'cash',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      items: snapshot.map((l, i) => {
+        const unit = l.product.price + l.sauces.reduce((n, s) => n + s.price, 0) + l.supplements.reduce((n, s) => n + s.price, 0);
+        return {
+          id: optimisticId * 1000 - i,
+          order_id: optimisticId,
+          product_id: l.product.id,
+          product_name: l.product.name,
+          unit_price: unit,
+          quantity: l.qty,
+          line_total: Math.round(unit * l.qty * 100) / 100,
+          sauces: l.sauces.map((s) => ({ name: s.name, price: s.price })),
+          supplements: l.supplements.map((s) => ({ name: s.name, price: s.price })),
+        };
+      }),
+    } as Order;
+
+    // instant close + tracker
+    clear();
+    onClose();
+    onPlaced(optimisticOrder);
     setPlacing(true);
     setServerError('');
+
     try {
-      const order = await api<Order>('/api/orders', {
+      const real = await api<Order>('/api/orders', {
         method: 'POST',
         body: JSON.stringify({
           order_type: orderType,
-          table_number: orderType === 'dine_in' ? tableNumber : undefined,
-          customer_name: orderType === 'delivery' ? name : undefined,
-          customer_phone: orderType === 'delivery' ? phone : undefined,
-          delivery_address: orderType === 'delivery' ? address : undefined,
-          delivery_lat: orderType === 'delivery' ? coords?.lat : undefined,
-          delivery_lng: orderType === 'delivery' ? coords?.lng : undefined,
-          notes: notes || undefined,
-          // Algeria: cash only — the API forces this server-side too.
+          table_number: orderType === 'dine_in' ? snapTable : undefined,
+          customer_name: orderType === 'delivery' ? snapName : undefined,
+          customer_phone: orderType === 'delivery' ? snapPhone : undefined,
+          delivery_address: orderType === 'delivery' ? snapAddress : undefined,
+          delivery_lat: orderType === 'delivery' ? snapCoords?.lat : undefined,
+          delivery_lng: orderType === 'delivery' ? snapCoords?.lng : undefined,
+          notes: snapNotes || undefined,
           payment_method: 'cash',
-          items: lines.map((l) => ({
+          items: snapshot.map((l) => ({
             product_id: l.product.id,
             quantity: l.qty,
             sauce_ids: l.sauces.map((s) => s.id),
@@ -133,11 +176,17 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
           })),
         }),
       });
-      clear();
-      onClose();
-      onPlaced(order);
+      // replace optimistic with authoritative
+      onPlaced(real);
+      toast(t('shop.order_placed'), 'success');
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : t('cart.error_generic'));
+      // rollback
+      onRollback?.(optimisticId);
+      // restore cart
+      useCartStore.setState({ lines: snapshot });
+      const msg = err instanceof Error ? err.message : t('cart.error_generic');
+      toast(msg, 'error');
+      setServerError(msg);
     } finally {
       setPlacing(false);
     }
