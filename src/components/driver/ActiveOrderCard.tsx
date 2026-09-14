@@ -51,6 +51,11 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // Delivery proof: the customer sees a 4-digit code in their tracker; the
+  // driver must ask for it at the door and type it here to close the order.
+  // The API rejects 'delivered' without the matching code (fake-delivery
+  // prevention) — and the code is never sent to the driver app itself.
+  const [otp, setOtp] = useState('');
   const status = order.delivery_status ?? 'unassigned';
   const stepIndex = deliveryStepIndex(status);
   const action = nextDriverAction(status);
@@ -62,9 +67,17 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
 
   const advance = async () => {
     if (!action) return;
+    if (action === 'delivered' && otp.trim().length !== 4) {
+      alert(t('driver.otp_required'));
+      return;
+    }
     setBusy(true);
     try {
-      await api('/api/driver-orders', { method: 'PUT', body: JSON.stringify({ id: order.id, action }) });
+      await api('/api/driver-orders', {
+        method: 'PUT',
+        body: JSON.stringify({ id: order.id, action, ...(action === 'delivered' ? { otp: otp.trim() } : {}) }),
+      });
+      setOtp('');
       onUpdated();
     } catch (err) {
       alert(err instanceof Error ? err.message : t('driver.update_failed'));
@@ -142,6 +155,19 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
           >
             <Phone size={20} /> {t('driver.call')}
           </a>
+        )}
+        {action === 'delivered' && (
+          <div className="rounded-xl bg-amber-50 driver-dark:bg-amber-900/20 px-4 py-3 ring-1 ring-amber-200 driver-dark:ring-amber-800">
+            <p className="text-xs font-bold text-amber-800 driver-dark:text-amber-300">{t('driver.otp_hint')}</p>
+            <input
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="••••"
+              className="mt-1.5 w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-center font-display text-xl font-extrabold tracking-[0.5em] text-zinc-900 outline-none focus:border-brand-500"
+            />
+          </div>
         )}
         {action && (
           <button

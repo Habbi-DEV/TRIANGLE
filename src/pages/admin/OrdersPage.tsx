@@ -206,6 +206,13 @@ export default function OrdersPage() {
                     )}
                   </p>
                 )}
+                {/* Phone support: relay the delivery code to the customer if
+                    they lost their tracker (staff-only screen). */}
+                {o.order_type === 'delivery' && o.delivery_status === 'on_the_way' && Boolean(o.delivery_otp) && (
+                  <p className="mt-1.5 text-[11px] font-bold text-zinc-500">
+                    {t('driver.delivery_code')}: <span className="tracking-[0.3em] text-zinc-800">{o.delivery_otp}</span>
+                  </p>
+                )}
 
                 {(action || cancellable) && (
                   <div className="mt-3 flex gap-2">

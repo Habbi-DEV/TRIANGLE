@@ -260,6 +260,9 @@ const dict: Record<Lang, Record<string, string>> = {
     'driver.cancel_order.cancelling': 'Annulation…',
     'driver.cancel_order.back': 'Retour',
     'driver.cancel_order.success': 'Commande annulée.',
+    'driver.otp_hint': 'Demandez au client son code à 4 chiffres, puis tapez-le ici pour clôturer la livraison.',
+    'driver.otp_required': 'Tapez le code à 4 chiffres donné par le client.',
+    'driver.delivery_code': 'Code de livraison à communiquer au livreur',
 
     // Driver — online/offline status
     'driver.online': 'En ligne',
@@ -736,6 +739,9 @@ const dict: Record<Lang, Record<string, string>> = {
     'driver.cancel_order.cancelling': 'جارٍ الإلغاء…',
     'driver.cancel_order.back': 'رجوع',
     'driver.cancel_order.success': 'تم إلغاء الطلبية.',
+    'driver.otp_hint': 'اطلب من الزبون رمزه المكون من 4 أرقام ثم أدخله هنا لإتمام التوصيل.',
+    'driver.otp_required': 'أدخل الرمز المكون من 4 أرقام الذي يعطيك إياه الزبون.',
+    'driver.delivery_code': 'رمز التسليم — أعطه للسائق عند الاستلام',
 
     // Driver — online/offline status
     'driver.online': 'متصل',

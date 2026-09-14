@@ -105,6 +105,15 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
               </p>
             )}
 
+            {/* Delivery proof: the driver will ask for this code at the door.
+                 Shown for delivery orders still in progress only. */}
+            {order.order_type === 'delivery' && !cancelled && order.delivery_otp && (
+              <div className="mt-4 rounded-2xl bg-zinc-900 px-4 py-4 text-center text-white">
+                <p className="text-xs font-semibold text-zinc-400">{t('driver.delivery_code')}</p>
+                <p className="mt-1 font-display text-3xl font-extrabold tracking-[0.4em]">{order.delivery_otp}</p>
+              </div>
+            )}
+
             <div className="mt-8 flex-1">
               {steps.map((s, i) => {
                 const done = i <= currentIdx;

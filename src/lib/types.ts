@@ -157,6 +157,11 @@ export interface Order {
    *  Stored in localStorage, sent back as ?order_token= so the customer can
    *  track their own order without any login. Never rendered. */
   order_token?: string;
+  /** 4-digit delivery proof shown to the customer in their tracker. The
+   *  driver must ask for it at the door; the API requires it to close a
+   *  delivery. Stripped from every driver-app response (the driver must
+   *  never read it from the API), visible to staff for phone support. */
+  delivery_otp?: string | null;
 }
 
 export interface InventoryLog {

@@ -51,12 +51,24 @@ const TRANSITIONS = {
 
 async function attachItems(orders) {
   const ids = (orders || []).map((o) => o.id);
-  if (!ids.length) return orders || [];
+  if (!ids.length) return stripSecrets(orders || []);
   const { data: items } = await supabase
     .from('order_items').select('*').in('order_id', ids).order('id');
   const byOrder = {};
   for (const it of items || []) (byOrder[it.order_id] ||= []).push(it);
-  return orders.map((o) => ({ ...o, items: byOrder[o.id] || [] }));
+  return stripSecrets(orders.map((o) => ({ ...o, items: byOrder[o.id] || [] })));
+}
+
+// SECURITY: the driver must get the delivery code FROM THE CUSTOMER (asked
+// verbally at the door), never from the API — otherwise they could read it
+// and self-approve a fake delivery. access_token is the customer's tracking
+// secret for the same reason. Both are stripped from every response here;
+// the server still checks them on write (delivered action + push subscribe).
+function stripSecrets(orders) {
+  return (orders || []).map((o) => {
+    const { delivery_otp: _otp, access_token: _tok, ...safe } = o;
+    return safe;
+  });
 }
 
 // Same behaviour as api/orders.js's staff-cancel path — this cancel comes
@@ -197,7 +209,8 @@ export default async function handler(req, res) {
 
         await restoreStockForCancelledOrder(existing);
 
-        return res.status(200).json(data);
+        const { delivery_otp: _c1, access_token: _c2, ...safeCancelled } = data || {};
+        return res.status(200).json(safeCancelled);
       }
 
       const transition = TRANSITIONS[action];
@@ -256,7 +269,8 @@ export default async function handler(req, res) {
         await broadcastDriverEvent(DRIVER_EVENTS.TAKEN, data.id);
       }
 
-      return res.status(200).json(data);
+      const { delivery_otp: _o1, access_token: _o2, ...safeOrder } = data || {};
+      return res.status(200).json(safeOrder);
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
