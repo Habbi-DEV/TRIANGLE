@@ -57,7 +57,14 @@ export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 40
         .on('broadcast', { event: 'order_removed' }, refresh);
     }
 
-    channel.subscribe();
+    // CSP or a restrictive in-app browser can make `new WebSocket()` throw
+    // synchronously here (Safari iOS: "The operation is insecure"). That must
+    // never white-screen the app — the poll interval above is a full fallback.
+    try {
+      channel.subscribe();
+    } catch (err) {
+      console.error('[driver-orders] realtime unavailable, polling fallback active:', err);
+    }
 
     // See lib/driverBus.ts: closes the "accept doesn't show under En cours
     // until I refresh" gap for the 'mine' scope, instantly, same-tab.

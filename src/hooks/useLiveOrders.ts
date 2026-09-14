@@ -27,15 +27,26 @@ export default function useLiveOrders(limit = 40, pollMs = 5000) {
     refresh();
     const iv = setInterval(refresh, pollMs);
 
-    const channel = supabase
-      .channel('restolink-orders-feed')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, refresh)
-      .subscribe();
+    // Same protection as useDriverOrders: a synchronously-throwing
+    // subscribe (blocked WebSocket) must not crash the page — polling covers it.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel('restolink-orders-feed')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, refresh);
+      channel.subscribe();
+    } catch (err) {
+      console.error('[live-orders] realtime unavailable, polling fallback active:', err);
+    }
 
     return () => {
       clearInterval(iv);
-      supabase.removeChannel(channel);
+      try {
+        if (channel) supabase.removeChannel(channel);
+      } catch {
+        /* already torn down */
+      }
     };
   }, [refresh, pollMs]);
 
