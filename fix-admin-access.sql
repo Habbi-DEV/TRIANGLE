@@ -19,8 +19,16 @@
 -- STEP 5 (second most common cause): RLS blocks the frontend reading its own role.
 -- AuthContext does: select role from profiles where id = auth.uid().
 -- Without this policy it gets null -> dashboard loads but every /api returns 403.
-create policy if not exists profiles_select_own on public.profiles
-  for select to authenticated using (auth.uid() = id);
+-- NOTE: CREATE POLICY has no IF NOT EXISTS in Postgres -> guarded DO block.
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'profiles' and policyname = 'profiles_select_own'
+  ) then
+    create policy profiles_select_own on public.profiles
+      for select to authenticated using (auth.uid() = id);
+  end if;
+end $$;
 -- Allow a user to read is_online of self too (driver toggle):
 -- (covered by the same policy above)
 
