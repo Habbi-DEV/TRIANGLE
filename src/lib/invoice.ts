@@ -164,7 +164,7 @@ function buildReceiptHtml(order: Order, withBackButton: boolean): string {
 </style>
 </head>
 <body>
-  ${withBackButton ? `<div class="top-bar"><button class="back-btn" onclick="window.close()">🔙 ${L.back}</button></div>` : ''}
+  ${withBackButton ? `<div class="top-bar"><button type="button" class="back-btn" id="tri-back-btn">🔙 ${L.back}</button></div>` : ''}
   <div class="brand">
     <div class="logo-wrap">
       ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="" />` : '<span class="logo-emoji">🍽️</span>'}
@@ -216,7 +216,22 @@ function openReceiptWindow(html: string): Window | null {
   win.document.open();
   win.document.write(html);
   win.document.close();
-  win.focus();
+  // FIX: inline onclick="window.close()" is blocked by CSP (script-src 'self')
+  // and window.close() itself is blocked in many mobile/PWA contexts.
+  // Attach the handler from the opener side (bypasses CSP) and add robust
+  // fallbacks: try close -> if still open, navigate to / or go back.
+  try {
+    const btn = win.document.getElementById('tri-back-btn') as HTMLButtonElement | null;
+    if (btn) {
+      btn.addEventListener('click', () => {
+        try { win.close(); } catch { /* ignore */ }
+        setTimeout(() => {
+          try { if (!win.closed) win.location.href = '/'; } catch { /* cross-origin */ }
+        }, 350);
+      });
+    }
+  } catch { /* opener access blocked — back button will be inert, but receipt still shows */ }
+  try { win.focus(); } catch { /* ignore */ }
   return win;
 }
 
