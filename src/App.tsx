@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './lib/i18n';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleGuard from './components/RoleGuard';
 import MenuPage from './pages/MenuPage';
 import LoginPage from './pages/LoginPage';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -42,24 +43,25 @@ export default function App() {
           <Route path="/" element={<MenuPage />} />
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Staff dashboard — desktop-first, responsive */}
+          {/* Staff dashboard — one shell (/admin), nav + routes filtered by role.
+              Each child is additionally guarded so a direct URL can't bypass the nav filter. */}
           <Route
             path="/admin"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['admin', 'cashier', 'kitchen']}>
                 <AdminLayout />
               </ProtectedRoute>
             }
           >
-            <Route index element={<DashboardPage />} />
-            <Route path="register" element={<RegisterPage />} />
-            <Route path="orders" element={<OrdersPage />} />
-            <Route path="menu" element={<MenuManagePage />} />
-            <Route path="tables" element={<TablesPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
-            <Route path="schema" element={<SchemaPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="staff" element={<StaffPage />} />
+            <Route index element={<RoleGuard allowedRoles={['admin', 'cashier', 'kitchen']}><DashboardPage /></RoleGuard>} />
+            <Route path="register" element={<RoleGuard allowedRoles={['admin', 'cashier']}><RegisterPage /></RoleGuard>} />
+            <Route path="orders" element={<RoleGuard allowedRoles={['admin', 'cashier', 'kitchen']}><OrdersPage /></RoleGuard>} />
+            <Route path="menu" element={<RoleGuard allowedRoles={['admin']}><MenuManagePage /></RoleGuard>} />
+            <Route path="tables" element={<RoleGuard allowedRoles={['admin', 'cashier']}><TablesPage /></RoleGuard>} />
+            <Route path="inventory" element={<RoleGuard allowedRoles={['admin', 'kitchen']}><InventoryPage /></RoleGuard>} />
+            <Route path="schema" element={<RoleGuard allowedRoles={['admin']}><SchemaPage /></RoleGuard>} />
+            <Route path="settings" element={<RoleGuard allowedRoles={['admin']}><SettingsPage /></RoleGuard>} />
+            <Route path="staff" element={<RoleGuard allowedRoles={['admin']}><StaffPage /></RoleGuard>} />
           </Route>
 
           {/* Delivery Driver Dashboard — mobile-first, separate shell from /admin */}

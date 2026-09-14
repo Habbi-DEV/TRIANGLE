@@ -19,13 +19,18 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [googleBusy, setGoogleBusy] = useState(false);
 
-  // Wait until the profile's role has actually loaded before redirecting —
-  // navigating straight to /admin as soon as `user` exists (the old
-  // behaviour) always won 'the race' against role loading, so a
-  // delivery_driver account never got routed anywhere but /admin.
+  // Role-aware landing: delivery_driver -> /driver, everyone else -> /admin.
+  // /admin's own nav is then filtered by role (see AdminLayout) so each role
+  // lands on a useful page; if you want a per-role landing (e.g. kitchen ->
+  // /admin/orders) add it here. For now the layout's auto-selection is enough.
   useEffect(() => {
     if (!user || loading) return;
-    navigate(role === 'delivery_driver' ? '/driver' : '/admin', { replace: true });
+    // Don't redirect until the role has resolved — navigating on `user` alone
+    // races the profiles fetch and always lands on /admin for a moment.
+    if (role === null && !loading) return;
+    if (role === 'delivery_driver') navigate('/driver', { replace: true });
+    else if (role === 'pending' || role === null) return; // stays on /login, ProtectedRoute will explain
+    else navigate('/admin', { replace: true });
   }, [user, role, loading, navigate]);
 
   const submit = async (e: React.FormEvent) => {

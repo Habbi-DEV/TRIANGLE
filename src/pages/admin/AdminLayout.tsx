@@ -17,24 +17,21 @@ import { secureSignOut } from '../../lib/security';
 import { orderNumber } from '../../lib/format';
 import type { Stats } from '../../lib/types';
 
-const NAV = [
-  { to: '/admin', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true },
-  { to: '/admin/register', labelKey: 'nav.register', icon: ShoppingCart, end: false },
-  { to: '/admin/orders', labelKey: 'nav.orders', icon: ReceiptText, end: false, badge: true },
-  { to: '/admin/menu', labelKey: 'nav.menu', icon: UtensilsCrossed, end: false },
-  { to: '/admin/tables', labelKey: 'nav.tables', icon: Armchair, end: false },
-  { to: '/admin/inventory', labelKey: 'nav.inventory', icon: Package, end: false },
-  { to: '/admin/schema', labelKey: 'nav.schema', icon: Database, end: false },
-  // Admin-only in practice: /api/settings PUT is guarded server-side by
-  // requireAdmin (api/settings.js). There's no client-side role in
-  // AuthContext yet to hide this link for non-admin staff, so any staff
-  // member can open the page but only admins can actually save changes.
-  { to: '/admin/settings', labelKey: 'nav.settings', icon: Settings, end: false },
-  // Admin-only, and unlike the link above we CAN hide it client-side: the
-  // page lists every teammate's email, so it's only shown when `role`
-  // (from AuthContext) is 'admin'. /api/staff still enforces this itself.
-  { to: '/admin/staff', labelKey: 'nav.staff', icon: UsersRound, end: false, adminOnly: true },
+type NavItem = { to: string; labelKey: string; icon: React.ComponentType<{ size?: number; className?: string }>; end?: boolean; badge?: boolean; roles: Array<'admin' | 'cashier' | 'kitchen'> };
+
+const NAV: NavItem[] = [
+  { to: '/admin', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true, roles: ['admin', 'cashier', 'kitchen'] },
+  { to: '/admin/register', labelKey: 'nav.register', icon: ShoppingCart, roles: ['admin', 'cashier'] },
+  { to: '/admin/orders', labelKey: 'nav.orders', icon: ReceiptText, badge: true, roles: ['admin', 'cashier', 'kitchen'] },
+  { to: '/admin/menu', labelKey: 'nav.menu', icon: UtensilsCrossed, roles: ['admin'] },
+  { to: '/admin/tables', labelKey: 'nav.tables', icon: Armchair, roles: ['admin', 'cashier'] },
+  { to: '/admin/inventory', labelKey: 'nav.inventory', icon: Package, roles: ['admin', 'kitchen'] },
+  { to: '/admin/schema', labelKey: 'nav.schema', icon: Database, roles: ['admin'] },
+  { to: '/admin/settings', labelKey: 'nav.settings', icon: Settings, roles: ['admin'] },
+  { to: '/admin/staff', labelKey: 'nav.staff', icon: UsersRound, roles: ['admin'] },
 ];
+
+const ROLE_LABEL: Record<string, string> = { admin: 'Admin', cashier: 'Caissier', kitchen: 'Cuisine' };
 
 function Brand() {
   const settings = useSettings();
@@ -56,7 +53,7 @@ export default function AdminLayout() {
   const { user, role } = useAuth();
   const { t } = useLang();
   const settings = useSettings();
-  const nav = NAV.filter((n) => !n.adminOnly || role === 'admin');
+  const nav = NAV.filter((n) => (n.roles as string[]).includes(role as string));
   // Real active-order total from /api/stats, not a count over the latest
   // 60 fetched orders — that cap meant the badge silently stopped
   // climbing once there were more than 60 orders in play.
@@ -192,7 +189,7 @@ export default function AdminLayout() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-white">{user?.email}</p>
-            <p className="text-[10px] text-zinc-500">{t('nav.administrator')}</p>
+            <p className="text-[10px] font-semibold tracking-wide text-brand-400">{ROLE_LABEL[role as string] ?? t('nav.administrator')}</p>
           </div>
           <button onClick={signOut} className="text-zinc-500 transition hover:text-red-400" aria-label={t('nav.sign_out')}>
             <LogOut size={16} />
