@@ -92,7 +92,8 @@ export default function DriverLayout() {
   }, []);
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    const { secureSignOut } = await import('../../lib/security');
+    await secureSignOut(supabase);
     navigate('/login', { replace: true });
   };
 

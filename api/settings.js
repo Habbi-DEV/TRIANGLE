@@ -1,65 +1,75 @@
 import supabase from './_lib/db-client.js';
 import { setCors, requireAdmin } from './_lib/auth.js';
+import { internalError, cleanText, isSafeImageUrl, audit } from './_lib/validate.js';
+
+// Public fields only (FIX H5: SELECT * leaked future secret columns)
+const PUBLIC_FIELDS = 'id, restaurant_name, logo_url, address, phone, contact_email, opening_hours, brand_color, delivery_fee, delivery_min_order, all_category_image_url';
 
 export default async function handler(req, res) {
   setCors(req, res, 'GET, PUT, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    // ------------------------------------------------------------- GET
-    // Public: the customer e-menu reads name/logo/hours/currency, and the
-    // admin Settings page reads the full row to populate its form.
     if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('settings').select('*').eq('id', 1).single();
-      if (error) throw error;
+      const { data, error } = await supabase.from('settings').select(PUBLIC_FIELDS).eq('id', 1).single();
+      if (error) return internalError(res, error, 'settings GET');
       return res.status(200).json(data);
     }
 
-    // ------------------------------------------------------------- PUT
-    // Admin only: settings are app-wide config, not a per-staff-role action.
     if (req.method === 'PUT') {
-      if (!(await requireAdmin(req, res))) return;
-
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const body = req.body || {};
       const fields = {};
 
-      // Strings — trimmed, empty string allowed (e.g. clearing the logo).
       for (const key of ['restaurant_name', 'address', 'phone', 'contact_email', 'opening_hours', 'logo_url', 'brand_color', 'all_category_image_url']) {
-        if (body[key] != null) fields[key] = String(body[key]).trim();
+        if (body[key] != null) {
+          const v = cleanText(String(body[key]), key.includes('logo') || key.includes('url') ? 2000 : 300);
+          fields[key] = v || '';
+        }
+      }
+      // Strong validation (FIX M6)
+      if (fields.logo_url && !isSafeImageUrl(fields.logo_url)) {
+        return res.status(400).json({ error: 'Invalid logo_url (https only)' });
+      }
+      if (fields.all_category_image_url && !isSafeImageUrl(fields.all_category_image_url)) {
+        return res.status(400).json({ error: 'Invalid category image url' });
+      }
+      if (fields.brand_color && !/^#[0-9a-fA-F]{6}$/.test(fields.brand_color)) {
+        return res.status(400).json({ error: 'brand_color must be #rrggbb' });
+      }
+      if (fields.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(fields.contact_email)) {
+        return res.status(400).json({ error: 'Invalid contact_email' });
+      }
+      if (fields.phone && !/^\+?[\d\s-]{6,20}$/.test(fields.phone)) {
+        return res.status(400).json({ error: 'Invalid phone' });
       }
 
       for (const key of ['delivery_fee', 'delivery_min_order']) {
         if (body[key] != null) {
           const n = Number(body[key]);
-          if (isNaN(n) || n < 0) return res.status(400).json({ error: `${key} must be a non-negative number` });
+          if (!Number.isFinite(n) || n < 0 || n > 100000) return res.status(400).json({ error: `${key} must be 0..100000` });
           fields[key] = Math.round(n * 100) / 100;
         }
       }
-
       if (body.low_stock_threshold != null) {
         const n = parseInt(body.low_stock_threshold, 10);
-        if (isNaN(n) || n < 0) return res.status(400).json({ error: 'low_stock_threshold must be a non-negative integer' });
+        if (!Number.isInteger(n) || n < 0 || n > 100000) return res.status(400).json({ error: 'low_stock_threshold invalid' });
         fields.low_stock_threshold = n;
       }
-
       for (const key of ['new_order_sound_enabled']) {
         if (body[key] != null) fields[key] = Boolean(body[key]);
       }
+      if (Object.keys(fields).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
-      if (Object.keys(fields).length === 0) {
-        return res.status(400).json({ error: 'No valid fields to update' });
-      }
-
-      const { data, error } = await supabase
-        .from('settings').update(fields).eq('id', 1).select().single();
-      if (error) throw error;
+      const { data, error } = await supabase.from('settings').update(fields).eq('id', 1).select().single();
+      if (error) return internalError(res, error, 'settings PUT');
+      await audit(supabase, { actorId: admin.id, action: 'settings.update', entity: 'settings', entityId: 1, meta: { fields: Object.keys(fields) } });
       return res.status(200).json(data);
     }
 
     res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('settings API error:', err);
-    res.status(500).json({ error: err.message });
+    return internalError(res, err, 'settings API error');
   }
 }

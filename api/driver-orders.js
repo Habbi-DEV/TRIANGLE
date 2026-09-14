@@ -1,6 +1,7 @@
 import supabase from './_lib/db-client.js';
 import { setCors, requireAuth } from './_lib/auth.js';
 import { broadcastDriverEvent, DRIVER_EVENTS } from './_lib/broadcast.js';
+import { internalError, cleanText } from './_lib/validate.js';
 
 // Only these two roles may use the driver endpoints. Admins are included so
 // staff can test/support the flow from an admin account without needing a
@@ -121,11 +122,14 @@ export default async function handler(req, res) {
           return res.status(200).json([]);
         }
 
+        // FIX H5 privacy: mask PII until accept. Available list shows zone/total
+        // only — exact address/phone/lat-lng revealed after claim (scope=mine).
         const { data, error } = await supabase
-          .from('orders').select('*').eq('order_type', 'delivery')
+          .from('orders').select('id, order_type, status, subtotal, total, delivery_fee, created_at, delivery_status, driver_id')
+          .eq('order_type', 'delivery')
           .eq('status', 'ready').is('driver_id', null).eq('delivery_status', 'unassigned')
           .order('created_at', { ascending: false }).limit(50);
-        if (error) throw error;
+        if (error) return internalError(res, error, '[api/driver-orders] available');
         return res.status(200).json(await attachItems(data || []));
       }
 
@@ -175,7 +179,7 @@ export default async function handler(req, res) {
           return res.status(409).json({ error: 'This order can no longer be cancelled — refresh your list.' });
         }
 
-        const cleanNote = typeof note === 'string' ? note.trim().slice(0, 300) : '';
+        const cleanNote = cleanText(note, 300) || '';
         const cancel_reason = cleanNote
           ? `${CANCEL_REASON_LABEL[reason]}: ${cleanNote}`
           : CANCEL_REASON_LABEL[reason];
@@ -199,6 +203,15 @@ export default async function handler(req, res) {
       const transition = TRANSITIONS[action];
       if (!id || !transition) {
         return res.status(400).json({ error: 'Invalid id or action' });
+      }
+
+      // NEW (20y exp): fake-delivery prevention — delivered requires customer OTP.
+      if (action === 'delivered') {
+        const { data: check } = await supabase.from('orders').select('id, delivery_otp, driver_id').eq('id', Number(id)).single();
+        if (!check || check.driver_id !== user.id) return res.status(404).json({ error: 'Order not found' });
+        if (check.delivery_otp && String(req.body?.otp) !== String(check.delivery_otp)) {
+          return res.status(403).json({ error: 'Delivery code required — ask the customer for the 4-digit code' });
+        }
       }
 
       const patch = {
@@ -248,7 +261,6 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('[api/driver-orders]', err);
-    return res.status(500).json({ error: err.message || 'Internal error' });
+    return internalError(res, err, '[api/driver-orders]');
   }
 }

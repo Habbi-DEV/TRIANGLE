@@ -116,7 +116,8 @@ export default function AdminLayout() {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    const { secureSignOut } = await import('../../lib/security');
+    await secureSignOut(supabase);
     navigate('/login');
   };
 

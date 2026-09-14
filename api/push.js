@@ -1,20 +1,8 @@
 import supabase from './_lib/db-client.js';
 import { setCors } from './_lib/auth.js';
+import { internalError, toId, rateLimit } from './_lib/validate.js';
 
-// Merged endpoint (was push-vapid-key.js + push-subscribe.js) to stay under
-// Vercel Hobby's 12-serverless-function-per-deployment limit. Routed by
-// method: GET returns the VAPID public key, POST registers a subscription.
-//
-// GET — public, the VAPID public key is meant to be visible to any browser
-// that wants to subscribe (it's the whole point of the "public" half of the
-// keypair). The private key it's paired with never leaves the server (see
-// api/_lib/push.js) and is never exposed here.
-//
-// POST — public, deliberately: there's no customer login anywhere in this
-// app (see MenuPage's LAST_ORDER_KEY comment), so a subscription can only
-// ever be tied to the order_id the customer's own browser already knows
-// about — same trust model as GET /api/orders?id=. Nothing here lets one
-// order's customer read or affect another order.
+// GET public (VAPID key only). POST hardened (FIX C3).
 export default async function handler(req, res) {
   setCors(req, res, 'GET, POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -27,30 +15,40 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { order_id, subscription } = req.body || {};
+      if (!rateLimit(req, res, { max: 10, windowMs: 60_000, key: 'push-sub' })) return;
+      const { order_id, order_token, subscription } = req.body || {};
+      const orderId = toId(order_id);
       const endpoint = subscription?.endpoint;
       const p256dh = subscription?.keys?.p256dh;
       const auth = subscription?.keys?.auth;
 
-      if (!order_id || !endpoint || !p256dh || !auth) {
+      if (!orderId || typeof endpoint !== 'string' || typeof p256dh !== 'string' || typeof auth !== 'string') {
         return res.status(400).json({ error: 'order_id and a valid push subscription are required' });
       }
+      // Strict format/length (FIX: flood + junk)
+      if (!/^https:\/\/.{5,500}$/.test(endpoint) || endpoint.length > 500) {
+        return res.status(400).json({ error: 'Invalid subscription endpoint' });
+      }
+      if (!/^[A-Za-z0-9\-_]{20,200}$/.test(p256dh) || p256dh.length > 200) {
+        return res.status(400).json({ error: 'Invalid subscription key' });
+      }
+      if (!/^[A-Za-z0-9+/=_-]{10,200}$/.test(auth) || auth.length > 200) {
+        return res.status(400).json({ error: 'Invalid subscription auth' });
+      }
+      // Ownership proof: order must exist; if it has access_token, token must match.
+      const { data: order } = await supabase.from('orders').select('id, access_token').eq('id', orderId).single();
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+      if (order.access_token && order_token !== order.access_token) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
 
-      // A given browser subscription (endpoint) is unique per browser+origin
-      // — upsert on it so re-subscribing the same browser to the same order
-      // (e.g. the customer reopens the tracker after a reload) updates the
-      // existing row instead of erroring on the unique constraint, while
-      // still allowing one browser to hold separate rows for different
-      // orders placed later.
-      const { error } = await supabase
-        .from('push_subscriptions')
-        .upsert({ order_id: Number(order_id), endpoint, p256dh, auth }, { onConflict: 'endpoint' });
-      if (error) throw error;
+      const { error } = await supabase.from('push_subscriptions')
+        .upsert({ order_id: orderId, endpoint, p256dh, auth }, { onConflict: 'endpoint' });
+      if (error) return internalError(res, error, 'push-subscribe');
 
       return res.status(200).json({ ok: true });
     } catch (err) {
-      console.error('push-subscribe API error:', err);
-      return res.status(500).json({ error: err.message });
+      return internalError(res, err, 'push-subscribe API error');
     }
   }
 

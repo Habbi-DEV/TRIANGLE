@@ -27,27 +27,17 @@ export default function LocationPickerModal({ open, onClose, onConfirm, initial 
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
 
-  // On open: keep an explicit pin if the customer already picked one
-  // earlier in this checkout, otherwise try to center on their current
-  // position (best-effort — a denied/failed permission just leaves the
-  // default center, still fully usable via drag).
+  // PRIVACY FIX: no auto-geolocation on open. The browser prompt used to fire
+  // just by opening the map. Now we keep the default center until the customer
+  // explicitly taps "use my location" (useMyLocation below).
   useEffect(() => {
     if (!open) return;
     setError('');
     if (initial) {
       setPosition([initial.lat, initial.lng]);
-      return;
+    } else {
+      setPosition(DEFAULT_CENTER);
     }
-    if (!('geolocation' in navigator)) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setPosition([pos.coords.latitude, pos.coords.longitude]);
-        setLocating(false);
-      },
-      () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 8000 },
-    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 

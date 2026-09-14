@@ -1,20 +1,14 @@
 import supabase from './_lib/db-client.js';
-import { setCors, requireStaff } from './_lib/auth.js';
+import { setCors, requireManager } from './_lib/auth.js';
+import { internalError, toId, audit } from './_lib/validate.js';
 
 const TABLE_STATUSES = ['available', 'occupied', 'reserved', 'cleaning'];
-// Mirrors the order lifecycle in api/orders.js: a dine-in order seats its
-// table on creation and frees it on completion/cancellation.
 const ACTIVE_ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
 
-/** Returns the id of the open dine-in order seated at this table, else null. */
 async function openOrderForTable(tableNumber) {
-  const { data } = await supabase
-    .from('orders')
-    .select('id')
-    .eq('table_number', tableNumber)
-    .eq('order_type', 'dine_in')
-    .in('status', ACTIVE_ORDER_STATUSES)
-    .limit(1);
+  const { data } = await supabase.from('orders').select('id')
+    .eq('table_number', tableNumber).eq('order_type', 'dine_in')
+    .in('status', ACTIVE_ORDER_STATUSES).limit(1);
   return data && data.length > 0 ? data[0].id : null;
 }
 
@@ -24,81 +18,87 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('tables')
-        .select('*')
-        .order('table_number', { ascending: true });
-      if (error) throw error;
+      // FIX: tables reveal live occupancy -> manager only.
+      // If e-menu needs table list, expose ?public=1 returning only numbers (no status).
+      if (req.query.public === '1') {
+        const { data, error } = await supabase.from('tables').select('table_number').order('table_number');
+        if (error) return internalError(res, error, 'tables public GET');
+        return res.status(200).json((data || []).map((t) => t.table_number));
+      }
+      const staff = await requireManager(req, res);
+      if (!staff) return;
+      const { data, error } = await supabase.from('tables').select('*').order('table_number', { ascending: true });
+      if (error) return internalError(res, error, 'tables GET');
       return res.status(200).json(data);
     }
 
     if (req.method === 'POST') {
-      if (!(await requireStaff(req, res))) return;
-      const { table_number, seats } = req.body || {};
-      if (!table_number || isNaN(Number(table_number))) {
-        return res.status(400).json({ error: 'A valid table number is required' });
-      }
-      const { data, error } = await supabase
-        .from('tables')
-        .insert({ table_number: Number(table_number), seats: Number(seats) || 2, status: 'available' })
-        .select()
-        .single();
-      if (error) throw error;
+      const staff = await requireManager(req, res);
+      if (!staff) return;
+      const tn = Number(req.body?.table_number);
+      const seats = Number(req.body?.seats) || 2;
+      if (!Number.isInteger(tn) || tn < 1 || tn > 500) return res.status(400).json({ error: 'table_number must be 1..500' });
+      if (!Number.isInteger(seats) || seats < 1 || seats > 50) return res.status(400).json({ error: 'seats must be 1..50' });
+      const { data, error } = await supabase.from('tables')
+        .insert({ table_number: tn, seats, status: 'available' }).select().single();
+      if (error) return internalError(res, error, 'tables POST');
+      await audit(supabase, { actorId: staff.id, action: 'table.create', entity: 'tables', entityId: data.id });
       return res.status(201).json(data);
     }
 
     if (req.method === 'PUT') {
-      if (!(await requireStaff(req, res))) return;
+      const staff = await requireManager(req, res);
+      if (!staff) return;
       const { id, status, seats, table_number } = req.body || {};
-      if (!id) return res.status(400).json({ error: 'id is required' });
+      const rowId = toId(id);
+      if (!rowId) return res.status(400).json({ error: 'Invalid id' });
       const fields = {};
       if (status != null) {
         if (!TABLE_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid table status' });
-        // Single source of truth: a table with an open order IS occupied —
-        // manual status flips are rejected until the order is closed
-        // (closing it frees the table automatically in api/orders.js).
-        const { data: tbl } = await supabase.from('tables').select('table_number').eq('id', Number(id)).single();
+        const { data: tbl } = await supabase.from('tables').select('table_number').eq('id', rowId).single();
         if (tbl) {
           const openId = await openOrderForTable(tbl.table_number);
-          if (openId != null) {
-            return res.status(409).json({ error: `Table has an open order (#${Number(openId) + 1000}) — complete or cancel it first` });
-          }
+          if (openId != null) return res.status(409).json({ error: 'Table has an open order — complete or cancel it first' });
         }
         fields.status = status;
       }
-      if (seats != null) fields.seats = Number(seats);
-      if (table_number != null) fields.table_number = Number(table_number);
-      const { data, error } = await supabase
-        .from('tables')
-        .update(fields)
-        .eq('id', Number(id))
-        .select()
-        .single();
-      if (error) throw error;
+      if (seats != null) {
+        if (!Number.isInteger(Number(seats)) || Number(seats) < 1 || Number(seats) > 50) {
+          return res.status(400).json({ error: 'Invalid seats (1..50)' });
+        }
+        fields.seats = Number(seats);
+      }
+      if (table_number != null) {
+        if (!Number.isInteger(Number(table_number)) || Number(table_number) < 1 || Number(table_number) > 500) {
+          return res.status(400).json({ error: 'Invalid table_number (1..500)' });
+        }
+        fields.table_number = Number(table_number);
+      }
+      if (!Object.keys(fields).length) return res.status(400).json({ error: 'No valid fields' });
+      const { data, error } = await supabase.from('tables').update(fields).eq('id', rowId).select().single();
+      if (error) return internalError(res, error, 'tables PUT');
+      await audit(supabase, { actorId: staff.id, action: 'table.update', entity: 'tables', entityId: rowId });
       return res.status(200).json(data);
     }
 
     if (req.method === 'DELETE') {
-      if (!(await requireStaff(req, res))) return;
-      const { id } = req.body || {};
-      // Deleting a seated table would leave its open order pointing at a
-      // table that no longer exists (and a recreated table would wrongly
-      // show "available") — refuse while an order is open.
-      const { data: tbl } = await supabase.from('tables').select('table_number').eq('id', Number(id)).single();
+      const staff = await requireManager(req, res);
+      if (!staff) return;
+      const rowId = toId(req.body?.id);
+      if (!rowId) return res.status(400).json({ error: 'Invalid id' });
+      const { data: tbl } = await supabase.from('tables').select('table_number').eq('id', rowId).single();
       if (tbl) {
         const openId = await openOrderForTable(tbl.table_number);
-        if (openId != null) {
-          return res.status(409).json({ error: `Table has an open order (#${Number(openId) + 1000}) — complete or cancel it first` });
-        }
+        if (openId != null) return res.status(409).json({ error: 'Table has an open order — complete or cancel it first' });
       }
-      const { error } = await supabase.from('tables').delete().eq('id', Number(id));
-      if (error) throw error;
+      const { error } = await supabase.from('tables').delete().eq('id', rowId);
+      if (error) return internalError(res, error, 'tables DELETE');
+      await audit(supabase, { actorId: staff.id, action: 'table.delete', entity: 'tables', entityId: rowId });
       return res.status(200).json({ ok: true });
     }
 
     res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('tables API error:', err);
-    res.status(500).json({ error: err.message });
+    return internalError(res, err, 'tables API error');
   }
 }

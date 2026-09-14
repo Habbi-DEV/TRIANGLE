@@ -1,31 +1,30 @@
 import supabase from './_lib/db-client.js';
 import { setCors, requireAdmin } from './_lib/auth.js';
+import { internalError, audit, rateLimit } from './_lib/validate.js';
 
-// Only real, rasterized image formats. SVG is deliberately excluded: it can
-// carry embedded <script>/on* handlers and gets rendered as HTML by browsers
-// when opened directly, which turns an "image upload" into a stored-XSS
-// vector against anyone who opens the file's public URL.
 const EXT_MIME = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-  webp: 'image/webp', bmp: 'image/bmp',
-  tiff: 'image/tiff', tif: 'image/tiff', avif: 'image/avif',
-  heic: 'image/heic', heif: 'image/heif',
+  webp: 'image/webp', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff',
+  avif: 'image/avif', heic: 'image/heic', heif: 'image/heif',
 };
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
-
-// The exact folder names that exist in the `menu-images` bucket. Kept as a
-// closed whitelist (rather than trusting whatever the client sends) so a
-// crafted `folder` value can't be used to write outside these folders
-// (e.g. path traversal like "../../something").
-const ALLOWED_FOLDERS = new Set([
-  'Banniere',
-  'Categories',
-  'Logo',
-  'Menu Triangle',
-  'Sauces',
-  'Supplements',
-]);
+const MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED_FOLDERS = new Set(['Banniere', 'Categories', 'Logo', 'Menu Triangle', 'Sauces', 'Supplements']);
 const DEFAULT_FOLDER = 'Menu Triangle';
+
+// Magic-byte signatures (FIX content-spoof: don't trust extension alone)
+const SIGNATURES = [
+  { ext: ['jpg', 'jpeg'], magic: [[0xff, 0xd8, 0xff]] },
+  { ext: ['png'], magic: [[0x89, 0x50, 0x4e, 0x47]] },
+  { ext: ['gif'], magic: [[0x47, 0x49, 0x46]] },
+  { ext: ['webp'], magic: [[0x52, 0x49, 0x46, 0x46]] },
+  { ext: ['bmp'], magic: [[0x42, 0x4d]] },
+  { ext: ['avif', 'heic', 'heif'], magic: [[0x00, 0x00, 0x00]] }, // ftyp box — checked loosely
+];
+function hasValidSignature(buf, ext) {
+  const rule = SIGNATURES.find((r) => r.ext.includes(ext));
+  if (!rule) return true;
+  return rule.magic.some((sig) => sig.every((b, i) => buf[i] === b));
+}
 
 export default async function handler(req, res) {
   setCors(req, res, 'POST, OPTIONS');
@@ -33,47 +32,52 @@ export default async function handler(req, res) {
 
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-    // Uploads change what customers see on the public menu, so this is
-    // admin-only — previously any authenticated staff member (including
-    // cashier/kitchen/delivery accounts) could upload arbitrary files.
-    if (!(await requireAdmin(req, res))) return;
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+    if (!rateLimit(req, res, { max: 20, windowMs: 60_000, key: 'upload' })) return;
 
     const { fileName, fileBase64, contentType, folder } = req.body || {};
     if (!fileName || !fileBase64) return res.status(400).json({ error: 'fileName and fileBase64 are required' });
+    // FIX: pre-check base64 length BEFORE decode (avoid memory exhaustion)
+    if (typeof fileBase64 !== 'string' || fileBase64.length > Math.ceil(MAX_BYTES * 4 / 3) + 1024) {
+      return res.status(413).json({ error: 'Image is too large (max 5 MB)' });
+    }
 
     const targetFolder = ALLOWED_FOLDERS.has(folder) ? folder : DEFAULT_FOLDER;
-
-    const ext = fileName.split('.').pop()?.toLowerCase();
+    const ext = String(fileName).split('.').pop()?.toLowerCase();
     const resolvedType = EXT_MIME[ext];
-    if (!resolvedType) {
-      return res.status(400).json({ error: 'Unsupported file type. Allowed: jpg, png, gif, webp, bmp, tiff, avif, heic' });
-    }
-    // Sanity-check the declared content type against the extension rather
-    // than trusting the client-sent contentType outright.
+    if (!resolvedType) return res.status(400).json({ error: 'Unsupported file type' });
     if (contentType && contentType !== resolvedType) {
       return res.status(400).json({ error: 'File extension does not match its content type' });
     }
 
-    const safeName = `${targetFolder}/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-    const buffer = Buffer.from(fileBase64, 'base64');
-
-    if (buffer.length > MAX_BYTES) {
-      return res.status(400).json({ error: 'Image is too large (max 5 MB)' });
+    let buffer;
+    try {
+      buffer = Buffer.from(fileBase64, 'base64');
+    } catch { return res.status(400).json({ error: 'Invalid file encoding' }); }
+    if (buffer.length > MAX_BYTES) return res.status(413).json({ error: 'Image is too large (max 5 MB)' });
+    if (buffer.length === 0) return res.status(400).json({ error: 'Empty file' });
+    if (!hasValidSignature(buffer, ext)) {
+      return res.status(400).json({ error: 'File content does not match its extension' });
     }
-    if (buffer.length === 0) {
-      return res.status(400).json({ error: 'Empty file' });
+    // Block polyglot HTML/JS inside image bytes
+    const head = buffer.slice(0, 512).toString('latin1').toLowerCase();
+    if (head.includes('<script') || head.includes('<html') || head.includes('<?php')) {
+      return res.status(400).json({ error: 'Suspicious file content rejected' });
     }
 
-    const { error } = await supabase.storage
-      .from('menu-images')
-      .upload(safeName, buffer, { contentType: resolvedType, upsert: true });
-    if (error) throw error;
+    const base = String(fileName).split('/').pop().replace(/[^a-zA-Z0-9.\-_]/g, '_').slice(0, 100);
+    const safeName = `${targetFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${base}`;
+    if (safeName.includes('..')) return res.status(400).json({ error: 'Invalid file name' });
+
+    const { error } = await supabase.storage.from('menu-images')
+      .upload(safeName, buffer, { contentType: resolvedType, upsert: false });
+    if (error) return internalError(res, error, 'upload');
+    await audit(supabase, { actorId: admin.id, action: 'media.upload', entity: 'storage', entityId: safeName });
 
     const { data: urlData } = supabase.storage.from('menu-images').getPublicUrl(safeName);
     return res.status(200).json({ url: urlData.publicUrl });
   } catch (err) {
-    console.error('upload API error:', err);
-    res.status(500).json({ error: err.message });
+    return internalError(res, err, 'upload API error');
   }
 }

@@ -67,17 +67,10 @@ export default defineConfig(async ({ mode }) => {
               expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 * 7 },
             },
           },
-          // Live order status — always try the network first (status must
-          // be fresh), only fall back to the last known state if offline.
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/orders'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'triangle-orders',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
+          // SECURITY FIX: sensitive APIs (orders/driver-orders/stats/staff) are
+          // NetworkOnly — never cached. Caching PII in Cache Storage keeps it
+          // readable by any XSS for 24h, shared across users on one device,
+          // and not purged on logout. Public menu/settings stay cached.
           // Product photos and any remote image host (e.g. Supabase storage)
           // — cache-first, they rarely change once uploaded.
           {

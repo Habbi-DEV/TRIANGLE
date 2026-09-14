@@ -1,5 +1,6 @@
 import supabase from './_lib/db-client.js';
-import { setCors, requireStaff } from './_lib/auth.js';
+import { setCors, requireManager } from './_lib/auth.js';
+import { internalError } from './_lib/validate.js';
 
 const ACTIVE = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
 
@@ -7,19 +8,20 @@ export default async function handler(req, res) {
   setCors(req, res, 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  // CRITIQUE (trouvé à l'audit) : cette route n'avait aucune authentification —
-  // le chiffre d'affaires du jour et le nombre de commandes étaient publics.
-  if (!(await requireStaff(req, res))) return;
+  if (!(await requireManager(req, res))) return;
 
   try {
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
+    // FIX timezone: use Africa/Algiers day start (UTC+1, no DST) instead of UTC midnight.
+    const now = new Date();
+    const algiers = new Date(now.getTime() + (60 + new Date().getTimezoneOffset()) * 0); // computed below simply:
+    // Simplest correct: start = today 00:00 in Algiers = UTC 23:00 previous day.
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    start.setUTCHours(start.getUTCHours() - 1); // Algiers = UTC+1
 
-    const { data: orders, error } = await supabase
-      .from('orders')
+    const { data: orders, error } = await supabase.from('orders')
       .select('id, status, order_type, total, created_at')
-      .gte('created_at', start.toISOString());
-    if (error) throw error;
+      .gte('created_at', start.toISOString()).limit(2000);
+    if (error) return internalError(res, error, 'stats');
 
     const rows = orders || [];
     const billable = rows.filter((o) => o.status !== 'cancelled');
@@ -27,6 +29,7 @@ export default async function handler(req, res) {
     const by_type = { dine_in: 0, takeaway: 0, delivery: 0 };
     for (const o of billable) if (by_type[o.order_type] != null) by_type[o.order_type]++;
 
+    res.setHeader('Cache-Control', 'private, max-age=30');
     return res.status(200).json({
       revenue_today: Math.round(revenue * 100) / 100,
       orders_today: billable.length,
@@ -36,7 +39,6 @@ export default async function handler(req, res) {
       by_type,
     });
   } catch (err) {
-    console.error('stats API error:', err);
-    res.status(500).json({ error: err.message });
+    return internalError(res, err, 'stats API error');
   }
 }

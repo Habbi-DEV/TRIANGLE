@@ -31,7 +31,7 @@ export function isPushSupported(): boolean {
  * worker support, etc. — so callers can just show/hide a button based on
  * the result without needing their own try/catch.
  */
-export async function subscribeToPush(orderId: number): Promise<boolean> {
+export async function subscribeToPush(orderId: number, orderToken?: string): Promise<boolean> {
   if (!isPushSupported()) return false;
 
   try {
@@ -54,7 +54,7 @@ export async function subscribeToPush(orderId: number): Promise<boolean> {
     const saveRes = await fetch('/api/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: orderId, subscription: sub.toJSON() }),
+      body: JSON.stringify({ order_id: orderId, order_token: orderToken || localStorage.getItem(`restolink:orderToken:${orderId}`) || undefined, subscription: sub.toJSON() }),
     });
     return saveRes.ok;
   } catch (err) {
