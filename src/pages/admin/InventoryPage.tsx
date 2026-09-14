@@ -27,9 +27,11 @@ export default function InventoryPage() {
   const [error, setError] = useState('');
 
   const load = () => {
+    // /api/inventory is staff-only; products hides stock from anonymous calls.
+    // Use api() (Bearer) for both so the staff sees real stock levels.
     Promise.all([
-      fetch('/api/products').then((r) => r.json()),
-      fetch('/api/inventory').then((r) => r.json()),
+      api<Product[]>('/api/products'),
+      api<InventoryLog[]>('/api/inventory'),
     ])
       .then(([p, l]) => {
         setProducts(Array.isArray(p) ? p : []);

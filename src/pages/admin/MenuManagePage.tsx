@@ -62,12 +62,14 @@ export default function MenuManagePage() {
   const [selectedSupplementIds, setSelectedSupplementIds] = useState<number[]>([]);
 
   const load = () => {
+    // Staff screen: use api() (Bearer) so hidden rows AND real stock levels
+    // come back. Raw fetch without token hides stock from the admin.
     Promise.all([
-      fetch('/api/categories').then((r) => r.json()),
-      fetch('/api/products').then((r) => r.json()),
-      fetch('/api/sauces').then((r) => r.json()),
-      fetch('/api/sauces?type=supplement').then((r) => r.json()),
-      fetch('/api/categories?type=promotion').then((r) => r.json()),
+      api<Category[]>('/api/categories').catch(() => []),
+      api<Product[]>('/api/products').catch(() => []),
+      api<Sauce[]>('/api/sauces').catch(() => []),
+      api<Supplement[]>('/api/sauces?type=supplement').catch(() => []),
+      api<Promotion[]>('/api/categories?type=promotion').catch(() => []),
     ])
       .then(([c, p, s, sup, promos]) => {
         setCategories(Array.isArray(c) ? c : []);

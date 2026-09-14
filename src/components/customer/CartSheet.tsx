@@ -65,7 +65,8 @@ export default function CartSheet({ open, onClose, onPlaced }: Props) {
 
   useEffect(() => {
     if (open) {
-      fetch('/api/tables')
+      // Public picker endpoint (no login): returns table_number/seats/status only.
+      fetch('/api/tables?public=1')
         .then((r) => r.json())
         .then((d: RestaurantTable[]) => setTables(Array.isArray(d) ? d : []))
         .catch(() => setTables([]));

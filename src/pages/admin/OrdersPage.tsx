@@ -72,7 +72,7 @@ export default function OrdersPage() {
   // plateau at whatever the fetch limit is once order volume passes it.
   const [counts, setCounts] = useState<Record<string, number>>({ all: 0 });
   useEffect(() => {
-    const loadCounts = () => fetch('/api/orders?counts=1').then((r) => r.json()).then(setCounts).catch(console.error);
+    const loadCounts = () => api<Record<string, number>>('/api/orders?counts=1').then(setCounts).catch(console.error);
     loadCounts();
     const iv = setInterval(loadCounts, 4000);
     return () => clearInterval(iv);

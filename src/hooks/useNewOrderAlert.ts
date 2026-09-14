@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Order } from '../lib/types';
+import { api } from '../lib/api';
 import { playNewOrderChime } from '../lib/chime';
 
 /**
@@ -30,9 +31,8 @@ export default function useNewOrderAlert(enabled: boolean, pollMs = 5000) {
 
     const poll = async () => {
       try {
-        const res = await fetch('/api/orders?status=pending&limit=50');
-        if (!res.ok || cancelled) return;
-        const data: Order[] = await res.json();
+        // Staff-only endpoint — must send the Bearer token via api().
+        const data = await api<Order[]>('/api/orders?status=pending&limit=50');
         if (cancelled) return;
 
         if (seenIds.current === null) {

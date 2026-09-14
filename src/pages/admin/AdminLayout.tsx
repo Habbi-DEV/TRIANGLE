@@ -13,6 +13,7 @@ import LanguageSwitch from '../../components/LanguageSwitch';
 import SoundAlertBanner from '../../components/shared/SoundAlertBanner';
 import useNewOrderAlert from '../../hooks/useNewOrderAlert';
 import { unlockChime, isChimeUnlocked } from '../../lib/chime';
+import { secureSignOut } from '../../lib/security';
 import { orderNumber } from '../../lib/format';
 import type { Stats } from '../../lib/types';
 
@@ -116,9 +117,13 @@ export default function AdminLayout() {
   }, []);
 
   const signOut = async () => {
-    const { secureSignOut } = await import('../../lib/security');
-    await secureSignOut(supabase);
-    navigate('/login');
+    // Always land on /login even if the network is down: secureSignOut is
+    // best-effort and never throws past its own finally block.
+    try {
+      await secureSignOut(supabase);
+    } finally {
+      navigate('/login', { replace: true });
+    }
   };
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>

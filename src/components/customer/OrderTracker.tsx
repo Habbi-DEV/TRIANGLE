@@ -6,6 +6,7 @@ import { viewInvoice } from '../../lib/invoice';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../../lib/orderStatus';
 import { useLang } from '../../lib/i18n';
 import { isPushSupported, subscribeToPush } from '../../lib/push';
+import { fetchCustomerOrder } from '../../lib/api';
 
 const STEPS: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'completed'];
 
@@ -38,12 +39,10 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
   useEffect(() => {
     const iv = setInterval(async () => {
       try {
-        const res = await fetch(`/api/orders?id=${initial.id}`);
-        if (res.ok) {
-          const fresh = await res.json();
-          setOrder(fresh);
-          onUpdate?.(fresh);
-        }
+        // Customer tracking secret (?order_token=) attached automatically.
+        const fresh = await fetchCustomerOrder<Order>(initial.id);
+        setOrder(fresh);
+        onUpdate?.(fresh);
       } catch {
         /* keep last known state */
       }

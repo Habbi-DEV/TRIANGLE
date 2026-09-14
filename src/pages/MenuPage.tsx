@@ -16,6 +16,7 @@ import InstallBanner from '../components/InstallBanner';
 import SoundAlertBanner from '../components/shared/SoundAlertBanner';
 import { playStatusChime, startAlarm, stopAlarm, unlockChime, isChimeUnlocked } from '../lib/chime';
 import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../lib/orderStatus';
+import { fetchCustomerOrder, saveOrderToken } from '../lib/api';
 import { useLang } from '../lib/i18n';
 
 // Persists the last placed order's id across a page reload/close, purely
@@ -149,8 +150,7 @@ export default function MenuPage() {
   useEffect(() => {
     const storedId = localStorage.getItem(LAST_ORDER_KEY);
     if (!storedId) return;
-    fetch(`/api/orders?id=${storedId}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+    fetchCustomerOrder<Order>(storedId)
       .then((o: Order) => setOrder(o))
       .catch(() => localStorage.removeItem(LAST_ORDER_KEY));
   }, []);
@@ -191,15 +191,7 @@ export default function MenuPage() {
     if (!order || trackerOpen || !ACTIVE_STATUSES.includes(order.status)) return;
     const id = setInterval(async () => {
       try {
-        const res = await fetch(`/api/orders?id=${order.id}`);
-        if (!res.ok) {
-          // Order no longer exists (e.g. test data was reset) — stop
-          // pestering the server about it and clear the stale bell.
-          localStorage.removeItem(LAST_ORDER_KEY);
-          setOrder(null);
-          return;
-        }
-        const updated: Order = await res.json();
+        const updated = await fetchCustomerOrder<Order>(order.id);
         if (updated.status !== order.status) {
           handleStatusTransition(order.status, updated);
           setOrder(updated);
@@ -220,8 +212,14 @@ export default function MenuPage() {
             };
           }
         }
-      } catch {
-        /* transient network hiccup — try again next tick */
+      } catch (e) {
+        // Order deleted server-side (or token lost) -> stop pestering the
+        // server and clear the stale bell. Network hiccups retry next tick.
+        const msg = e instanceof Error ? e.message : '';
+        if (/not found|forbidden/i.test(msg)) {
+          localStorage.removeItem(LAST_ORDER_KEY);
+          setOrder(null);
+        }
       }
     }, 15000);
     return () => clearInterval(id);
@@ -586,6 +584,9 @@ export default function MenuPage() {
           setTrackerOpen(true);
           setOrderUnseen(true);
           localStorage.setItem(LAST_ORDER_KEY, String(o.id));
+          // Per-order tracking secret (no customer login): required by all
+          // later ?id= reads and by push subscription.
+          saveOrderToken(o.id, o.order_token);
         }}
       />
       {order && trackerOpen && (

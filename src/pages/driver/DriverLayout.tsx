@@ -5,6 +5,7 @@ import supabase from '../../lib/supabase';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
 import { unlockChime, isChimeUnlocked } from '../../lib/chime';
+import { secureSignOut } from '../../lib/security';
 import LanguageSwitch from '../../components/LanguageSwitch';
 import OnlineToggle from '../../components/driver/OnlineToggle';
 import DarkModeToggle from '../../components/driver/DarkModeToggle';
@@ -92,9 +93,11 @@ export default function DriverLayout() {
   }, []);
 
   const logout = async () => {
-    const { secureSignOut } = await import('../../lib/security');
-    await secureSignOut(supabase);
-    navigate('/login', { replace: true });
+    try {
+      await secureSignOut(supabase);
+    } finally {
+      navigate('/login', { replace: true });
+    }
   };
 
   return (

@@ -18,12 +18,13 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // FIX: tables reveal live occupancy -> manager only.
-      // If e-menu needs table list, expose ?public=1 returning only numbers (no status).
+      // Public e-menu table picker: numbers + seats + live status only.
+      // No ids, no timestamps — enough for the customer to choose a table,
+      // not enough to enumerate or manipulate anything.
       if (req.query.public === '1') {
-        const { data, error } = await supabase.from('tables').select('table_number').order('table_number');
+        const { data, error } = await supabase.from('tables').select('table_number, seats, status').order('table_number');
         if (error) return internalError(res, error, 'tables public GET');
-        return res.status(200).json((data || []).map((t) => t.table_number));
+        return res.status(200).json(data || []);
       }
       const staff = await requireManager(req, res);
       if (!staff) return;

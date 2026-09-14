@@ -88,7 +88,8 @@ export default function RegisterPage() {
     Promise.all([
       fetch('/api/categories').then((r) => r.json()),
       fetch('/api/products').then((r) => r.json()),
-      fetch('/api/tables').then((r) => r.json()),
+      // /api/tables is staff-only — needs the Bearer token via api().
+      api<RestaurantTable[]>('/api/tables').catch(() => []),
     ])
       .then(([c, p, t]) => {
         setCategories(Array.isArray(c) ? c : []);

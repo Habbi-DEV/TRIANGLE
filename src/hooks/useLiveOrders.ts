@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import supabase from '../lib/supabase';
+import { api } from '../lib/api';
 import type { Order } from '../lib/types';
 
 /**
@@ -13,9 +14,8 @@ export default function useLiveOrders(limit = 40, pollMs = 5000) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`/api/orders?limit=${limit}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setOrders(await res.json());
+      // Staff-only endpoint (requires Bearer token) — use api(), not raw fetch.
+      setOrders(await api<Order[]>(`/api/orders?limit=${limit}`));
     } catch (err) {
       console.error('[live-orders] refresh failed:', err);
     } finally {

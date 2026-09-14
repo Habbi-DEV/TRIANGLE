@@ -26,9 +26,10 @@ export default function TablesPage() {
   const [actionError, setActionError] = useState('');
 
   const load = () => {
+    // Both endpoints are staff-only (Bearer required) — use api(), not raw fetch.
     Promise.all([
-      fetch('/api/tables').then((r) => r.json()),
-      fetch('/api/orders?limit=80').then((r) => r.json()),
+      api<RestaurantTable[]>('/api/tables'),
+      api<Order[]>('/api/orders?limit=80'),
     ])
       .then(([tbls, o]) => {
         setTables(Array.isArray(tbls) ? tbls : []);

@@ -153,6 +153,10 @@ export interface Order {
    *  refused, not found…). Null for every other order, including
    *  admin/kitchen cancellations. */
   cancel_reason?: string | null;
+  /** Per-order secret returned once at creation (POST /api/orders).
+   *  Stored in localStorage, sent back as ?order_token= so the customer can
+   *  track their own order without any login. Never rendered. */
+  order_token?: string;
 }
 
 export interface InventoryLog {
