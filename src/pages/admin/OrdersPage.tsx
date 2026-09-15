@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin, Phone, Printer, Trash2, Users } from 'lucide-react';
 import useLiveOrders from '../../hooks/useLiveOrders';
 import StatusBadge from '../../components/StatusBadge';
@@ -56,10 +56,12 @@ function nextAction(o: Order): { to: OrderStatus; labelKey: string } | null {
 export default function OrdersPage() {
   const { t } = useLang();
   const { toast } = useToast();
-  const { orders, loading, patchOrder, removeOrder, addOrder } = useLiveOrders(120, 4000) as ReturnType<typeof useLiveOrders> & { patchOrder: (id:number,p:Partial<Order>)=>void; removeOrder:(id:number)=>void; addOrder:(o:Order)=>void };
+  const hook = useLiveOrders(120, 4000) as ReturnType<typeof useLiveOrders> & { patchOrder: (id:number,p:Partial<Order>)=>void; confirmPatch:(id:number)=>void; rollbackPatch:(id:number,p:Partial<Order>)=>void; removeOrder:(id:number)=>void; addOrder:(o:Order)=>void };
+  const { orders, loading, patchOrder, removeOrder, addOrder, confirmPatch, rollbackPatch } = hook;
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<OrderType | 'all'>('all');
   const [busyId, setBusyId] = useState<number | null>(null);
+  const inFlightRef = useRef<Set<number>>(new Set());
 
   const filtered = useMemo(
     () => orders.filter((o) =>
@@ -81,20 +83,24 @@ export default function OrdersPage() {
   }, []);
 
   const setStatus = async (id: number, status: OrderStatus) => {
+    if (inFlightRef.current.has(id)) return;
     const prev = orders.find((o) => o.id === id);
     if (!prev) return;
     const prevStatus = prev.status;
-    // 0ms optimistic
+    if (prevStatus === status) return;
+    inFlightRef.current.add(id);
     patchOrder(id, { status });
     setBusyId(id);
     try {
       await api(`/api/orders`, { method: 'PUT', body: JSON.stringify({ id, status }) });
+      confirmPatch(id);
       toast(t(`status.${status}`), 'success');
     } catch (err) {
-      patchOrder(id, { status: prevStatus });
+      rollbackPatch(id, { status: prevStatus });
       const msg = err instanceof Error ? err.message : t('orders.update_failed');
       toast(msg, 'error');
     } finally {
+      inFlightRef.current.delete(id);
       setBusyId(null);
     }
   };

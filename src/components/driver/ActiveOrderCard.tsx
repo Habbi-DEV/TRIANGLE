@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Phone, MapPin, Banknote, Loader2, CheckCircle2, Ban } from 'lucide-react';
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
@@ -56,6 +56,7 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [otp, setOtp] = useState('');
+  const inflightRef = useRef(false);
   // optimistic overlay: instant UI before server confirms
   const [optimisticStatus, setOptimisticStatus] = useState<DeliveryStatus | null>(null);
   const [optimisticCancelled, setOptimisticCancelled] = useState(false);
@@ -69,10 +70,12 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
 
   const advance = async () => {
     if (!action) return;
+    if (inflightRef.current) return;
     if (action === 'delivered' && otp.trim().length !== 4) {
       toast(t('driver.otp_required'), 'error');
       return;
     }
+    inflightRef.current = true;
     const prevStatus = order.delivery_status ?? 'unassigned';
     const nextMap: Record<string, DeliveryStatus> = { picked_up: 'picked_up', on_the_way: 'on_the_way', delivered: 'delivered' } as const;
     const nextStatus = nextMap[action] ?? null;
@@ -101,6 +104,7 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
       toast(msg, 'error');
     } finally {
       setBusy(false);
+      inflightRef.current = false;
       setTimeout(() => setOptimisticStatus(null), 4000);
     }
   };

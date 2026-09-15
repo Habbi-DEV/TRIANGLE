@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import supabase from '../lib/supabase';
 import { api } from '../lib/api';
 import { onOrderAccepted } from '../lib/driverBus';
@@ -9,17 +9,27 @@ import type { Order } from '../lib/types';
  * Driver order feed — mine vs available now share global stores so
  * an optimistic accept in AvailableOrderCard instantly reflects in the
  * driver's "En cours" tab without waiting for polling.
+ * Includes pending guard so a stale poll doesn't overwrite optimistic.
  */
 export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 4000) {
   const store = useDriverOrderStore();
   const orders = scope === 'mine' ? store.mine : store.available;
   const setOrders = scope === 'mine' ? store.setMine : store.setAvailable;
   const [loading, setLoading] = useState(() => orders.length === 0);
+  const pendingPatchRef = useRef<Map<number, Partial<Order>>>(new Map());
+  const pendingRemoveRef = useRef<Set<number>>(new Set());
 
   const refresh = useCallback(async () => {
     try {
       const data = await api<Order[]>(`/api/driver-orders?scope=${scope}`);
-      setOrders(data);
+      let merged = data;
+      if (pendingPatchRef.current.size > 0) {
+        merged = merged.map((o) => (pendingPatchRef.current.has(o.id) ? { ...o, ...pendingPatchRef.current.get(o.id)! } : o));
+      }
+      if (pendingRemoveRef.current.size > 0) {
+        merged = merged.filter((o) => !pendingRemoveRef.current.has(o.id));
+      }
+      setOrders(merged);
     } catch (err) {
       console.error('[driver-orders] refresh failed:', err);
     } finally {
@@ -28,19 +38,44 @@ export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 40
   }, [scope, setOrders]);
 
   const patchOrder = useCallback((id: number, patch: Partial<Order>) => {
+    pendingPatchRef.current.set(id, { ...(pendingPatchRef.current.get(id) || {}), ...patch });
     if (scope === 'mine') store.patchMine(id, patch);
     else {
-      // available list rarely needs patch (accept removes), but support generic patch
       useDriverOrderStore.setState((s) => ({
         available: s.available.map((o) => (o.id === id ? { ...o, ...patch } : o)),
       }));
     }
   }, [scope, store]);
 
+  const confirmPatch = useCallback((id: number) => {
+    pendingPatchRef.current.delete(id);
+  }, []);
+
+  const rollbackPatch = useCallback((id: number, prev: Partial<Order>) => {
+    pendingPatchRef.current.delete(id);
+    if (scope === 'mine') store.patchMine(id, prev);
+    else {
+      useDriverOrderStore.setState((s) => ({
+        available: s.available.map((o) => (o.id === id ? { ...o, ...prev } : o)),
+      }));
+    }
+  }, [scope, store]);
+
   const removeOrder = useCallback((id: number) => {
+    pendingRemoveRef.current.add(id);
     if (scope === 'mine') store.removeMine(id);
     else store.removeAvailable(id);
   }, [scope, store]);
+
+  const confirmRemove = useCallback((id: number) => {
+    pendingRemoveRef.current.delete(id);
+  }, []);
+
+  const rollbackRemove = useCallback((order: Order) => {
+    pendingRemoveRef.current.delete(order.id);
+    if (scope === 'mine') useDriverOrderStore.setState((s) => ({ mine: [order, ...s.mine] }));
+    else useDriverOrderStore.setState((s) => ({ available: [order, ...s.available] }));
+  }, [scope]);
 
   const addOrder = useCallback((order: Order) => {
     if (scope === 'mine') useDriverOrderStore.setState((s) => ({ mine: [order, ...s.mine] }));
@@ -81,5 +116,5 @@ export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 40
     };
   }, [refresh, pollMs, scope]);
 
-  return { orders, loading, refresh, patchOrder, removeOrder, addOrder, setOrders };
+  return { orders, loading, refresh, patchOrder, confirmPatch, rollbackPatch, removeOrder, confirmRemove, rollbackRemove, addOrder, setOrders };
 }

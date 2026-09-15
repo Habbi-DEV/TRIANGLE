@@ -242,7 +242,10 @@ export default async function handler(req, res) {
       if (iErr) return internalError(res, iErr, 'orders items');
 
       if (order_type === 'dine_in') {
-        supabase.from('tables').update({ status: 'occupied' }).eq('table_number', tableNum).catch(console.error);
+        (async () => {
+          const { error } = await supabase.from('tables').update({ status: 'occupied' }).eq('table_number', tableNum);
+          if (error) console.error('[tables occupied]', error);
+        })().catch(console.error);
       }
       // Never expose delivery_otp to the customer browser; only access_token for tracking + push.
       const { delivery_otp: _otp, ...safeOrder } = order;
@@ -305,7 +308,10 @@ export default async function handler(req, res) {
       }
 
       if (['completed', 'cancelled'].includes(status) && existing.table_number && existing.order_type === 'dine_in') {
-        supabase.from('tables').update({ status: 'available' }).eq('table_number', existing.table_number).then(() => {}).catch(console.error);
+        (async () => {
+          const { error } = await supabase.from('tables').update({ status: 'available' }).eq('table_number', existing.table_number);
+          if (error) console.error('[tables available]', error);
+        })().catch(console.error);
       }
 
       sendPushToOrder(existing.id, {

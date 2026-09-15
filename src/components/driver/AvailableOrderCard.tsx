@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Banknote, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -33,9 +33,11 @@ export default function AvailableOrderCard({
   const [busy, setBusy] = useState(false);
   const [taken, setTaken] = useState(false);
   const [dragX, setDragX] = useState(0);
+  const inflightRef = useRef(false);
 
   const accept = async () => {
-    if (busy || taken) return;
+    if (inflightRef.current || busy || taken) return;
+    inflightRef.current = true;
     // 0ms optimistic: disappear instantly + global store
     setTaken(true);
     setBusy(true);
@@ -58,6 +60,10 @@ export default function AvailableOrderCard({
         setDragX(0);
         toast(message || t('driver.update_failed'), 'error');
       }
+    } finally {
+      inflightRef.current = false;
+      // keep busy true if taken (already hidden)
+      if (!taken) setBusy(false);
     }
   };
 
