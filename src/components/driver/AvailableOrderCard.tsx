@@ -6,6 +6,7 @@ import { notifyOrderAccepted } from '../../lib/driverBus';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
 import { useToast } from '../ui/ToastProvider';
+import { useDriverOrderStore } from '../../stores/driverOrderStore';
 import { distanceKm } from '../../lib/geo';
 import OrderMiniMap from './OrderMiniMap';
 import type { Order } from '../../lib/types';
@@ -35,23 +36,23 @@ export default function AvailableOrderCard({
 
   const accept = async () => {
     if (busy || taken) return;
-    // 0ms optimistic: disappear instantly
+    // 0ms optimistic: disappear instantly + global store
     setTaken(true);
     setBusy(true);
+    useDriverOrderStore.getState().removeAvailable(order.id);
     try {
       await api('/api/driver-orders', { method: 'PUT', body: JSON.stringify({ id: order.id, action: 'accept' }) });
       notifyOrderAccepted();
-      // fire-and-forget background sync (no await blocking)
       onAccepted();
       toast(t('driver.accept'), 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       if (message.includes('already moved on')) {
-        // race lost but optimistic already hid it — keep hidden and sync
         onAccepted();
         toast(message, 'info');
       } else {
-        // rollback
+        // rollback global + local
+        useDriverOrderStore.setState((s) => ({ available: [order, ...s.available] }));
         setTaken(false);
         setBusy(false);
         setDragX(0);

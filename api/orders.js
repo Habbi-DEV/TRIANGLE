@@ -220,8 +220,9 @@ export default async function handler(req, res) {
       // Public e-menu always creates a new ticket now; cashier merges manually.
       // (findMergeableOrderForTable kept for staff tooling, not auto-used.)
 
-      const access_token = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-      const delivery_otp = String(Math.floor(1000 + Math.random() * 9000)); // NEW: delivery proof
+      const _c = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+      const access_token = _c && _c.randomUUID ? _c.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+      const delivery_otp = String(Math.floor(1000 + Math.random() * 9000));
 
       const { data: order, error: oErr } = await supabase.from('orders').insert({
         order_type, status: 'pending',

@@ -2,58 +2,53 @@ import { useCallback, useEffect, useState } from 'react';
 import supabase from '../lib/supabase';
 import { api } from '../lib/api';
 import { onOrderAccepted } from '../lib/driverBus';
+import { useDriverOrderStore } from '../stores/driverOrderStore';
 import type { Order } from '../lib/types';
 
 /**
- * Driver order feed: initial load via /api/driver-orders + realtime +
- * polling fallback, same shape as useLiveOrders (admin/kitchen feed).
- *
- * scope === 'available' additionally listens on the 'driver-available-
- * orders' Broadcast channel (see api/_lib/broadcast.js). Broadcast is used
- * here — not just postgres_changes — because RLS correctly stops a
- * driver's postgres_changes subscription from ever seeing a row that no
- * longer matches their SELECT policy (e.g. an order another driver just
- * claimed): that row-disappearing event simply never reaches them via
- * postgres_changes. Broadcast carries just the order id, is delivered
- * instantly to every connected driver regardless of RLS, and triggers the
- * same authenticated refresh() — so every driver's list updates at
- * essentially the same moment, and the accept race window shrinks to
- * milliseconds instead of a full poll interval.
- *
- * Exposes optimistic helpers for 0ms accept / advance / cancel.
+ * Driver order feed — mine vs available now share global stores so
+ * an optimistic accept in AvailableOrderCard instantly reflects in the
+ * driver's "En cours" tab without waiting for polling.
  */
 export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 4000) {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const store = useDriverOrderStore();
+  const orders = scope === 'mine' ? store.mine : store.available;
+  const setOrders = scope === 'mine' ? store.setMine : store.setAvailable;
+  const [loading, setLoading] = useState(() => orders.length === 0);
 
   const refresh = useCallback(async () => {
     try {
-      setOrders(await api<Order[]>(`/api/driver-orders?scope=${scope}`));
+      const data = await api<Order[]>(`/api/driver-orders?scope=${scope}`);
+      setOrders(data);
     } catch (err) {
       console.error('[driver-orders] refresh failed:', err);
     } finally {
       setLoading(false);
     }
-  }, [scope]);
+  }, [scope, setOrders]);
 
   const patchOrder = useCallback((id: number, patch: Partial<Order>) => {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } as Order : o)));
-  }, []);
+    if (scope === 'mine') store.patchMine(id, patch);
+    else {
+      // available list rarely needs patch (accept removes), but support generic patch
+      useDriverOrderStore.setState((s) => ({
+        available: s.available.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+      }));
+    }
+  }, [scope, store]);
 
   const removeOrder = useCallback((id: number) => {
-    setOrders((prev) => prev.filter((o) => o.id !== id));
-  }, []);
+    if (scope === 'mine') store.removeMine(id);
+    else store.removeAvailable(id);
+  }, [scope, store]);
 
   const addOrder = useCallback((order: Order) => {
-    setOrders((prev) => [order, ...prev]);
-  }, []);
+    if (scope === 'mine') useDriverOrderStore.setState((s) => ({ mine: [order, ...s.mine] }));
+    else useDriverOrderStore.setState((s) => ({ available: [order, ...s.available] }));
+  }, [scope]);
 
   useEffect(() => {
     refresh();
-    // Kept short and purely as a safety net — broadcast (for 'available')
-    // and postgres_changes on the driver's own rows (for 'mine') are the
-    // primary signal; this just guarantees no client is ever stuck stale
-    // for more than a few seconds if a message is missed.
     const iv = setInterval(refresh, pollMs);
 
     const channel = supabase.channel(`triangle-driver-orders-${scope}`);
@@ -71,17 +66,12 @@ export default function useDriverOrders(scope: 'available' | 'mine', pollMs = 40
         .on('broadcast', { event: 'order_removed' }, refresh);
     }
 
-    // CSP or a restrictive in-app browser can make `new WebSocket()` throw
-    // synchronously here (Safari iOS: "The operation is insecure"). That must
-    // never white-screen the app — the poll interval above is a full fallback.
     try {
       channel.subscribe();
     } catch (err) {
       console.error('[driver-orders] realtime unavailable, polling fallback active:', err);
     }
 
-    // See lib/driverBus.ts: closes the "accept doesn't show under En cours
-    // until I refresh" gap for the 'mine' scope, instantly, same-tab.
     const unsubscribeBus = scope === 'mine' ? onOrderAccepted(refresh) : undefined;
 
     return () => {

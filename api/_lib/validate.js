@@ -2,8 +2,10 @@
 // Used by all /api handlers (defense-in-depth alongside middleware.ts).
 
 export function internalError(res, err, label = 'API error') {
-  console.error(label, err);
-  return res.status(500).json({ error: 'Internal error' });
+  console.error(label, err?.stack || err);
+  // Return actual message for debugging (client shows it as toast); still log full stack server-side
+  const msg = err?.message ? String(err.message).slice(0, 300) : 'Internal error';
+  return res.status(500).json({ error: msg });
 }
 
 export function isValidId(n) {

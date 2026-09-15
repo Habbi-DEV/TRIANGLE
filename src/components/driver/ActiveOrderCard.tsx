@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
 import { useToast } from '../ui/ToastProvider';
+import { useDriverOrderStore } from '../../stores/driverOrderStore';
 import {
   DELIVERY_STATUS_LABEL, deliveryStepIndex, driverActionLabel, nextDriverAction,
 } from '../../lib/driverStatus';
@@ -72,11 +73,14 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
       toast(t('driver.otp_required'), 'error');
       return;
     }
-    // 0ms optimistic
     const prevStatus = order.delivery_status ?? 'unassigned';
     const nextMap: Record<string, DeliveryStatus> = { picked_up: 'picked_up', on_the_way: 'on_the_way', delivered: 'delivered' } as const;
     const nextStatus = nextMap[action] ?? null;
-    if (nextStatus) setOptimisticStatus(nextStatus);
+    // 0ms optimistic local + global
+    if (nextStatus) {
+      setOptimisticStatus(nextStatus);
+      useDriverOrderStore.getState().patchMine(order.id, { delivery_status: nextStatus });
+    }
     setBusy(true);
     try {
       await api('/api/driver-orders', {
@@ -88,19 +92,22 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
       onUpdated();
     } catch (err) {
       setOptimisticStatus(prevStatus as DeliveryStatus);
-      // if it was delivered we stay at on_the_way
-      if (action === 'delivered') setOptimisticStatus('on_the_way');
+      if (nextStatus) useDriverOrderStore.getState().patchMine(order.id, { delivery_status: prevStatus as DeliveryStatus });
+      if (action === 'delivered') {
+        setOptimisticStatus('on_the_way');
+        useDriverOrderStore.getState().patchMine(order.id, { delivery_status: 'on_the_way' });
+      }
       const msg = err instanceof Error ? err.message : t('driver.update_failed');
       toast(msg, 'error');
     } finally {
       setBusy(false);
-      // clear optimistic after short delay to let realtime take over, but keep until next fetch
       setTimeout(() => setOptimisticStatus(null), 4000);
     }
   };
 
   const cancelOrder = async (reason: DriverCancelReason, note: string) => {
     setOptimisticCancelled(true);
+    useDriverOrderStore.getState().patchMine(order.id, { status: 'cancelled' } as any);
     setCancelling(true);
     try {
       await api('/api/driver-orders', {
@@ -112,6 +119,7 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
       onUpdated();
     } catch (err) {
       setOptimisticCancelled(false);
+      useDriverOrderStore.getState().patchMine(order.id, { status: order.status, delivery_status: order.delivery_status } as any);
       const msg = err instanceof Error ? err.message : t('driver.update_failed');
       toast(msg, 'error');
     } finally {
