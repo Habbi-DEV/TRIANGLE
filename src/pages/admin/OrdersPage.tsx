@@ -249,16 +249,16 @@ export default function OrdersPage() {
                     {action && (
                       <button
                         onClick={() => setStatus(o.id, action.to)}
-                        disabled={busyId === o.id}
+                        disabled={inFlightRef.current.has(o.id)}
                         className="flex-1 rounded-xl bg-brand-500 py-2 text-xs font-bold text-white transition hover:bg-brand-600 disabled:opacity-60"
                       >
-                        {busyId === o.id ? '…' : t(action.labelKey)}
+                        {t(action.labelKey)}
                       </button>
                     )}
                     {cancellable && (
                       <button
                         onClick={() => setStatus(o.id, 'cancelled')}
-                        disabled={busyId === o.id}
+                        disabled={inFlightRef.current.has(o.id)}
                         className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 disabled:opacity-60"
                       >
                         {t('orders.action.cancel')}
