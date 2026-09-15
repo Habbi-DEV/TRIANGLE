@@ -62,6 +62,7 @@ export default function OrdersPage() {
   const [typeFilter, setTypeFilter] = useState<OrderType | 'all'>('all');
   const [busyId, setBusyId] = useState<number | null>(null);
   const inFlightRef = useRef<Set<number>>(new Set());
+  const queueRef = useRef<Map<number, OrderStatus[]>>(new Map());
 
   const filtered = useMemo(
     () => orders.filter((o) =>
@@ -82,14 +83,8 @@ export default function OrdersPage() {
     return () => clearInterval(iv);
   }, []);
 
-  const setStatus = async (id: number, status: OrderStatus) => {
-    if (inFlightRef.current.has(id)) return;
-    const prev = orders.find((o) => o.id === id);
-    if (!prev) return;
-    const prevStatus = prev.status;
-    if (prevStatus === status) return;
+  const sendStatus = async (id: number, status: OrderStatus, prevStatus: OrderStatus) => {
     inFlightRef.current.add(id);
-    patchOrder(id, { status });
     setBusyId(id);
     try {
       await api(`/api/orders`, { method: 'PUT', body: JSON.stringify({ id, status }) });
@@ -97,11 +92,52 @@ export default function OrdersPage() {
       toast(t(`status.${status}`), 'success');
     } catch (err) {
       rollbackPatch(id, { status: prevStatus });
+      queueRef.current.delete(id);
       const msg = err instanceof Error ? err.message : t('orders.update_failed');
       toast(msg, 'error');
+      throw err;
     } finally {
       inFlightRef.current.delete(id);
       setBusyId(null);
+    }
+  };
+
+  const setStatus = async (id: number, status: OrderStatus) => {
+    const cur = orders.find((o) => o.id === id);
+    if (!cur) return;
+    if (cur.status === status) return;
+
+    if (inFlightRef.current.has(id)) {
+      const q = queueRef.current.get(id) || [];
+      if (q[q.length - 1] !== status) {
+        q.push(status);
+        queueRef.current.set(id, q);
+        patchOrder(id, { status });
+      }
+      return;
+    }
+
+    let curStatus = status;
+    const prevStatus = cur.status as OrderStatus;
+    patchOrder(id, { status });
+
+    try {
+      await sendStatus(id, status, prevStatus);
+    } catch {
+      return;
+    }
+
+    while (queueRef.current.get(id)?.length) {
+      const q = queueRef.current.get(id)!;
+      const next = q.shift()!;
+      if (q.length === 0) queueRef.current.delete(id);
+      const beforeNext = curStatus;
+      try {
+        await sendStatus(id, next, beforeNext as OrderStatus);
+        curStatus = next;
+      } catch {
+        break;
+      }
     }
   };
 
@@ -249,8 +285,7 @@ export default function OrdersPage() {
                     {action && (
                       <button
                         onClick={() => setStatus(o.id, action.to)}
-                        disabled={inFlightRef.current.has(o.id)}
-                        className="flex-1 rounded-xl bg-brand-500 py-2 text-xs font-bold text-white transition hover:bg-brand-600 disabled:opacity-60"
+                        className="flex-1 rounded-xl bg-brand-500 py-2 text-xs font-bold text-white transition hover:bg-brand-600 active:scale-[0.98]"
                       >
                         {t(action.labelKey)}
                       </button>
@@ -258,8 +293,7 @@ export default function OrdersPage() {
                     {cancellable && (
                       <button
                         onClick={() => setStatus(o.id, 'cancelled')}
-                        disabled={inFlightRef.current.has(o.id)}
-                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 disabled:opacity-60"
+                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 active:scale-[0.98]"
                       >
                         {t('orders.action.cancel')}
                       </button>
