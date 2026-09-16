@@ -143,6 +143,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'settings.branding': 'Image de marque',
     'settings.branding.desc': "Couleur d'accentuation de l'application.",
     'settings.brand_color': 'Couleur de marque',
+    'settings.brand_color.invalid': 'Format invalide — utilisez #rrggbb (ex. #f97316).',
     'settings.brand_color.note1': "Informatif pour l'instant — la couleur orange en direct (",
     'settings.brand_color.note2': ") est définie dans la config Tailwind et nécessite une reconstruction pour changer réellement. Ce champ enregistre juste la valeur voulue.",
 
@@ -648,6 +649,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'settings.branding': 'الهوية البصرية',
     'settings.branding.desc': 'لون التمييز في التطبيق.',
     'settings.brand_color': 'لون العلامة',
+    'settings.brand_color.invalid': 'صيغة غير صحيحة — استعمل #rrggbb (مثال: #f97316).',
     'settings.brand_color.note1': 'معلوماتي في الوقت الحالي — اللون البرتقالي الفعلي (',
     'settings.brand_color.note2': ') مُعرَّف في إعدادات Tailwind ويحتاج إعادة بناء التطبيق ليتغير فعلياً. هذا الحقل يسجل فقط القيمة المطلوبة.',
 

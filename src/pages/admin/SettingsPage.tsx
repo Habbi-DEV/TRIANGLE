@@ -80,6 +80,25 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = 'w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100';
 
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+/** Best-effort cleanup for what someone typed into the brand-color field —
+ *  runs on blur, not on every keystroke, so it doesn't fight typing. Adds a
+ *  missing '#', expands shorthand (#f60 -> #ff6600), and lowercases. Left
+ *  untouched if it still doesn't match after this — that's what the inline
+ *  warning below the field is for, instead of a save that silently fails on
+ *  the server with every other change in the form. */
+function normalizeHexColor(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  const shorthand = /^#([0-9a-fA-F]{3})$/.exec(withHash);
+  const expanded = shorthand
+    ? `#${shorthand[1].split('').map((c) => c + c).join('')}`
+    : withHash;
+  return HEX_COLOR_RE.test(expanded) ? expanded.toLowerCase() : trimmed;
+}
+
 const IMAGE_ACCEPT = 'image/*,.heic,.heif,.avif,.webp,.gif,.bmp,.tiff';
 
 /** Upload / preview / clear for one of the two logo files. The preview sits
@@ -201,6 +220,10 @@ export default function SettingsPage() {
   };
 
   const dirty = !!saved && !!form && JSON.stringify(toForm(saved)) !== JSON.stringify(form);
+  // Gate Save on this client-side, in addition to the server check — one bad
+  // field here otherwise rejects the whole PUT (a single settings row),
+  // silently discarding every other change in the same save, logos included.
+  const brandColorValid = !!form && HEX_COLOR_RE.test(form.brand_color);
 
   /** Uploads into one of the two logo slots. Which slot is also the busy
    *  flag, so only the picker being used shows "uploading…". */
@@ -266,7 +289,7 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={save}
-          disabled={saving || uploading !== null || !dirty}
+          disabled={saving || uploading !== null || !dirty || !brandColorValid}
           className="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
         >
           <Save size={16} /> {saving ? t('common.saving') : dirty ? t('common.save') : t('common.saved')}
@@ -359,9 +382,41 @@ export default function SettingsPage() {
       <Card icon={Palette} title={t('settings.branding')} description={t('settings.branding.desc')}>
         <Field label={t('settings.brand_color')}>
           <div className="flex items-center gap-3">
-            <span className="h-8 w-8 shrink-0 rounded-lg ring-1 ring-zinc-200" style={{ backgroundColor: form.brand_color }} />
-            <input value={form.brand_color} onChange={(e) => set('brand_color', e.target.value)} className={`${inputCls} max-w-[140px] font-mono`} />
+            {/* Native color picker doubles as the swatch — it always
+                produces a valid #rrggbb, so this is the easiest way to
+                never hit the error below in the first place. Falls back to
+                the brand orange while the typed value is invalid, so the
+                picker always has something sane to open with. */}
+            <label
+              className={`relative h-8 w-8 shrink-0 cursor-pointer overflow-hidden rounded-lg ring-1 ${
+                brandColorValid ? 'ring-zinc-200' : 'ring-red-300'
+              }`}
+            >
+              <span
+                className="absolute inset-0"
+                style={{ backgroundColor: brandColorValid ? form.brand_color : '#f97316' }}
+              />
+              <input
+                type="color"
+                value={brandColorValid ? form.brand_color : '#f97316'}
+                onChange={(e) => set('brand_color', e.target.value)}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                aria-label={t('settings.brand_color')}
+              />
+            </label>
+            <input
+              value={form.brand_color}
+              onChange={(e) => set('brand_color', e.target.value)}
+              onBlur={(e) => set('brand_color', normalizeHexColor(e.target.value))}
+              placeholder="#f97316"
+              className={`${inputCls} max-w-[140px] font-mono ${
+                brandColorValid ? '' : 'border-red-300 focus:border-red-400 focus:ring-red-100'
+              }`}
+            />
           </div>
+          {!brandColorValid && (
+            <p className="mt-1.5 text-[11px] font-semibold text-red-500">{t('settings.brand_color.invalid')}</p>
+          )}
         </Field>
         <p className="text-[11px] text-zinc-400">
           {t('settings.brand_color.note1')}<code className="rounded bg-zinc-100 px-1 py-0.5">brand-500</code>{t('settings.brand_color.note2')}
