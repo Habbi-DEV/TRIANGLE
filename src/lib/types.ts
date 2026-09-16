@@ -189,7 +189,16 @@ export interface Stats {
 export interface Settings {
   id: number;
   restaurant_name: string;
+  /** The single pre-split logo. Kept as the fallback for restaurants that
+   *  haven't uploaded the light/dark pair yet — never read directly by the
+   *  UI, always through resolveLogoSrc()/<AppLogo /> (see lib/logo.ts). */
   logo_url: string;
+  /** Black wordmark, for light backgrounds. Null/absent on a deployment
+   *  where migration_v17 hasn't run yet, hence the nullable type. */
+  light_logo_url: string | null;
+  /** White wordmark, for dark backgrounds (dark mode, admin sidebar,
+   *  driver top bar). */
+  dark_logo_url: string | null;
   /** Optional photo for the "All" tile in the e-menu category rail — falls
    *  back to the ✨ emoji when not set. Lives here (not on a category row)
    *  because "All" isn't a real category. */

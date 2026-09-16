@@ -9,6 +9,7 @@ import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
 import useLiveOrders from '../../hooks/useLiveOrders';
 import StatusBadge from '../../components/StatusBadge';
+import AppLogo from '../../components/AppLogo';
 import { OrderTypeTag, orderContext } from '../../components/OrderTypeTag';
 import Spinner from '../../components/ui/Spinner';
 import { useToast } from '../../components/ui/ToastProvider';
@@ -259,26 +260,21 @@ export default function RegisterPage() {
               onClick={() => { setMode('products'); setActiveCat('all'); }}
               className="flex shrink-0 flex-col items-center gap-1"
             >
-              {settings === null ? (
-                <span className="h-11 w-11" />
-              ) : settings.all_category_image_url ? (
-                <span className="flex h-11 w-11 items-center justify-center">
-                  <img
-                    src={settings.all_category_image_url}
-                    alt=""
-                    className="h-11 w-11 object-contain transition-[filter] duration-200"
-                    style={mode === 'products' && activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
-                  />
-                </span>
-              ) : (
-                <span
-                  className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg transition ${
-                    mode === 'products' && activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
-                  }`}
-                >
-                  ✨
-                </span>
-              )}
+              {/* Forced light: the register runs on a zinc-100 shell that has
+                  no dark mode, so this tile must stay the black artwork even
+                  if the cashier's browser is in dark mode. Same tile as the
+                  e-menu's "Tout" otherwise. */}
+              <AppLogo
+                variant="light"
+                sources={{ light: settings?.all_category_image_url }}
+                className="flex h-11 w-11 items-center justify-center"
+                fallbackClassName={`rounded-xl text-lg transition ${
+                  mode === 'products' && activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                }`}
+                imgClassName="h-11 w-11 object-contain transition-[filter] duration-200"
+                imgStyle={mode === 'products' && activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                fallback="✨"
+              />
               <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'products' && activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>
                 {t('register.all')}
               </span>

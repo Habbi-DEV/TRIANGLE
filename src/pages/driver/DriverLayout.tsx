@@ -7,6 +7,7 @@ import { useLang } from '../../lib/i18n';
 import { unlockChime, isChimeUnlocked } from '../../lib/chime';
 import { secureSignOut } from '../../lib/security';
 import LanguageSwitch from '../../components/LanguageSwitch';
+import AppLogo from '../../components/AppLogo';
 import OnlineToggle from '../../components/driver/OnlineToggle';
 import DarkModeToggle from '../../components/driver/DarkModeToggle';
 import NewOrdersBanner from '../../components/driver/NewOrdersBanner';
@@ -108,9 +109,15 @@ export default function DriverLayout() {
         style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
       >
         <div className="flex items-center gap-2.5">
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center text-base ${settings?.logo_url ? '' : 'rounded-lg bg-brand-500'}`}>
-            {settings?.logo_url ? <img src={settings.logo_url} alt="" className="h-full w-full object-contain" /> : '🛵'}
-          </div>
+          {/* Same case as the admin sidebar: this top bar is zinc-950 whether
+              or not the driver has turned on the dashboard's dark mode, so the
+              white wordmark is forced rather than tied to a theme. */}
+          <AppLogo
+            variant="dark"
+            className="flex h-9 w-9 shrink-0 items-center justify-center text-base"
+            fallbackClassName="rounded-lg bg-brand-500"
+            fallback="🛵"
+          />
           <div>
             <p className="font-display text-sm font-extrabold leading-none text-white">{settings?.restaurant_name || 'TRIANGLE'}</p>
             <p className="text-[10px] font-medium tracking-wide text-zinc-500">{t('driver.title')}</p>

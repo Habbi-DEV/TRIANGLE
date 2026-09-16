@@ -15,7 +15,11 @@ import Spinner from '../../components/ui/Spinner';
 // mid-edit without fighting `type="number"`.
 type FormState = {
   restaurant_name: string;
+  /** Legacy single logo — no field of its own anymore, kept in the form so
+   *  it can be mirrored from the light logo on save (see uploadLogo). */
   logo_url: string;
+  light_logo_url: string;
+  dark_logo_url: string;
   address: string;
   phone: string;
   contact_email: string;
@@ -27,9 +31,16 @@ type FormState = {
   brand_color: string;
 };
 
+/** The two editable logo slots — see src/lib/logo.ts for how they're read. */
+type LogoKey = 'light_logo_url' | 'dark_logo_url';
+
 const toForm = (s: Settings): FormState => ({
   restaurant_name: s.restaurant_name,
   logo_url: s.logo_url,
+  // ?? '' — these are null on a deployment where migration_v17 hasn't run,
+  // and an uncontrolled <input> would warn.
+  light_logo_url: s.light_logo_url ?? '',
+  dark_logo_url: s.dark_logo_url ?? '',
   address: s.address,
   phone: s.phone,
   contact_email: s.contact_email,
@@ -69,6 +80,72 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = 'w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100';
 
+const IMAGE_ACCEPT = 'image/*,.heic,.heif,.avif,.webp,.gif,.bmp,.tiff';
+
+/** Upload / preview / clear for one of the two logo files. The preview sits
+ *  on the background that file is actually meant for — white for the black
+ *  wordmark, zinc-900 for the white one — so a white logo isn't invisible on
+ *  the very screen where you upload it. */
+function LogoPicker({ url, tone, busy, locked, hint, onPick, onClear }: {
+  url: string;
+  tone: 'light' | 'dark';
+  busy: boolean;
+  /** Another upload is in flight — don't let a second one race it. */
+  locked: boolean;
+  hint: string;
+  onPick: (file: File) => void;
+  onClear: () => void;
+}) {
+  const { t } = useLang();
+  const dark = tone === 'dark';
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ${
+          dark ? 'bg-zinc-900 ring-zinc-800' : 'bg-white ring-zinc-200'
+        }`}
+      >
+        {url ? (
+          <img src={url} alt="" className="h-full w-full object-contain p-1.5" />
+        ) : (
+          <ImagePlus size={20} className={dark ? 'text-zinc-600' : 'text-zinc-300'} />
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <label
+            className={`cursor-pointer rounded-xl border border-zinc-200 px-3 py-2 text-xs font-bold text-zinc-600 transition hover:bg-zinc-50 ${
+              locked ? 'pointer-events-none opacity-50' : ''
+            }`}
+          >
+            {busy ? t('settings.uploading') : url ? t('settings.replace_logo') : t('settings.upload_logo')}
+            <input
+              type="file"
+              accept={IMAGE_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                // Reset the input so picking the same file twice in a row
+                // still fires onChange.
+                e.target.value = '';
+                if (file) onPick(file);
+              }}
+            />
+          </label>
+          {url && !busy && (
+            <button type="button" onClick={onClear} className="text-xs font-bold text-zinc-400 transition hover:text-red-500">
+              {t('settings.remove_logo')}
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-[11px] text-zinc-400">{hint}</p>
+      </div>
+    </div>
+  );
+}
+
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <button
@@ -92,7 +169,7 @@ export default function SettingsPage() {
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<LogoKey | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -112,10 +189,23 @@ export default function SettingsPage() {
     setForm((f) => (f ? { ...f, [key]: value } : f));
   };
 
+  /** Single writer for both logo slots. Writing the light one also mirrors
+   *  `logo_url`: it's the column every pre-<AppLogo /> reader still points
+   *  at (older SQL, exports), and the black wordmark is the safe file there
+   *  since those surfaces are all light. Clearing follows the same rule —
+   *  otherwise the stale legacy URL would keep showing through the fallback
+   *  chain in lib/logo.ts and "remove" would look broken. */
+  const setLogo = (key: LogoKey, url: string) => {
+    set(key, url);
+    if (key === 'light_logo_url') set('logo_url', url);
+  };
+
   const dirty = !!saved && !!form && JSON.stringify(toForm(saved)) !== JSON.stringify(form);
 
-  const uploadLogo = async (file: File) => {
-    setUploading(true);
+  /** Uploads into one of the two logo slots. Which slot is also the busy
+   *  flag, so only the picker being used shows "uploading…". */
+  const uploadLogo = async (file: File, key: LogoKey) => {
+    setUploading(key);
     setError('');
     try {
       const base64: string = await new Promise((resolve, reject) => {
@@ -133,11 +223,11 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
-      set('logo_url', data.url);
+      setLogo(key, String(data.url));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
-      setUploading(false);
+      setUploading(null);
     }
   };
 
@@ -176,7 +266,7 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={save}
-          disabled={saving || uploading || !dirty}
+          disabled={saving || uploading !== null || !dirty}
           className="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
         >
           <Save size={16} /> {saving ? t('common.saving') : dirty ? t('common.save') : t('common.saved')}
@@ -195,18 +285,30 @@ export default function SettingsPage() {
           <input value={form.restaurant_name} onChange={(e) => set('restaurant_name', e.target.value)} className={inputCls} />
         </Field>
 
-        <Field label={t('settings.logo')}>
-          <div className="flex items-center gap-3">
-            {form.logo_url ? (
-              <img src={form.logo_url} alt="" className="h-14 w-14 rounded-xl object-cover ring-1 ring-zinc-200" />
-            ) : (
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-50 text-zinc-300"><ImagePlus size={20} /></div>
-            )}
-            <label className="cursor-pointer rounded-xl border border-zinc-200 px-3 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
-              {uploading ? t('settings.uploading') : t('settings.upload_logo')}
-              <input type="file" accept="image/*,.heic,.heif,.avif,.webp,.gif,.bmp,.tiff" className="hidden" onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
-            </label>
-          </div>
+        {/* Two files, one brand. The app picks between them per surface —
+            see src/lib/logo.ts and <AppLogo />. */}
+        <Field label={t('settings.light_logo')}>
+          <LogoPicker
+            url={form.light_logo_url}
+            tone="light"
+            busy={uploading === 'light_logo_url'}
+            locked={uploading !== null}
+            hint={t('settings.light_logo.hint')}
+            onPick={(file) => uploadLogo(file, 'light_logo_url')}
+            onClear={() => setLogo('light_logo_url', '')}
+          />
+        </Field>
+
+        <Field label={t('settings.dark_logo')}>
+          <LogoPicker
+            url={form.dark_logo_url}
+            tone="dark"
+            busy={uploading === 'dark_logo_url'}
+            locked={uploading !== null}
+            hint={t('settings.dark_logo.hint')}
+            onPick={(file) => uploadLogo(file, 'dark_logo_url')}
+            onClear={() => setLogo('dark_logo_url', '')}
+          />
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">

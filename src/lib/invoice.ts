@@ -1,6 +1,7 @@
 import type { Order } from './types';
 import { money, orderNumber } from './format';
 import { getCurrentLang } from './i18n';
+import { resolveLogoSrc } from './logo';
 import { getCachedSettings } from './settings';
 
 const escapeHtml = (s: string): string =>
@@ -64,7 +65,9 @@ function buildReceiptHtml(order: Order, withBackButton: boolean): string {
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const settings = getCachedSettings();
   const brandName = escapeHtml(settings?.restaurant_name || 'TRIANGLE');
-  const logoUrl = settings?.logo_url;
+  // Always the black wordmark: a receipt is printed on white paper (and
+  // previewed on a white sheet), so it never follows the app's theme.
+  const logoUrl = resolveLogoSrc(settings, 'light', { variant: 'light' });
 
   const created = new Date(order.created_at);
   const locale = lang === 'ar' ? 'ar-DZ' : 'fr-FR';

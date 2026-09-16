@@ -13,6 +13,7 @@ import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
 import Skeleton from '../components/ui/Skeleton';
 import ThemeToggle from '../components/ThemeToggle';
+import AppLogo from '../components/AppLogo';
 import InstallBanner from '../components/InstallBanner';
 import SoundAlertBanner from '../components/shared/SoundAlertBanner';
 import { playStatusChime, startAlarm, stopAlarm, unlockChime, isChimeUnlocked } from '../lib/chime';
@@ -270,24 +271,13 @@ export default function MenuPage() {
             first thing on screen, pinned, instead of the banner pushing it down. */}
         <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur md:mx-0 md:px-0 md:pt-3 dark:border-zinc-800 dark:bg-zinc-950/90">
           <div className="flex items-center gap-2.5">
-            <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${
-                settings === null ? '' : settings.logo_url ? '' : 'rounded-xl bg-brand-500 shadow-sm shadow-orange-500/30'
-              }`}
-            >
-              {/* settings === null means the /api/settings fetch hasn't resolved
-                  yet on this page load — render nothing rather than the
-                  placeholder logo/emoji, so the visitor never sees a wrong
-                  brand flash before the real one swaps in a moment later.
-                  Once settings has actually loaded, an empty logo_url is a
-                  genuine "no logo configured" state, so the 🍽️ fallback is
-                  still correct there. */}
-              {settings === null ? null : settings.logo_url ? (
-                <img src={settings.logo_url} alt="" className="h-full w-full object-contain" />
-              ) : (
-                '🍽️'
-              )}
-            </div>
+            {/* Swaps to the white wordmark the moment the header goes
+                zinc-950 in dark mode — loading and no-logo states live in
+                the component (see components/AppLogo.tsx). */}
+            <AppLogo
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-lg"
+              fallbackClassName="rounded-xl bg-brand-500 shadow-sm shadow-orange-500/30"
+            />
             <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
               {settings === null ? '' : settings.restaurant_name || 'TRIANGLE'}
             </h1>
@@ -394,34 +384,23 @@ export default function MenuPage() {
           ) : (
             <>
               <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
-                {settings === null ? (
-                  // Same reasoning as the header logo above: settings hasn't
-                  // loaded yet, so render an empty placeholder instead of the
-                  // ✨ default — avoids the "wrong icon then real one" flash.
-                  <span className="h-12 w-12" />
-                ) : settings.all_category_image_url ? (
-                  // Bare layout box — no bg/border/overflow-hidden — so a
-                  // transparent-PNG category photo sits directly on the page,
-                  // same treatment as the sauce swatches in ProductSheet. The
-                  // selected state is a drop-shadow that hugs the photo's real
-                  // silhouette instead of a ring around a rectangle.
-                  <span className="flex h-12 w-12 items-center justify-center">
-                    <img
-                      src={settings.all_category_image_url}
-                      alt=""
-                      className="h-12 w-12 object-contain transition-[filter] duration-200"
-                      style={activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
-                    />
-                  </span>
-                ) : (
-                  <span
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
-                      activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
-                    }`}
-                  >
-                    ✨
-                  </span>
-                )}
+                {/* "Tout" is the brand tile: its own artwork on a light
+                    background, the white wordmark in dark mode so it doesn't
+                    vanish into the page. Bare layout box — no bg/border/
+                    overflow-hidden — so a transparent PNG sits directly on
+                    the page, same treatment as the sauce swatches in
+                    ProductSheet; the selected state is a drop-shadow hugging
+                    the artwork's real silhouette, not a ring around a box. */}
+                <AppLogo
+                  sources={{ light: settings?.all_category_image_url }}
+                  className="flex h-12 w-12 items-center justify-center"
+                  fallbackClassName={`rounded-xl text-xl transition ${
+                    activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                  }`}
+                  imgClassName="h-12 w-12 object-contain transition-[filter] duration-200"
+                  imgStyle={activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                  fallback="✨"
+                />
                 <span className={`text-[10px] font-semibold ${activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>{t('shop.all')}</span>
               </button>
               {categories.filter((c) => c.is_active).map((c) => (

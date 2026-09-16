@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
 import LanguageSwitch from '../../components/LanguageSwitch';
+import AppLogo from '../../components/AppLogo';
 import SoundAlertBanner from '../../components/shared/SoundAlertBanner';
 import useNewOrderAlert from '../../hooks/useNewOrderAlert';
 import { unlockChime, isChimeUnlocked } from '../../lib/chime';
@@ -37,9 +38,14 @@ function Brand() {
   const settings = useSettings();
   return (
     <div className="flex items-center gap-2.5">
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${settings?.logo_url ? '' : 'rounded-xl bg-brand-500 shadow-md shadow-orange-500/40'}`}>
-        {settings?.logo_url ? <img src={settings.logo_url} alt="" className="h-full w-full object-contain" /> : '🍽️'}
-      </div>
+      {/* variant="dark" is not a theme choice: the sidebar and the mobile top
+          bar are zinc-950 in both themes, so the black wordmark would be
+          invisible here even in light mode. */}
+      <AppLogo
+        variant="dark"
+        className="flex h-11 w-11 shrink-0 items-center justify-center text-lg"
+        fallbackClassName="rounded-xl bg-brand-500 shadow-md shadow-orange-500/40"
+      />
       <div>
         <p className="font-display text-[15px] font-extrabold leading-none text-white">{settings?.restaurant_name || 'TRIANGLE'}</p>
         <p className="text-[10px] font-medium tracking-wide text-zinc-500">POS · RMS</p>

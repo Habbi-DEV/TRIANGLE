@@ -4,15 +4,15 @@ import { ChefHat, Radio, ShoppingCart } from 'lucide-react';
 import supabase from '../lib/supabase';
 import { signInWithGoogle } from '../lib/googleAuth';
 import { useAuth } from '../contexts/AuthContext';
-import { useSettings } from '../lib/settings';
 import { useLang } from '../lib/i18n';
 import LanguageSwitch from '../components/LanguageSwitch';
+import ThemeToggle from '../components/ThemeToggle';
+import AppLogo from '../components/AppLogo';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { user, role, loading } = useAuth();
   const { t } = useLang();
-  const settings = useSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -61,20 +61,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-2">
+    <div className="grid min-h-screen bg-white lg:grid-cols-2 dark:bg-zinc-950">
       {/* brand panel */}
       <div className="relative hidden overflow-hidden lg:block">
         <img src="/images/hero.jpg" alt="TRIANGLE restaurant" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-br from-brand-600/90 via-burnt/80 to-zinc-950/90" />
         <div className="relative flex h-full flex-col justify-between p-10 text-white">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/15 text-2xl backdrop-blur">
-              {settings?.logo_url ? (
-                <img src={settings.logo_url} alt="" className="h-full w-full object-contain" />
-              ) : (
-                '🍽️'
-              )}
-            </div>
+            {/* Forced dark: this panel is a brand-to-zinc-950 gradient in
+                both themes, so the white wordmark is the only one that reads
+                here. Its frosted tile stays in every state, unlike the
+                brand-colored fallback tiles elsewhere. */}
+            <AppLogo
+              variant="dark"
+              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/15 text-2xl backdrop-blur"
+            />
             <span className="font-display text-2xl font-extrabold tracking-tight">TRIANGLE</span>
           </div>
           <div>
@@ -96,43 +97,41 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 lg:hidden">
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden text-xl ${
-                  settings?.logo_url ? '' : 'rounded-2xl bg-brand-500'
-                }`}
-              >
-                {settings?.logo_url ? (
-                  <img src={settings.logo_url} alt="" className="h-full w-full object-contain" />
-                ) : (
-                  '🍽️'
-                )}
-              </div>
-              <span className="font-display text-xl font-extrabold">TRIANGLE</span>
+              {/* Mobile header of the form panel — white in light mode,
+                  zinc-950 in dark, so this one follows the theme. */}
+              <AppLogo
+                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden text-xl"
+                fallbackClassName="rounded-2xl bg-brand-500"
+              />
+              <span className="font-display text-xl font-extrabold dark:text-zinc-100">TRIANGLE</span>
             </div>
-            <LanguageSwitch />
+            <div className="flex items-center gap-2">
+              <LanguageSwitch />
+              <ThemeToggle />
+            </div>
           </div>
 
-          <h1 className="font-display text-2xl font-bold text-zinc-900">{t('login.staff_sign_in')}</h1>
-          <p className="mt-1 text-sm text-zinc-500">{t('login.access_dashboard')}</p>
+          <h1 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t('login.staff_sign_in')}</h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{t('login.access_dashboard')}</p>
 
           <form onSubmit={submit} className="mt-8 space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">{t('login.email')}</label>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('login.email')}</label>
               <input
                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-600"
                 placeholder="you@restolink.com"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">{t('login.password')}</label>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('login.password')}</label>
               <input
                 type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-600"
                 placeholder="••••••••"
               />
             </div>
-            {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{error}</p>}
+            {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-500/10 dark:text-red-400">{error}</p>}
             <button
               type="submit" disabled={busy}
               className="w-full rounded-xl bg-brand-500 py-3 font-display text-[15px] font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-brand-600 active:scale-[0.98] disabled:opacity-60"
@@ -141,21 +140,21 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="my-5 flex items-center gap-3 text-xs font-medium text-zinc-300">
-            <div className="h-px flex-1 bg-zinc-100" /> {t('login.or')} <div className="h-px flex-1 bg-zinc-100" />
+          <div className="my-5 flex items-center gap-3 text-xs font-medium text-zinc-300 dark:text-zinc-600">
+            <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800" /> {t('login.or')} <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800" />
           </div>
 
           <button
             type="button"
             onClick={handleGoogle}
             disabled={googleBusy}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
           >
             <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.77.43 3.45 1.18 4.94l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
             {googleBusy ? t('login.signing_in') : t('login.continue_google')}
           </button>
 
-          <a href="/" className="mt-6 block text-center text-xs font-semibold text-zinc-400 hover:text-brand-600">
+          <a href="/" className="mt-6 block text-center text-xs font-semibold text-zinc-400 transition hover:text-brand-600 dark:text-zinc-500 dark:hover:text-brand-400">
             {t('login.back_to_menu')}
           </a>
         </div>

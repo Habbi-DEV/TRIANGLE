@@ -3,7 +3,13 @@ import { setCors, requireAdmin } from './_lib/auth.js';
 import { internalError, cleanText, isSafeImageUrl, audit } from './_lib/validate.js';
 
 // Public fields only (FIX H5: SELECT * leaked future secret columns)
-const PUBLIC_FIELDS = 'id, restaurant_name, logo_url, address, phone, contact_email, opening_hours, brand_color, delivery_fee, delivery_min_order, all_category_image_url';
+// NOTE: light_logo_url / dark_logo_url require migration_v17 — run it before
+// deploying this file, or this SELECT fails on the missing columns.
+const PUBLIC_FIELDS = 'id, restaurant_name, logo_url, light_logo_url, dark_logo_url, address, phone, contact_email, opening_hours, brand_color, delivery_fee, delivery_min_order, all_category_image_url';
+
+// Image columns an admin can write. Each is length-capped at 2000 and must
+// pass isSafeImageUrl() below; an empty string is allowed and means "cleared".
+const IMAGE_FIELDS = ['logo_url', 'light_logo_url', 'dark_logo_url', 'all_category_image_url'];
 
 export default async function handler(req, res) {
   setCors(req, res, 'GET, PUT, OPTIONS');
@@ -22,18 +28,18 @@ export default async function handler(req, res) {
       const body = req.body || {};
       const fields = {};
 
-      for (const key of ['restaurant_name', 'address', 'phone', 'contact_email', 'opening_hours', 'logo_url', 'brand_color', 'all_category_image_url']) {
+      for (const key of ['restaurant_name', 'address', 'phone', 'contact_email', 'opening_hours', 'brand_color', ...IMAGE_FIELDS]) {
         if (body[key] != null) {
           const v = cleanText(String(body[key]), key.includes('logo') || key.includes('url') ? 2000 : 300);
           fields[key] = v || '';
         }
       }
-      // Strong validation (FIX M6)
-      if (fields.logo_url && !isSafeImageUrl(fields.logo_url)) {
-        return res.status(400).json({ error: 'Invalid logo_url (https only)' });
-      }
-      if (fields.all_category_image_url && !isSafeImageUrl(fields.all_category_image_url)) {
-        return res.status(400).json({ error: 'Invalid category image url' });
+      // Strong validation (FIX M6) — same rule for every image column, so a
+      // new one can't be added to IMAGE_FIELDS while quietly skipping it.
+      for (const key of IMAGE_FIELDS) {
+        if (fields[key] && !isSafeImageUrl(fields[key])) {
+          return res.status(400).json({ error: `Invalid ${key} (https only)` });
+        }
       }
       if (fields.brand_color && !/^#[0-9a-fA-F]{6}$/.test(fields.brand_color)) {
         return res.status(400).json({ error: 'brand_color must be #rrggbb' });
