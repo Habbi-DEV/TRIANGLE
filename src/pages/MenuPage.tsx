@@ -12,6 +12,7 @@ import ProductSheet from '../components/customer/ProductSheet';
 import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
 import Skeleton from '../components/ui/Skeleton';
+import ThemeToggle from '../components/ThemeToggle';
 import InstallBanner from '../components/InstallBanner';
 import SoundAlertBanner from '../components/shared/SoundAlertBanner';
 import { playStatusChime, startAlarm, stopAlarm, unlockChime, isChimeUnlocked } from '../lib/chime';
@@ -237,7 +238,7 @@ export default function MenuPage() {
   }, [products, activeCat, search]);
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-36">
+    <div className="min-h-screen bg-zinc-50 pb-36 dark:bg-zinc-950">
       {/* Last-resort manual unlock, in case the order/status wasn't placed
           on this exact page load (e.g. the bell restored a previous order
           across a reload) and no other gesture happened to unlock it yet. */}
@@ -267,7 +268,7 @@ export default function MenuPage() {
         {/* header — sticky identity bar only (logo, name, language, cart). Kept
             separate from the banner/categories below so it's always the very
             first thing on screen, pinned, instead of the banner pushing it down. */}
-        <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur md:mx-0 md:px-0 md:pt-3">
+        <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur md:mx-0 md:px-0 md:pt-3 dark:border-zinc-800 dark:bg-zinc-950/90">
           <div className="flex items-center gap-2.5">
             <div
               className={`flex h-11 w-11 shrink-0 items-center justify-center text-lg ${
@@ -287,28 +288,29 @@ export default function MenuPage() {
                 '🍽️'
               )}
             </div>
-            <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900">
+            <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
               {settings === null ? '' : settings.restaurant_name || 'TRIANGLE'}
             </h1>
             <div className="ms-auto flex shrink-0 items-center gap-2">
-              <div className="flex rounded-full bg-zinc-100 p-0.5">
+              <div className="flex rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-900">
                 <button
                   onClick={() => setLang('fr')}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${lang === 'fr' ? 'bg-brand-500 text-white' : 'text-zinc-500'}`}
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${lang === 'fr' ? 'bg-brand-500 text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
                 >
                   FR
                 </button>
                 <button
                   onClick={() => setLang('ar')}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${lang === 'ar' ? 'bg-brand-500 text-white' : 'text-zinc-500'}`}
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${lang === 'ar' ? 'bg-brand-500 text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
                 >
                   AR
                 </button>
               </div>
+              <ThemeToggle />
               <button
                 onClick={() => setCartOpen(true)}
                 aria-label={t('shop.cart_aria')}
-                className="relative flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
               >
                 <ShoppingBag size={19} />
                 {count > 0 && (

@@ -149,10 +149,14 @@ export interface Order {
   driver_id?: string | null;
   delivery_status?: DeliveryStatus;
   delivered_at?: string | null;
-  /** Set when a driver cancels the order mid-route (customer unreachable,
-   *  refused, not found…). Null for every other order, including
-   *  admin/kitchen cancellations. */
+  /** Set whenever an order is cancelled (customer self-cancel, driver
+   *  mid-route abandon, or admin/kitchen). Null for every non-cancelled
+   *  order. See `cancelled_by` for who cancelled it. */
   cancel_reason?: string | null;
+  /** Who cancelled the order — 'customer' (self-service tracker,
+   *  within the 5-minute PENDING window), 'driver', or 'staff'.
+   *  Null/undefined for orders that were never cancelled. */
+  cancelled_by?: 'customer' | 'driver' | 'staff' | null;
   /** Per-order secret returned once at creation (POST /api/orders).
    *  Stored in localStorage, sent back as ?order_token= so the customer can
    *  track their own order without any login. Never rendered. */

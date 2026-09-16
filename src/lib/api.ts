@@ -53,3 +53,29 @@ export async function fetchCustomerOrder<T = unknown>(id: number | string): Prom
   }
   return body as T;
 }
+
+/**
+ * Customer self-cancellation (POST /api/orders/cancel). Unauthenticated —
+ * ownership is proven with the same per-order `order_token` used to poll
+ * the tracker. The server independently re-validates status + the
+ * 5-minute window; this call can still fail with a 409 if either changed
+ * since the button was last shown (e.g. the kitchen confirmed the order a
+ * second earlier), which the caller should surface as an error toast.
+ */
+export async function cancelCustomerOrder<T = unknown>(
+  id: number | string,
+  reason: string,
+  note?: string
+): Promise<T> {
+  const order_token = getOrderToken(id);
+  const res = await fetch('/api/orders/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, order_token, reason, note }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((body as { error?: string }).error || `Request failed (${res.status})`);
+  }
+  return body as T;
+}

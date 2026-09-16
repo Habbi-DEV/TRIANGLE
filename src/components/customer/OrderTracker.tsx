@@ -7,6 +7,7 @@ import { ORDER_STATUS_HINT, ORDER_STATUS_LABEL } from '../../lib/orderStatus';
 import { useLang } from '../../lib/i18n';
 import { isPushSupported, subscribeToPush } from '../../lib/push';
 import { fetchCustomerOrder } from '../../lib/api';
+import CancelOrderButton from './CancelOrderButton';
 
 const STEPS: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'completed'];
 
@@ -72,7 +73,9 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
             {cancelled
-              ? t('shop.order_cancelled_desc')
+              ? order.cancelled_by === 'customer'
+                ? t('shop.order_cancelled_by_you_desc')
+                : t('shop.order_cancelled_desc')
               : t('shop.order_processing', { id: orderNumber(order.id) })}
           </p>
         </div>
@@ -82,6 +85,14 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
             <div className="mt-8 rounded-2xl bg-brand-50 p-4 text-center text-sm font-medium text-brand-800">
               {ORDER_STATUS_HINT[order.status]}
             </div>
+
+            <CancelOrderButton
+              order={order}
+              onCancelled={(updated) => {
+                setOrder(updated);
+                onUpdate?.(updated);
+              }}
+            />
 
             {isPushSupported() && pushState === 'idle' && (
               <button

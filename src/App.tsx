@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './lib/i18n';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleGuard from './components/RoleGuard';
@@ -36,6 +37,7 @@ export default function App() {
   }, []);
 
   return (
+    <ThemeProvider>
     <LanguageProvider>
     <ToastProvider>
     <AuthProvider>
@@ -86,5 +88,6 @@ export default function App() {
     </AuthProvider>
     </ToastProvider>
     </LanguageProvider>
+    </ThemeProvider>
   );
 }

@@ -13,6 +13,26 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="TRIANGLE" />
     <title>TRIANGLE</title>
+    <!-- Sets the .dark class on <html> before first paint, from the same
+         precedence ThemeContext uses (explicit choice > OS preference >
+         light). Blocking and inline on purpose: React hasn't hydrated yet,
+         so without this the page would flash light-mode zinc-50 for a beat
+         even on a dark-preferring device or a visitor who chose dark last
+         time — this line closes that gap. Keep it in sync with
+         getInitialTheme() in src/contexts/ThemeContext.tsx if that logic
+         ever changes. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('triangle_theme');
+          var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          /* ignore (private browsing, etc.) — falls back to light */
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
