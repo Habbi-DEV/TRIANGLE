@@ -55,12 +55,19 @@ export async function fetchCustomerOrder<T = unknown>(id: number | string): Prom
 }
 
 /**
- * Customer self-cancellation (POST /api/orders/cancel). Unauthenticated —
- * ownership is proven with the same per-order `order_token` used to poll
- * the tracker. The server independently re-validates status + the
- * 5-minute window; this call can still fail with a 409 if either changed
- * since the button was last shown (e.g. the kitchen confirmed the order a
- * second earlier), which the caller should surface as an error toast.
+ * Customer self-cancellation. Sent to the same /api/orders function as
+ * order creation (as { action: 'cancel', ... }) rather than a dedicated
+ * route — this project's Vercel Hobby plan caps a deployment at 12
+ * Serverless Functions (one per file under /api), and it's already at
+ * that ceiling, so new customer-facing behavior goes on an existing
+ * route instead of spending another function on it.
+ *
+ * Unauthenticated — ownership is proven with the same per-order
+ * `order_token` used to poll the tracker. The server independently
+ * re-validates status + the 5-minute window; this call can still fail
+ * with a 409 if either changed since the button was last shown (e.g.
+ * the kitchen confirmed the order a second earlier), which the caller
+ * should surface as an error toast.
  */
 export async function cancelCustomerOrder<T = unknown>(
   id: number | string,
@@ -68,10 +75,10 @@ export async function cancelCustomerOrder<T = unknown>(
   note?: string
 ): Promise<T> {
   const order_token = getOrderToken(id);
-  const res = await fetch('/api/orders/cancel', {
+  const res = await fetch('/api/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, order_token, reason, note }),
+    body: JSON.stringify({ action: 'cancel', id, order_token, reason, note }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {

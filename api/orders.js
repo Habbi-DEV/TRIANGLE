@@ -9,6 +9,21 @@ import {
 const ORDER_TYPES = ['dine_in', 'takeaway', 'delivery'];
 const ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'];
 
+// Customer self-cancellation window: POST { action: 'cancel', ... } below,
+// re-checked strictly server-side. Kept as a branch of this same handler
+// (rather than its own api/orders/cancel.js file) on purpose — the Vercel
+// Hobby plan caps a deployment at 12 Serverless Functions, one per file
+// under /api, and this project is already at that ceiling. See
+// api/driver-orders.js for the same one-file/action-field pattern.
+const CANCEL_WINDOW_MS = 5 * 60 * 1000;
+const CUSTOMER_CANCEL_REASON_LABEL = {
+  changed_mind: 'Customer changed their mind',
+  ordered_by_mistake: 'Ordered by mistake',
+  duplicate_order: 'Duplicate order',
+  too_long_wait: 'Wait time too long',
+  other: 'Other',
+};
+
 function pushBodyFor(status, orderType) {
   switch (status) {
     case 'confirmed': return 'Votre commande a été acceptée 👍';
@@ -124,8 +139,119 @@ export default async function handler(req, res) {
 
     // ------------------------------------------------------------ POST (public, hardened)
     if (req.method === 'POST') {
-      if (!rateLimit(req, res, { max: 20, windowMs: 60_000, key: 'order-create' })) return;
       const body = req.body || {};
+
+      // --------------------------------------------------- POST (cancel)
+      // Body: { action: 'cancel', id, order_token, reason, note }
+      // Public, token-authenticated (same access_token the tracker already
+      // polls with) — no staff session. Business rule enforced ONLY here,
+      // server-side, against the DB row just fetched: status must be
+      // strictly 'pending' AND less than 5 minutes must have passed since
+      // created_at. The final UPDATE is itself conditioned on
+      // status = 'pending' so a race (kitchen confirms the order the same
+      // instant the customer taps cancel) can't slip through between the
+      // check and the write.
+      if (body.action === 'cancel') {
+        if (!rateLimit(req, res, { max: 10, windowMs: 60_000, key: 'order-cancel' })) return;
+
+        const orderId = toId(body.id);
+        if (!orderId) return res.status(400).json({ error: 'Invalid order id' });
+
+        const { order_token, reason, note } = body;
+        if (typeof order_token !== 'string' || !order_token) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
+        if (!CUSTOMER_CANCEL_REASON_LABEL[reason]) {
+          return res.status(400).json({ error: 'Invalid cancellation reason' });
+        }
+
+        const { data: existing, error: fetchErr } = await supabase
+          .from('orders').select('*').eq('id', orderId).single();
+        if (fetchErr || !existing) return res.status(404).json({ error: 'Order not found' });
+
+        // Ownership: must match the token issued at checkout. No legacy
+        // fallback (unlike the GET route above) — a mutating endpoint
+        // should never be reachable without proof of ownership.
+        if (!existing.access_token || order_token !== existing.access_token) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        if (existing.status !== 'pending') {
+          const messages = {
+            confirmed: 'This order has already been confirmed by the restaurant and can no longer be cancelled.',
+            preparing: 'This order is already being prepared and can no longer be cancelled.',
+            ready: 'This order is ready and can no longer be cancelled.',
+            out_for_delivery: 'This order is already out for delivery and can no longer be cancelled.',
+            completed: 'This order has already been completed.',
+            cancelled: 'This order has already been cancelled.',
+          };
+          return res.status(409).json({
+            error: messages[existing.status] || 'This order can no longer be cancelled.',
+            status: existing.status,
+          });
+        }
+
+        const createdAtMs = new Date(existing.created_at).getTime();
+        if (!Number.isFinite(createdAtMs) || Date.now() - createdAtMs > CANCEL_WINDOW_MS) {
+          return res.status(409).json({
+            error: 'The 5-minute cancellation window for this order has expired.',
+            status: existing.status, expired: true,
+          });
+        }
+
+        const cleanNote = cleanText(note, 300) || '';
+        const cancel_reason = cleanNote
+          ? `${CUSTOMER_CANCEL_REASON_LABEL[reason]}: ${cleanNote}`
+          : CUSTOMER_CANCEL_REASON_LABEL[reason];
+
+        const { data: updated, error: updateErr } = await supabase
+          .from('orders')
+          .update({ status: 'cancelled', cancel_reason, cancelled_by: 'customer' })
+          .eq('id', orderId).eq('status', 'pending')
+          .select().single();
+        if (updateErr || !updated) {
+          return res.status(409).json({ error: 'This order can no longer be cancelled — please refresh.' });
+        }
+
+        const { delivery_otp: _cOtp, access_token: _cTok, ...safeCancelled } = updated;
+        res.status(200).json(safeCancelled);
+
+        // ---- Non-blocking side effects ----
+        audit(supabase, {
+          actorId: null, action: 'order.customer_cancel', entity: 'orders', entityId: orderId,
+          meta: { reason, note: cleanNote || undefined },
+        }).catch(console.error);
+
+        (async () => {
+          const { data: cItems } = await supabase
+            .from('order_items').select('product_id, quantity').eq('order_id', existing.id);
+          if (!cItems?.length) return;
+          const { data: cProducts } = await supabase
+            .from('products').select('id, stock').in('id', cItems.map((i) => i.product_id));
+          const stockById = Object.fromEntries((cProducts || []).map((p) => [p.id, p.stock ?? 0]));
+          await Promise.all(cItems.flatMap((it) => [
+            supabase.from('products').update({ stock: (stockById[it.product_id] ?? 0) + it.quantity }).eq('id', it.product_id),
+            supabase.from('inventory_logs').insert({
+              product_id: it.product_id, change: it.quantity, reason: 'correction',
+              notes: `Order #${existing.id + 1000} cancelled by customer — stock restored`,
+            }),
+          ])).catch((err) => console.error(`Stock restore failed for order #${existing.id}:`, err));
+        })().catch(console.error);
+
+        if (existing.order_type === 'dine_in' && existing.table_number) {
+          supabase.from('tables').update({ status: 'available' }).eq('table_number', existing.table_number)
+            .then(({ error }) => { if (error) console.error('[tables available]', error); });
+        }
+
+        sendPushToOrder(existing.id, {
+          title: 'TRIANGLE', body: pushBodyFor('cancelled', existing.order_type),
+          tag: `order-${existing.id}`, url: '/',
+        }).catch(console.error);
+        return;
+      }
+
+      // --------------------------------------------------- POST (create)
+      if (!rateLimit(req, res, { max: 20, windowMs: 60_000, key: 'order-create' })) return;
       const {
         order_type, table_number,
         customer_name, customer_phone, delivery_address,
