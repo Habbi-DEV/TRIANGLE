@@ -203,7 +203,7 @@ export default async function handler(req, res) {
         // order, it doesn't need to be done here too.
         const { data, error } = await supabase
           .from('orders')
-          .update({ status: 'cancelled', cancel_reason })
+          .update({ status: 'cancelled', cancel_reason, cancelled_by: 'driver' })
           .eq('id', Number(id)).eq('driver_id', user.id).select().single();
         if (error) throw error;
 

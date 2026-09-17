@@ -401,7 +401,10 @@ export default async function handler(req, res) {
         }
       }
 
-      const { data, error } = await supabase.from('orders').update({ status }).eq('id', orderId).select().single();
+      const { data, error } = await supabase
+        .from('orders')
+        .update(status === 'cancelled' ? { status, cancelled_by: 'staff' } : { status })
+        .eq('id', orderId).select().single();
       if (error) return internalError(res, error, 'orders update');
       const { delivery_otp: _o, access_token: _t, ...safe } = data;
       // Return to client immediately (0ms perceived) — side effects run fire-and-forget

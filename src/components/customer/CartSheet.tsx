@@ -329,7 +329,7 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" /></svg>
                               </span>
-                              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className="w-full min-w-0 bg-transparent text-sm outline-none" />
+                              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className="w-full min-w-0 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
                             </div>
                             {errors.name && <p className="mt-1 text-xs font-medium text-red-500">{errors.name}</p>}
                           </div>
@@ -338,7 +338,7 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.4 1.9.6 2.9.7a2 2 0 0 1 1.7 2z" /></svg>
                               </span>
-                              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className="w-full min-w-0 bg-transparent text-sm outline-none" />
+                              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className="w-full min-w-0 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
                             </div>
                             {errors.phone && <p className="mt-1 text-xs font-medium text-red-500">{errors.phone}</p>}
                           </div>
@@ -348,7 +348,7 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
                               <MapPin size={14} />
                             </span>
-                            <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('cart.delivery_address')} rows={2} className="w-full resize-none bg-transparent text-sm outline-none" />
+                            <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('cart.delivery_address')} rows={2} className="w-full resize-none bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
                           </div>
                           {errors.address && <p className="mt-1 text-xs font-medium text-red-500">{errors.address}</p>}
                         </div>
@@ -385,7 +385,7 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                   {/* notes — step number shifts up when there's no step 2 (takeaway) */}
                   <div>
                     <SectionHeader n={orderType === 'takeaway' ? 2 : 3} title={t('cart.kitchen_notes')} />
-                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('cart.kitchen_notes.placeholder')} className="w-full resize-none rounded-xl border border-zinc-200 px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-200" />
+                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('cart.kitchen_notes.placeholder')} className="w-full resize-none rounded-xl border border-zinc-200 px-3.5 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-200" />
                   </div>
 
                   {/* payment method is fixed (Algeria: cash only) and enforced

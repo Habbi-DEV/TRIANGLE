@@ -235,7 +235,15 @@ export default function OrdersPage() {
                 {o.notes && <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-700">📝 {o.notes}</p>}
                 {o.status === 'cancelled' && o.cancel_reason && (
                   <p className="mt-2 rounded-lg bg-red-50 px-2 py-1 text-[11px] text-red-700">
-                    🚫 {t('orders.cancel_reason')} : {o.cancel_reason}
+                    🚫 {t(
+                      o.cancelled_by === 'customer'
+                        ? 'orders.cancel_reason_customer'
+                        : o.cancelled_by === 'driver'
+                        ? 'orders.cancel_reason_driver'
+                        : o.cancelled_by === 'staff'
+                        ? 'orders.cancel_reason_staff'
+                        : 'orders.cancel_reason_generic'
+                    )} : {o.cancel_reason}
                   </p>
                 )}
 

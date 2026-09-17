@@ -75,7 +75,7 @@ export default function CancelOrderConfirmModal({ open, onClose, onConfirm, busy
             placeholder={t('shop.cancel_order.note_placeholder')}
             rows={2}
             disabled={busy}
-            className="w-full resize-none rounded-xl border border-zinc-200 px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-red-200 disabled:opacity-60"
+            className="w-full resize-none rounded-xl border border-zinc-200 px-3.5 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-red-200 disabled:opacity-60"
           />
         )}
 
