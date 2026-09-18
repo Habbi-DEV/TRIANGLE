@@ -36,7 +36,7 @@ function Stepper({ stepIndex }: { stepIndex: number }) {
             >
               {i < stepIndex ? <CheckCircle2 size={16} /> : i + 1}
             </div>
-            <span className={`hidden text-[10px] font-semibold sm:block ${i <= stepIndex ? 'text-brand-700' : 'text-zinc-400'}`}>
+            <span className={`w-14 truncate text-center text-[9px] font-semibold sm:w-auto sm:text-[10px] ${i <= stepIndex ? 'text-brand-700 driver-dark:text-brand-400' : 'text-zinc-400'}`}>
               {t(STEP_LABEL_KEY[step])}
             </span>
           </div>
@@ -143,27 +143,27 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
   return (
     <div className="overflow-hidden rounded-2xl bg-white driver-dark:bg-zinc-900 shadow-soft-lg ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
       {/* Header */}
-      <div className="flex items-center justify-between bg-zinc-950 px-4 py-3">
-        <div>
-          <p className="font-display text-lg font-extrabold text-white">{orderNumber(effectiveOrder.id)}</p>
-          <p className="text-[11px] text-zinc-400">{timeAgo(effectiveOrder.created_at)}</p>
+      <div className="flex items-center justify-between gap-2 bg-zinc-950 px-3.5 py-3 sm:px-4">
+        <div className="min-w-0">
+          <p className="truncate font-display text-lg font-extrabold text-white">{orderNumber(effectiveOrder.id)}</p>
+          <p className="truncate text-[11px] text-zinc-400">{timeAgo(effectiveOrder.created_at)}</p>
         </div>
-        <span className="rounded-full bg-brand-500/15 px-3 py-1 text-xs font-bold text-brand-400 ring-1 ring-brand-500/30">
+        <span className="max-w-[45%] shrink-0 truncate rounded-full bg-brand-500/15 px-2.5 py-1 text-[11px] font-bold text-brand-400 ring-1 ring-brand-500/30 sm:px-3 sm:text-xs">
           {DELIVERY_STATUS_LABEL[status as DeliveryStatus] ?? status}
         </span>
       </div>
 
-      <div className="px-4 pt-4">
+      <div className="px-3.5 pt-4 sm:px-4">
         <Stepper stepIndex={stepIndex} />
       </div>
 
       {/* Customer + address */}
-      <div className="space-y-3 px-4 py-4">
-        <p className="font-display text-xl font-bold text-zinc-900 driver-dark:text-white">{order.customer_name || t('common.na')}</p>
+      <div className="space-y-3 px-3.5 py-4 sm:px-4">
+        <p className="break-words font-display text-lg font-bold text-zinc-900 sm:text-xl driver-dark:text-white">{order.customer_name || t('common.na')}</p>
 
         <div className="flex items-start gap-2.5 text-[15px] text-zinc-700 driver-dark:text-zinc-300">
           <MapPin size={18} className="mt-0.5 shrink-0 text-brand-500" />
-          <span className="leading-snug">{order.delivery_address || t('common.na')}</span>
+          <span className="min-w-0 break-words leading-snug">{order.delivery_address || t('common.na')}</span>
         </div>
 
         {order.notes && (
@@ -175,17 +175,17 @@ export default function ActiveOrderCard({ order, onUpdated }: { order: Order; on
           <RouteMap destLat={order.delivery_lat} destLng={order.delivery_lng} destAddress={order.delivery_address} />
         </div>
 
-        <div className="flex items-center justify-between rounded-xl bg-zinc-50 driver-dark:bg-zinc-800 px-3.5 py-3 ring-1 ring-zinc-200 driver-dark:ring-zinc-700">
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-600 driver-dark:text-zinc-300">
-            <Banknote size={18} className="text-emerald-600" />
-            {t('driver.cod_amount')}
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-zinc-50 px-3.5 py-3 ring-1 ring-zinc-200 driver-dark:bg-zinc-800 driver-dark:ring-zinc-700">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-zinc-600 driver-dark:text-zinc-300">
+            <Banknote size={18} className="shrink-0 text-emerald-600" />
+            <span className="truncate">{t('driver.cod_amount')}</span>
           </div>
-          <span className="font-display text-xl font-extrabold text-zinc-900 driver-dark:text-white">{money(order.total)}</span>
+          <span className="shrink-0 font-display text-lg font-extrabold tabular-nums text-zinc-900 sm:text-xl driver-dark:text-white">{money(order.total)}</span>
         </div>
       </div>
 
       {/* Actions — large, high-contrast, thumb-reachable */}
-      <div className="grid grid-cols-1 gap-2 px-4 pb-4 sm:grid-cols-[auto_1fr]">
+      <div className="grid grid-cols-1 gap-2 px-3.5 pb-4 sm:grid-cols-[auto_1fr] sm:px-4">
         {phone && (
           <a
             href={`tel:${phone}`}

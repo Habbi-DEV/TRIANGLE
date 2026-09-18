@@ -106,7 +106,7 @@ export default function AvailableOrderCard({
           }
         }}
         animate={busy ? { x: 0 } : undefined}
-        className={`relative flex items-center gap-3 rounded-2xl bg-white driver-dark:bg-zinc-900 p-4 shadow-soft ring-1 ${
+        className={`relative flex flex-col gap-3 rounded-2xl bg-white p-3.5 shadow-soft ring-1 sm:flex-row sm:items-center sm:p-4 driver-dark:bg-zinc-900 ${
           isStale ? 'ring-amber-300 driver-dark:ring-amber-700' : 'ring-zinc-100 driver-dark:ring-zinc-800'
         }`}
       >
@@ -122,7 +122,7 @@ export default function AvailableOrderCard({
           </div>
           <div className="mt-1 flex items-start gap-1.5 text-sm text-zinc-600 driver-dark:text-zinc-400">
             <MapPin size={15} className="mt-0.5 shrink-0 text-brand-500" />
-            <span className="truncate">{order.delivery_address}</span>
+            <span className="min-w-0 break-words leading-snug line-clamp-2">{order.delivery_address}</span>
           </div>
           {order.delivery_lat != null && order.delivery_lng != null && (
             <OrderMiniMap lat={order.delivery_lat} lng={order.delivery_lng} />
@@ -141,11 +141,15 @@ export default function AvailableOrderCard({
           <p className="mt-1.5 hidden text-[10px] font-medium text-zinc-300 sm:block">{t('driver.swipe_to_accept')}</p>
         </div>
 
+        {/* Full-width under the details on a phone, back to a side column
+            from `sm` up. As a narrow side column it fought the address and
+            price for the same ~320px and pushed them into an unreadable
+            sliver; full width it's also a far bigger thumb target. */}
         <button
           type="button"
           onClick={accept}
           disabled={busy}
-          className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-orange-500/30 transition active:scale-[0.98] disabled:opacity-60"
+          className="flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-orange-500/30 transition active:scale-[0.98] disabled:opacity-60 sm:w-auto"
         >
           {busy ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
           {t('driver.accept')}

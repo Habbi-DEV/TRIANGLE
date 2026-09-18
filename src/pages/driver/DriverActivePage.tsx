@@ -46,13 +46,13 @@ export default function DriverActivePage() {
           </p>
           <div className="space-y-2">
             {recent.map((order) => (
-              <div key={order.id} className="flex items-center justify-between rounded-xl bg-white driver-dark:bg-zinc-900 px-4 py-3 text-sm ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
-                <span className="font-semibold text-zinc-700 driver-dark:text-zinc-200">#{order.id + 1000}</span>
-                <span className="text-zinc-400">{order.customer_name}</span>
+              <div key={order.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3.5 py-3 text-sm ring-1 ring-zinc-100 driver-dark:bg-zinc-900 driver-dark:ring-zinc-800">
+                <span className="shrink-0 font-semibold text-zinc-700 driver-dark:text-zinc-200">#{order.id + 1000}</span>
+                <span className="min-w-0 flex-1 truncate text-center text-zinc-400">{order.customer_name}</span>
                 {order.status === 'cancelled' ? (
-                  <span className="font-bold text-red-500">{t('driver.cancelled')}</span>
+                  <span className="shrink-0 font-bold text-red-500">{t('driver.cancelled')}</span>
                 ) : (
-                  <span className="font-bold text-emerald-600">{t('driver.delivered')}</span>
+                  <span className="shrink-0 font-bold text-emerald-600">{t('driver.delivered')}</span>
                 )}
               </div>
             ))}

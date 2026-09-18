@@ -77,12 +77,12 @@ export default function DriverHistoryPage() {
         <div className="flex flex-col items-center gap-1 rounded-xl bg-white driver-dark:bg-zinc-900 py-4 ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
           <Package size={18} className="text-brand-500" />
           <span className="font-display text-xl font-extrabold text-zinc-900 driver-dark:text-white">{delivered.length}</span>
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{t('driver.history.total_deliveries')}</span>
+          <span className="w-full truncate px-1 text-center text-[10px] font-semibold uppercase text-zinc-400">{t('driver.history.total_deliveries')}</span>
         </div>
         <div className="flex flex-col items-center gap-1 rounded-xl bg-white driver-dark:bg-zinc-900 py-4 ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
           <Banknote size={18} className="text-emerald-600" />
-          <span className="font-display text-xl font-extrabold text-zinc-900 driver-dark:text-white">{money(totalEarnings)}</span>
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{t('driver.history.total_earnings')}</span>
+          <span className="w-full truncate px-1 text-center font-display text-lg font-extrabold tabular-nums text-zinc-900 sm:text-xl driver-dark:text-white" title={money(totalEarnings)}>{money(totalEarnings)}</span>
+          <span className="w-full truncate px-1 text-center text-[10px] font-semibold uppercase text-zinc-400">{t('driver.history.total_earnings')}</span>
         </div>
       </div>
 
@@ -98,14 +98,14 @@ export default function DriverHistoryPage() {
           {filtered.map((order) => (
             <div
               key={order.id}
-              className="flex items-center justify-between rounded-xl bg-white driver-dark:bg-zinc-900 px-4 py-3 text-sm ring-1 ring-zinc-100 driver-dark:ring-zinc-800"
+              className="flex items-center justify-between gap-3 rounded-xl bg-white px-3.5 py-3 text-sm ring-1 ring-zinc-100 driver-dark:bg-zinc-900 driver-dark:ring-zinc-800"
             >
-              <div>
-                <p className="font-semibold text-zinc-700 driver-dark:text-zinc-200">{orderNumber(order.id)}</p>
-                <p className="text-xs text-zinc-400">{clock(order.created_at)} · {order.customer_name || t('common.na')}</p>
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-zinc-700 driver-dark:text-zinc-200">{orderNumber(order.id)}</p>
+                <p className="truncate text-xs text-zinc-400">{clock(order.created_at)} · {order.customer_name || t('common.na')}</p>
               </div>
-              <div className="text-end">
-                <p className="font-bold text-zinc-800 driver-dark:text-zinc-100">{money(order.total)}</p>
+              <div className="shrink-0 text-end">
+                <p className="font-bold tabular-nums text-zinc-800 driver-dark:text-zinc-100">{money(order.total)}</p>
                 {order.status === 'cancelled' ? (
                   <span className="text-xs font-bold text-red-500">{t('driver.cancelled')}</span>
                 ) : (

@@ -23,12 +23,19 @@ export default function NewOrdersBanner() {
     : t('driver.new_orders_banner.many', { n: newOrders.length });
 
   return (
-    <div className="sticky top-[57px] z-10 flex items-center justify-between gap-2 bg-brand-500 px-4 py-2.5 text-white shadow-md">
-      <div className="flex items-center gap-2 text-sm font-bold">
+    // Sticks right under the driver header, whose real height is published
+    // as --driver-header-h by DriverLayout (it varies with the safe-area
+    // inset and the two-row layout), with the old hardcoded value as a
+    // fallback if this ever renders outside that shell.
+    <div
+      className="sticky z-20 flex items-center justify-between gap-2 bg-brand-500 px-3 py-2.5 text-white shadow-md sm:px-4"
+      style={{ top: 'var(--driver-header-h, 57px)' }}
+    >
+      <div className="flex min-w-0 items-center gap-2 text-[13px] font-bold sm:text-sm">
         <Bell size={16} className="shrink-0" />
-        {label}
+        <span className="min-w-0 truncate">{label}</span>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
           onClick={() => {

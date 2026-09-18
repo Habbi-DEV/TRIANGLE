@@ -11,6 +11,7 @@ import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
 import LanguageSwitch from '../../components/LanguageSwitch';
 import AppLogo from '../../components/AppLogo';
+import AdminThemeToggle from '../../components/admin/AdminThemeToggle';
 import SoundAlertBanner from '../../components/shared/SoundAlertBanner';
 import useNewOrderAlert from '../../hooks/useNewOrderAlert';
 import { unlockChime, isChimeUnlocked } from '../../lib/chime';
@@ -37,7 +38,7 @@ const ROLE_LABEL: Record<string, string> = { admin: 'Admin', cashier: 'Caissier'
 function Brand() {
   const settings = useSettings();
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex min-w-0 items-center gap-2.5">
       {/* variant="dark" is not a theme choice: the sidebar and the mobile top
           bar are zinc-950 in both themes, so the black wordmark would be
           invisible here even in light mode. */}
@@ -46,8 +47,8 @@ function Brand() {
         className="flex h-11 w-11 shrink-0 items-center justify-center text-lg"
         fallbackClassName="rounded-xl bg-brand-500 shadow-md shadow-orange-500/40"
       />
-      <div>
-        <p className="font-display text-[15px] font-extrabold leading-none text-white">{settings?.restaurant_name || 'TRIANGLE'}</p>
+      <div className="min-w-0">
+        <p className="truncate font-display text-[15px] font-extrabold leading-none text-white">{settings?.restaurant_name || 'TRIANGLE'}</p>
         <p className="text-[10px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">POS · RMS</p>
       </div>
     </div>
@@ -174,7 +175,10 @@ export default function AdminLayout() {
       {/* desktop sidebar */}
       <aside className="fixed inset-y-0 start-0 z-40 hidden w-64 flex-col bg-zinc-950 p-4 lg:flex">
         <Brand />
-        <div className="mt-4"><LanguageSwitch /></div>
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <LanguageSwitch />
+          <AdminThemeToggle />
+        </div>
         <nav className="mt-4 flex-1 space-y-1.5">
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end} className={linkCls}>
@@ -205,12 +209,30 @@ export default function AdminLayout() {
 
       {/* mobile top bar */}
       <header className="sticky top-0 z-40 bg-zinc-950 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Brand />
-          <div className="flex items-center gap-2">
+          {/* shrink-0 + fixed-size round buttons: the actions keep their
+              own space no matter how long the restaurant name is, so
+              nothing overlaps the brand block on a 320px screen. */}
+          <div className="flex shrink-0 items-center gap-1.5">
             <LanguageSwitch compact />
-            <a href="/" target="_blank" rel="noreferrer" className="text-zinc-400 dark:text-zinc-500"><ExternalLink size={17} /></a>
-            <button onClick={signOut} className="text-zinc-400 dark:text-zinc-500" aria-label={t('nav.sign_out')}><LogOut size={17} /></button>
+            <AdminThemeToggle />
+            <a
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+              aria-label={t('nav.customer_menu')}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100 active:scale-95"
+            >
+              <ExternalLink size={17} />
+            </a>
+            <button
+              onClick={signOut}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-red-400 active:scale-95"
+              aria-label={t('nav.sign_out')}
+            >
+              <LogOut size={17} />
+            </button>
           </div>
         </div>
         <nav className="no-scrollbar -mx-1 mt-3 flex gap-1 overflow-x-auto px-1">

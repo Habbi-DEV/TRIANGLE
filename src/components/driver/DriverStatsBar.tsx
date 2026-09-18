@@ -36,23 +36,23 @@ export default function DriverStatsBar({ orders }: { orders: Order[] }) {
   if (stats.count === 0) return null;
 
   return (
-    <div className="mb-4 grid grid-cols-3 gap-2">
-      <div className="flex flex-col items-center gap-1 rounded-xl bg-white driver-dark:bg-zinc-900 py-3 ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
+    <div className="mb-3 grid grid-cols-3 gap-2 sm:mb-4">
+      <div className="flex min-w-0 flex-col items-center gap-1 rounded-xl bg-white px-1.5 py-3 ring-1 ring-zinc-100 driver-dark:bg-zinc-900 driver-dark:ring-zinc-800">
         <Package size={16} className="text-brand-500" />
-        <span className="font-display text-lg font-extrabold text-zinc-900 driver-dark:text-white">{stats.count}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{t('driver.stats.deliveries_today')}</span>
+        <span className="w-full truncate text-center font-display text-lg font-extrabold tabular-nums text-zinc-900 driver-dark:text-white">{stats.count}</span>
+        <span className="w-full truncate text-center text-[10px] font-semibold uppercase text-zinc-400">{t('driver.stats.deliveries_today')}</span>
       </div>
-      <div className="flex flex-col items-center gap-1 rounded-xl bg-white driver-dark:bg-zinc-900 py-3 ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
+      <div className="flex min-w-0 flex-col items-center gap-1 rounded-xl bg-white px-1.5 py-3 ring-1 ring-zinc-100 driver-dark:bg-zinc-900 driver-dark:ring-zinc-800">
         <Banknote size={16} className="text-emerald-600" />
-        <span className="font-display text-lg font-extrabold text-zinc-900 driver-dark:text-white">{money(stats.earnings)}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{t('driver.stats.earnings_today')}</span>
+        <span className="w-full truncate text-center font-display text-base font-extrabold tabular-nums text-zinc-900 sm:text-lg driver-dark:text-white" title={money(stats.earnings)}>{money(stats.earnings)}</span>
+        <span className="w-full truncate text-center text-[10px] font-semibold uppercase text-zinc-400">{t('driver.stats.earnings_today')}</span>
       </div>
-      <div className="flex flex-col items-center gap-1 rounded-xl bg-white driver-dark:bg-zinc-900 py-3 ring-1 ring-zinc-100 driver-dark:ring-zinc-800">
+      <div className="flex min-w-0 flex-col items-center gap-1 rounded-xl bg-white px-1.5 py-3 ring-1 ring-zinc-100 driver-dark:bg-zinc-900 driver-dark:ring-zinc-800">
         <Timer size={16} className="text-blue-500" />
-        <span className="font-display text-lg font-extrabold text-zinc-900 driver-dark:text-white">
+        <span className="w-full truncate text-center font-display text-lg font-extrabold tabular-nums text-zinc-900 driver-dark:text-white">
           {stats.avgMin != null ? `${stats.avgMin}m` : '—'}
         </span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{t('driver.stats.avg_time')}</span>
+        <span className="w-full truncate text-center text-[10px] font-semibold uppercase text-zinc-400">{t('driver.stats.avg_time')}</span>
       </div>
     </div>
   );
