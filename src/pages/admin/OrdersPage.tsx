@@ -63,6 +63,13 @@ export default function OrdersPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const inFlightRef = useRef<Set<number>>(new Set());
   const queueRef = useRef<Map<number, OrderStatus[]>>(new Map());
+  // Status this order is currently being driven towards (in-flight or
+  // queued). Lets us dedupe a double-click that re-fires the SAME target
+  // status before the optimistic UI has re-rendered with the new button —
+  // without this, the queue drain below can resend a status the order is
+  // already in (e.g. "preparing" -> "preparing"), which the backend's
+  // state machine correctly rejects with a 409.
+  const targetRef = useRef<Map<number, OrderStatus>>(new Map());
 
   const filtered = useMemo(
     () => orders.filter((o) =>
@@ -105,13 +112,22 @@ export default function OrdersPage() {
   const setStatus = async (id: number, status: OrderStatus) => {
     const cur = orders.find((o) => o.id === id);
     if (!cur) return;
-    if (cur.status === status) return;
+
+    // Compare against where this order is already headed (in-flight or
+    // queued), not just its last-known server status — a double-click
+    // (or a repeat tap before the button label updates) re-fires the
+    // same target and must be a no-op, otherwise it gets queued and
+    // replayed once the order is already in that state.
+    const pendingTarget = targetRef.current.get(id);
+    const effectiveCurrent = pendingTarget ?? cur.status;
+    if (effectiveCurrent === status) return;
 
     if (inFlightRef.current.has(id)) {
       const q = queueRef.current.get(id) || [];
       if (q[q.length - 1] !== status) {
         q.push(status);
         queueRef.current.set(id, q);
+        targetRef.current.set(id, status);
         patchOrder(id, { status });
       }
       return;
@@ -119,11 +135,13 @@ export default function OrdersPage() {
 
     let curStatus = status;
     const prevStatus = cur.status as OrderStatus;
+    targetRef.current.set(id, status);
     patchOrder(id, { status });
 
     try {
       await sendStatus(id, status, prevStatus);
     } catch {
+      targetRef.current.delete(id);
       return;
     }
 
@@ -131,6 +149,7 @@ export default function OrdersPage() {
       const q = queueRef.current.get(id)!;
       const next = q.shift()!;
       if (q.length === 0) queueRef.current.delete(id);
+      if (next === curStatus) continue; // already satisfied by the transition above
       const beforeNext = curStatus;
       try {
         await sendStatus(id, next, beforeNext as OrderStatus);
@@ -139,6 +158,7 @@ export default function OrdersPage() {
         break;
       }
     }
+    targetRef.current.delete(id);
   };
 
   const deleteOrder = async (id: number) => {
@@ -293,15 +313,21 @@ export default function OrdersPage() {
                     {action && (
                       <button
                         onClick={() => setStatus(o.id, action.to)}
-                        className="flex-1 rounded-xl bg-brand-500 py-2 text-xs font-bold text-white transition hover:bg-brand-600 active:scale-[0.98]"
+                        disabled={busyId === o.id}
+                        aria-busy={busyId === o.id}
+                        className="flex-1 rounded-xl bg-brand-500 py-2 text-xs font-bold text-white transition hover:bg-brand-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-brand-500 disabled:active:scale-100"
                       >
-                        {t(action.labelKey)}
+                        {busyId === o.id ? (
+                          <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]" />
+                        ) : t(action.labelKey)}
                       </button>
                     )}
                     {cancellable && (
                       <button
                         onClick={() => setStatus(o.id, 'cancelled')}
-                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 active:scale-[0.98]"
+                        disabled={busyId === o.id}
+                        aria-busy={busyId === o.id}
+                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent disabled:active:scale-100"
                       >
                         {t('orders.action.cancel')}
                       </button>
