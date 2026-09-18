@@ -6,5 +6,5 @@
  * `className` (e.g. `h-4 w-24 rounded-md`, `aspect-[2/1] rounded-2xl`).
  */
 export default function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-lg bg-zinc-200/70 ${className}`} />;
+  return <div className={`animate-pulse rounded-lg bg-zinc-200/70 dark:bg-zinc-800/70 ${className}`} />;
 }

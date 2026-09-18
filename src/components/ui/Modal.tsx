@@ -25,17 +25,17 @@ export default function Modal({ open, onClose, title, children, wide }: Props) {
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
-            className={`max-h-[92vh] w-full overflow-y-auto thin-scroll rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`}
+            className={`max-h-[92vh] w-full overflow-y-auto thin-scroll rounded-t-2xl bg-white p-5 shadow-2xl dark:bg-zinc-900 sm:rounded-2xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`}
             initial={{ y: 60, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.98 }}
             transition={{ type: 'spring', damping: 28, stiffness: 350 }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-lg font-bold text-zinc-900">{title}</h3>
+              <h3 className="font-display text-lg font-bold text-zinc-900 dark:text-zinc-100">{title}</h3>
               <button
                 onClick={onClose}
-                className="rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                className="rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 aria-label={t('common.close')}
               >
                 <X size={18} />

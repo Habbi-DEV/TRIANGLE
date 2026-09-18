@@ -231,15 +231,15 @@ export default function RegisterPage() {
     <div className="lg:flex lg:h-screen">
       {/* -------- product grid side -------- */}
       <div className="flex min-w-0 flex-col lg:flex-1 lg:overflow-hidden">
-        <div className="border-b border-zinc-200 bg-white p-4">
+        <div className="border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-xl font-bold text-zinc-900">{t('register.title')}</h1>
+            <h1 className="font-display text-xl font-bold text-zinc-900 dark:text-zinc-100">{t('register.title')}</h1>
             <div className="relative ms-auto w-full sm:w-64">
-              <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
               <input
                 value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('register.search_products')}
-                className="w-full rounded-xl border border-zinc-200 py-2 ps-9 pe-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 py-2 ps-9 pe-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
               />
             </div>
           </div>
@@ -269,13 +269,13 @@ export default function RegisterPage() {
                 sources={{ light: settings?.all_category_image_url }}
                 className="flex h-11 w-11 items-center justify-center"
                 fallbackClassName={`rounded-xl text-lg transition ${
-                  mode === 'products' && activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                  mode === 'products' && activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100 dark:bg-zinc-800'
                 }`}
                 imgClassName="h-11 w-11 object-contain transition-[filter] duration-200"
                 imgStyle={mode === 'products' && activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
                 fallback="✨"
               />
-              <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'products' && activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>
+              <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'products' && activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500 dark:text-zinc-400'}`}>
                 {t('register.all')}
               </span>
             </button>
@@ -286,12 +286,12 @@ export default function RegisterPage() {
             >
               <span
                 className={`flex h-11 w-11 items-center justify-center rounded-xl transition ${
-                  mode === 'extras' ? 'bg-brand-50 text-brand-600 ring-2 ring-brand-500' : 'bg-zinc-100 text-zinc-500'
+                  mode === 'extras' ? 'bg-brand-50 text-brand-600 ring-2 ring-brand-500' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
                 }`}
               >
                 <SlidersHorizontal size={19} />
               </span>
-              <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'extras' ? 'text-brand-600' : 'text-zinc-500'}`}>
+              <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'extras' ? 'text-brand-600' : 'text-zinc-500 dark:text-zinc-400'}`}>
                 {t('register.extras_tab')}
               </span>
             </button>
@@ -314,13 +314,13 @@ export default function RegisterPage() {
                 ) : (
                   <span
                     className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg transition ${
-                      mode === 'products' && activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
+                      mode === 'products' && activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100 dark:bg-zinc-800'
                     }`}
                   >
                     {c.icon}
                   </span>
                 )}
-                <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'products' && activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
+                <span className={`max-w-[64px] truncate text-[10px] font-bold ${mode === 'products' && activeCat === c.id ? 'text-brand-600' : 'text-zinc-500 dark:text-zinc-400'}`}>
                   {c.name}
                 </span>
               </button>
@@ -332,29 +332,29 @@ export default function RegisterPage() {
           {mode === 'extras' ? (
             <div>
               {!targetLine ? (
-                <p className="py-16 text-center text-sm text-zinc-400">
+                <p className="py-16 text-center text-sm text-zinc-400 dark:text-zinc-500">
                   {lines.length === 0 ? t('register.extras_empty_cart') : t('register.extras_select_item')}
                 </p>
               ) : (
                 <>
-                  <div className="mb-4 flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-orange-50">
+                  <div className="mb-4 flex items-center gap-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-orange-50 dark:bg-zinc-800">
                       {targetLine.product.image_url && (
                         <img src={targetLine.product.image_url} alt="" className="h-full w-full object-cover" />
                       )}
                     </span>
-                    <p className="min-w-0 truncate text-xs text-zinc-500">
-                      <span className="font-bold text-zinc-800">{t('register.extras_editing')}</span> {targetLine.product.name}
+                    <p className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="font-bold text-zinc-800 dark:text-zinc-200">{t('register.extras_editing')}</span> {targetLine.product.name}
                     </p>
                   </div>
 
                   {targetSauces.length === 0 && targetSupplements.length === 0 ? (
-                    <p className="py-10 text-center text-xs text-zinc-400">{t('register.extras_none_for_item')}</p>
+                    <p className="py-10 text-center text-xs text-zinc-400 dark:text-zinc-500">{t('register.extras_none_for_item')}</p>
                   ) : (
                     <>
                       {targetSauces.length > 0 && (
                         <div className="mb-6">
-                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('shop.sauces')}</p>
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sauces')}</p>
                           <div className="flex flex-wrap gap-4">
                             {targetSauces.map((s) => {
                               const active = targetLine.sauces.some((x) => x.id === s.id);
@@ -369,15 +369,15 @@ export default function RegisterPage() {
                                       />
                                     ) : (
                                       <span
-                                        className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-[filter] duration-200"
+                                        className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 transition-[filter] duration-200"
                                         style={active ? { filter: EXTRA_SELECTED_FILTER } : undefined}
                                       >
                                         <Droplet size={18} />
                                       </span>
                                     )}
                                   </span>
-                                  <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600'}`}>{s.name}</span>
-                                  {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400">+{money(s.price)}</span>}
+                                  <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600 dark:text-zinc-300'}`}>{s.name}</span>
+                                  {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">+{money(s.price)}</span>}
                                 </button>
                               );
                             })}
@@ -387,7 +387,7 @@ export default function RegisterPage() {
 
                       {targetSupplements.length > 0 && (
                         <div>
-                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('shop.supplements')}</p>
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.supplements')}</p>
                           <div className="flex flex-wrap gap-4">
                             {targetSupplements.map((s) => {
                               const active = targetLine.supplements.some((x) => x.id === s.id);
@@ -402,15 +402,15 @@ export default function RegisterPage() {
                                       />
                                     ) : (
                                       <span
-                                        className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-[filter] duration-200"
+                                        className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 transition-[filter] duration-200"
                                         style={active ? { filter: EXTRA_SELECTED_FILTER } : undefined}
                                       >
                                         <Layers size={18} />
                                       </span>
                                     )}
                                   </span>
-                                  <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600'}`}>{s.name}</span>
-                                  {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400">+{money(s.price)}</span>}
+                                  <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600 dark:text-zinc-300'}`}>{s.name}</span>
+                                  {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">+{money(s.price)}</span>}
                                 </button>
                               );
                             })}
@@ -433,16 +433,16 @@ export default function RegisterPage() {
                     key={p.id}
                     onClick={() => !disabled && addProduct(p)}
                     disabled={disabled}
-                    className={`group overflow-hidden rounded-2xl bg-white text-left shadow-sm ring-1 ring-zinc-100 transition hover:shadow-md active:scale-[0.98] ${disabled ? 'opacity-50' : ''}`}
+                    className={`group overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 text-left shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-800 transition hover:shadow-md active:scale-[0.98] ${disabled ? 'opacity-50' : ''}`}
                   >
-                    <div className="relative h-24 bg-orange-50">
+                    <div className="relative h-24 bg-orange-50 dark:bg-zinc-800">
                       {p.image_url && <img src={p.image_url} alt={p.name} loading="lazy" className="h-full w-full object-cover" />}
                       {p.stock > 0 && p.stock <= 8 && (
                         <span className="absolute end-1.5 top-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold text-amber-950">{p.stock} {t('register.left')}</span>
                       )}
                     </div>
                     <div className="p-2.5">
-                      <p className="truncate text-xs font-semibold text-zinc-900">{p.name}</p>
+                      <p className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">{p.name}</p>
                       <div className="mt-1 flex items-center justify-between">
                         <span className="font-display text-sm font-bold text-burnt">{money(p.price)}</span>
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-brand-600 opacity-0 transition group-hover:opacity-100"><Plus size={13} /></span>
@@ -483,17 +483,17 @@ export default function RegisterPage() {
 
       {/* -------- right panel: ticket / live feed -------- */}
       <aside
-        className={`${mobileTicketOpen ? 'flex' : 'hidden'} fixed inset-x-0 bottom-0 z-30 max-h-[85vh] w-full flex-col rounded-t-3xl border-t border-zinc-200 bg-white shadow-2xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-[380px] lg:shrink-0 lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none`}
+        className={`${mobileTicketOpen ? 'flex' : 'hidden'} fixed inset-x-0 bottom-0 z-30 max-h-[85vh] w-full flex-col rounded-t-3xl border-t border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-[380px] lg:shrink-0 lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none`}
       >
         {/* mobile-only grabber + close (this panel is a permanent side
             column on lg — the close control only makes sense as a sheet) */}
         <div className="shrink-0 lg:hidden">
-          <div className="flex justify-center pt-2"><span className="h-1.5 w-10 rounded-full bg-zinc-200" /></div>
+          <div className="flex justify-center pt-2"><span className="h-1.5 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700" /></div>
           <div className="flex items-center justify-between px-4 pt-1.5">
-            <p className="font-display text-sm font-bold text-zinc-900">{t('register.title')}</p>
+            <p className="font-display text-sm font-bold text-zinc-900 dark:text-zinc-100">{t('register.title')}</p>
             <button
               onClick={() => setMobileTicketOpen(false)}
-              className="rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+              className="rounded-full p-1.5 text-zinc-400 dark:text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700"
               aria-label={t('common.close')}
             >
               <X size={18} />
@@ -501,11 +501,11 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="flex shrink-0 border-b border-zinc-100">
+        <div className="flex shrink-0 border-b border-zinc-100 dark:border-zinc-800">
           {(['ticket', 'live'] as const).map((tabKey) => (
             <button
               key={tabKey} onClick={() => setTab(tabKey)}
-              className={`flex-1 py-3 text-sm font-bold transition ${tab === tabKey ? 'border-b-2 border-brand-500 text-brand-600' : 'text-zinc-400 hover:text-zinc-600'}`}
+              className={`flex-1 py-3 text-sm font-bold transition ${tab === tabKey ? 'border-b-2 border-brand-500 text-brand-600' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600'}`}
             >
               {tabKey === 'ticket' ? `${t('register.ticket')}${lines.length ? ` (${lines.length})` : ''}` : t('register.live_feed')}
             </button>
@@ -528,11 +528,11 @@ export default function RegisterPage() {
                     key={opt.value}
                     onClick={() => setOrderType(opt.value)}
                     className={`relative flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-2.5 text-center transition ${
-                      selected ? 'border-brand-500 bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'border-zinc-100 bg-white text-zinc-500 hover:border-zinc-200'
+                      selected ? 'border-brand-500 bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-200'
                     }`}
                   >
                     {selected && (
-                      <span className="absolute end-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm ring-1 ring-brand-100">
+                      <span className="absolute end-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white dark:bg-zinc-900 text-brand-500 shadow-sm ring-1 ring-brand-100">
                         <Check size={9} strokeWidth={3} />
                       </span>
                     )}
@@ -558,8 +558,8 @@ export default function RegisterPage() {
                       title={`${tbl.table_number} · ${tbl.status}`}
                       className={`rounded-lg py-1.5 text-xs font-bold transition ${
                         tableNumber === tbl.table_number ? 'bg-brand-500 text-white' :
-                        tbl.status === 'occupied' ? 'bg-zinc-100 text-zinc-300' :
-                        tbl.status === 'reserved' ? 'bg-indigo-50 text-indigo-400' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                        tbl.status === 'occupied' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-300 dark:text-zinc-600' :
+                        tbl.status === 'reserved' ? 'bg-indigo-50 text-indigo-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200'
                       }`}
                     >
                       {tbl.table_number}
@@ -571,16 +571,16 @@ export default function RegisterPage() {
             )}
             {orderType === 'delivery' && (
               <div className="mt-3 space-y-2">
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('register.customer_name')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${errors.name ? 'border-red-300' : 'border-zinc-200'}`} />
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('register.phone')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${errors.phone ? 'border-red-300' : 'border-zinc-200'}`} />
-                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('register.delivery_address')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${errors.address ? 'border-red-300' : 'border-zinc-200'}`} />
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('register.customer_name')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${errors.name ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-700'}`} />
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('register.phone')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${errors.phone ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-700'}`} />
+                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('register.delivery_address')} className={`w-full rounded-lg border px-3 py-2 text-xs outline-none ${errors.address ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-700'}`} />
               </div>
             )}
 
             {/* items */}
             <div className="mt-4 flex-1">
               {lines.length === 0 ? (
-                <p className="py-8 text-center text-xs text-zinc-400">{t('register.tap_to_build')}</p>
+                <p className="py-8 text-center text-xs text-zinc-400 dark:text-zinc-500">{t('register.tap_to_build')}</p>
               ) : (
                 <ul className="space-y-2">
                   {lines.map((l) => {
@@ -591,12 +591,12 @@ export default function RegisterPage() {
                         key={l.key}
                         onClick={() => setActiveLineKey(l.key)}
                         className={`flex items-center gap-2 rounded-xl p-2 transition ${
-                          activeLineKey === l.key ? 'bg-brand-50 ring-2 ring-brand-400' : 'bg-zinc-50'
+                          activeLineKey === l.key ? 'bg-brand-50 ring-2 ring-brand-400' : 'bg-zinc-50 dark:bg-zinc-800/60'
                         }`}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold text-zinc-900">{l.product.name}</p>
-                          <p className="text-[11px] text-zinc-400">{money(l.product.price)} × {l.qty}</p>
+                          <p className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">{l.product.name}</p>
+                          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{money(l.product.price)} × {l.qty}</p>
                           {extraNames.length > 0 && (
                             <p className="truncate text-[10px] text-brand-600">+ {extraNames.join(', ')}</p>
                           )}
@@ -606,15 +606,15 @@ export default function RegisterPage() {
                             onClick={(e) => { e.stopPropagation(); setActiveLineKey(l.key); setMode('extras'); setMobileTicketOpen(false); }}
                             title={t('register.extras_tab')}
                             aria-label={t('register.extras_tab')}
-                            className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm"
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-white dark:bg-zinc-900 text-brand-500 shadow-sm"
                           >
                             <SlidersHorizontal size={12} />
                           </button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); dec(l.key); }} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"><Minus size={11} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); dec(l.key); }} className="flex h-6 w-6 items-center justify-center rounded-full bg-white dark:bg-zinc-900 shadow-sm"><Minus size={11} /></button>
                         <span className="w-4 text-center text-xs font-bold">{l.qty}</span>
-                        <button onClick={(e) => { e.stopPropagation(); inc(l.key); }} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"><Plus size={11} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); remove(l.key); if (activeLineKey === l.key) setActiveLineKey(null); }} className="text-zinc-300 hover:text-red-500"><Trash2 size={14} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); inc(l.key); }} className="flex h-6 w-6 items-center justify-center rounded-full bg-white dark:bg-zinc-900 shadow-sm"><Plus size={11} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); remove(l.key); if (activeLineKey === l.key) setActiveLineKey(null); }} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500"><Trash2 size={14} /></button>
                       </li>
                     );
                   })}
@@ -623,15 +623,15 @@ export default function RegisterPage() {
               {errors.items && <p className="mt-2 text-[11px] font-medium text-red-500">{errors.items}</p>}
             </div>
 
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('register.ticket_notes')} className="mt-3 w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs outline-none" />
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('register.ticket_notes')} className="mt-3 w-full rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs outline-none" />
 
             {/* totals + CTA */}
-            <div className="mt-3 space-y-1 border-t border-dashed border-zinc-200 pt-3 text-xs">
-              <div className="flex justify-between text-zinc-500"><span>{t('common.subtotal')}</span><span>{money(subtotal)}</span></div>
+            <div className="mt-3 space-y-1 border-t border-dashed border-zinc-200 dark:border-zinc-700 pt-3 text-xs">
+              <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>{t('common.subtotal')}</span><span>{money(subtotal)}</span></div>
               {deliveryFee > 0 && (
-                <div className="flex justify-between text-zinc-500"><span>{t('common.delivery_fee')}</span><span>{money(deliveryFee)}</span></div>
+                <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>{t('common.delivery_fee')}</span><span>{money(deliveryFee)}</span></div>
               )}
-              <div className="flex justify-between font-display text-base font-bold text-zinc-900"><span>{t('common.total')}</span><span className="text-burnt">{money(total)}</span></div>
+              <div className="flex justify-between font-display text-base font-bold text-zinc-900 dark:text-zinc-100"><span>{t('common.total')}</span><span className="text-burnt">{money(total)}</span></div>
             </div>
             <button
               onClick={placeOrder} disabled={placing}
@@ -645,25 +645,25 @@ export default function RegisterPage() {
             {feedLoading ? (
               <Spinner />
             ) : orders.length === 0 ? (
-              <p className="py-10 text-center text-xs text-zinc-400">{t('register.waiting_first_order')}</p>
+              <p className="py-10 text-center text-xs text-zinc-400 dark:text-zinc-500">{t('register.waiting_first_order')}</p>
             ) : (
               <ul className="space-y-2">
                 {orders.map((o) => (
-                  <li key={o.id} className="rounded-xl border border-zinc-100 p-3">
+                  <li key={o.id} className="rounded-xl border border-zinc-100 dark:border-zinc-800 p-3">
                     <div className="flex items-center gap-2">
                       <span className="font-display text-sm font-bold">{orderNumber(o.id)}</span>
                       <OrderTypeTag type={o.order_type} />
-                      <span className="ms-auto text-[10px] text-zinc-400">{timeAgo(o.created_at)}</span>
+                      <span className="ms-auto text-[10px] text-zinc-400 dark:text-zinc-500">{timeAgo(o.created_at)}</span>
                     </div>
                     <div className="mt-1.5 flex items-center justify-between">
-                      <span className="text-[11px] text-zinc-500">{orderContext(o)}</span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{orderContext(o)}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold">{money(o.total)}</span>
                         <button
                           onClick={() => printInvoice(o)}
                           title={t('register.print_invoice')}
                           aria-label={t('register.print_invoice')}
-                          className="flex h-6 w-6 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-50 hover:text-brand-600"
+                          className="flex h-6 w-6 items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-500 hover:bg-zinc-50 hover:text-brand-600"
                         >
                           <Printer size={13} />
                         </button>
@@ -674,7 +674,7 @@ export default function RegisterPage() {
                 ))}
               </ul>
             )}
-            <button onClick={refresh} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-200 py-2 text-xs font-bold text-zinc-500 hover:bg-zinc-50">
+            <button onClick={refresh} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2 text-xs font-bold text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50">
               <Check size={13} /> {t('register.refresh_feed')}
             </button>
           </div>

@@ -71,9 +71,9 @@ export default function LocationPickerModal({ open, onClose, onConfirm, initial 
   return (
     <Modal open={open} onClose={onClose} title={t('cart.pick_on_map.title')}>
       <div className="space-y-3">
-        <p className="text-xs text-zinc-500">{t('cart.pick_on_map.hint')}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('cart.pick_on_map.hint')}</p>
 
-        <div className="relative h-64 w-full overflow-hidden rounded-2xl ring-1 ring-zinc-200">
+        <div className="relative h-64 w-full overflow-hidden rounded-2xl ring-1 ring-zinc-200 dark:ring-zinc-700">
           <LeafletMap
             center={position}
             zoom={16}
@@ -97,7 +97,7 @@ export default function LocationPickerModal({ open, onClose, onConfirm, initial 
           type="button"
           onClick={useMyLocation}
           disabled={locating}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 py-3 text-sm font-bold text-zinc-700 transition active:scale-[0.98] disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 py-3 text-sm font-bold text-zinc-700 dark:text-zinc-300 transition active:scale-[0.98] disabled:opacity-60"
         >
           {locating ? <Loader2 size={16} className="animate-spin" /> : <Crosshair size={16} />}
           {locating ? t('cart.pick_on_map.locating') : t('cart.pick_on_map.use_my_location')}

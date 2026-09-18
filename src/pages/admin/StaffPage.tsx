@@ -53,8 +53,8 @@ export default function StaffPage() {
   if (myRole !== 'admin') {
     return (
       <div className="p-4 pb-28 md:p-6">
-        <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-zinc-100">
-          <p className="text-sm font-semibold text-zinc-500">{t('staff.access_denied')}</p>
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 p-8 text-center shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-800">
+          <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{t('staff.access_denied')}</p>
         </div>
       </div>
     );
@@ -65,14 +65,14 @@ export default function StaffPage() {
   return (
     <div className="p-4 pb-28 md:p-6">
       <div className="mb-5">
-        <h1 className="font-display text-2xl font-bold text-zinc-900">{t('staff.title')}</h1>
-        <p className="text-sm text-zinc-500">{t('staff.subtitle')}</p>
+        <h1 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t('staff.title')}</h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t('staff.subtitle')}</p>
       </div>
 
       {error && <p className="mb-4 rounded-xl bg-red-50 px-3.5 py-2 text-xs font-medium text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-100">
-        {profiles?.length === 0 && <p className="p-6 text-center text-sm text-zinc-400">{t('staff.empty')}</p>}
+      <div className="overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-800">
+        {profiles?.length === 0 && <p className="p-6 text-center text-sm text-zinc-400 dark:text-zinc-500">{t('staff.empty')}</p>}
 
         {profiles?.map((p) => {
           const isSelf = p.id === user?.id;
@@ -82,17 +82,17 @@ export default function StaffPage() {
                 {(p.full_name || p.email)[0].toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-zinc-900">
+                <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
                   {p.full_name || p.email}
-                  {isSelf && <span className="ms-2 text-[10px] font-semibold text-zinc-400">({t('staff.you')})</span>}
+                  {isSelf && <span className="ms-2 text-[10px] font-semibold text-zinc-400 dark:text-zinc-500">({t('staff.you')})</span>}
                 </p>
-                <p className="truncate text-xs text-zinc-400">{p.email} · {t('staff.joined')} {timeAgo(p.created_at)}</p>
+                <p className="truncate text-xs text-zinc-400 dark:text-zinc-500">{p.email} · {t('staff.joined')} {timeAgo(p.created_at)}</p>
               </div>
               <select
                 value={p.role}
                 disabled={isSelf || savingId === p.id}
                 onChange={(e) => changeRole(p.id, e.target.value as Role)}
-                className="shrink-0 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:opacity-50"
+                className="shrink-0 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:opacity-50"
               >
                 {ROLES.map((r) => <option key={r} value={r}>{t(`staff.role.${r}`)}</option>)}
               </select>
@@ -102,7 +102,7 @@ export default function StaffPage() {
       </div>
 
       {profiles?.some((p) => p.id === user?.id) && (
-        <p className="mt-3 text-[11px] text-zinc-400">{t('staff.self_note')}</p>
+        <p className="mt-3 text-[11px] text-zinc-400 dark:text-zinc-500">{t('staff.self_note')}</p>
       )}
     </div>
   );

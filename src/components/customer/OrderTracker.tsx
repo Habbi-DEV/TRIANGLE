@@ -56,7 +56,7 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
   const currentIdx = steps.indexOf(order.status);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-zinc-900">
       <div className="mx-auto flex min-h-full max-w-md flex-col px-6 py-10">
         <div className="flex flex-col items-center text-center">
           {cancelled ? (
@@ -68,10 +68,10 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
               <CheckCircle2 size={44} className="text-brand-500" />
             </div>
           )}
-          <h2 className="mt-5 font-display text-2xl font-bold text-zinc-900">
+          <h2 className="mt-5 font-display text-2xl font-bold text-zinc-900 dark:text-zinc-100">
             {cancelled ? t('shop.order_cancelled') : t('shop.order_placed')}
           </h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {cancelled
               ? order.cancelled_by === 'customer'
                 ? t('shop.order_cancelled_by_you_desc')
@@ -111,7 +111,7 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
               </button>
             )}
             {isPushSupported() && pushState === 'denied' && (
-              <p className="mt-3 rounded-2xl bg-zinc-50 px-4 py-3 text-center text-xs font-medium text-zinc-500">
+              <p className="mt-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 {t('shop.push_blocked')}
               </p>
             )}
@@ -120,7 +120,7 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
                  Shown for delivery orders still in progress only. */}
             {order.order_type === 'delivery' && !cancelled && order.delivery_otp && (
               <div className="mt-4 rounded-2xl bg-zinc-900 px-4 py-4 text-center text-white">
-                <p className="text-xs font-semibold text-zinc-400">{t('driver.delivery_code')}</p>
+                <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">{t('driver.delivery_code')}</p>
                 <p className="mt-1 font-display text-3xl font-extrabold tracking-[0.4em]">{order.delivery_otp}</p>
               </div>
             )}
@@ -134,15 +134,15 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
                     <div className="flex flex-col items-center">
                       <div
                         className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition ${
-                          done ? 'bg-brand-500 text-white' : 'bg-zinc-100 text-zinc-400'
+                          done ? 'bg-brand-500 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500'
                         } ${i === currentIdx ? 'ring-4 ring-brand-100' : ''}`}
                       >
                         {i + 1}
                       </div>
-                      {!isLast && <div className={`w-0.5 flex-1 ${done && i < currentIdx ? 'bg-brand-400' : 'bg-zinc-100'}`} style={{ minHeight: 28 }} />}
+                      {!isLast && <div className={`w-0.5 flex-1 ${done && i < currentIdx ? 'bg-brand-400' : 'bg-zinc-100 dark:bg-zinc-800'}`} style={{ minHeight: 28 }} />}
                     </div>
                     <div className="pb-6 pt-1">
-                      <p className={`text-sm font-semibold ${done ? 'text-zinc-900' : 'text-zinc-400'}`}>
+                      <p className={`text-sm font-semibold ${done ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}`}>
                         {ORDER_STATUS_LABEL[s]}
                       </p>
                       {i === currentIdx && (
@@ -158,7 +158,7 @@ export default function OrderTracker({ order: initial, onClose, onUpdate }: Prop
 
         <button
           onClick={() => viewInvoice(order)}
-          className="mt-8 flex w-full items-center justify-center gap-2 rounded-full border-2 border-zinc-200 py-3.5 font-display text-[15px] font-bold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98]"
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-full border-2 border-zinc-200 dark:border-zinc-700 py-3.5 font-display text-[15px] font-bold text-zinc-700 dark:text-zinc-300 transition hover:bg-zinc-50 active:scale-[0.98]"
         >
           <Eye size={17} /> {t('shop.view_receipt')}
         </button>

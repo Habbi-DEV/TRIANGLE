@@ -26,7 +26,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             className={`pointer-events-auto max-w-sm rounded-2xl px-4 py-3 text-sm font-semibold shadow-soft-lg ring-1 animate-[slideDown_0.25s_ease] ${
               t.type === 'error' ? 'bg-red-600 text-white ring-red-700' :
               t.type === 'success' ? 'bg-zinc-900 text-white ring-zinc-800' :
-              'bg-white text-zinc-800 ring-zinc-200'
+              'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 ring-zinc-200 dark:ring-zinc-700'
             }`}
           >
             {t.message}

@@ -160,12 +160,12 @@ export default function OrdersPage() {
     <div className="p-4 md:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-zinc-900">{t('orders.title')}</h1>
-          <p className="text-sm text-zinc-500">{t('orders.subtitle')}</p>
+          <h1 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t('orders.title')}</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">{t('orders.subtitle')}</p>
         </div>
         <div className="flex gap-1.5">
           {TYPE_FILTERS.map((tf) => (
-            <button key={tf.value} onClick={() => setTypeFilter(tf.value)} className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${typeFilter === tf.value ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-500 ring-1 ring-zinc-200'}`}>
+            <button key={tf.value} onClick={() => setTypeFilter(tf.value)} className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${typeFilter === tf.value ? 'bg-zinc-900 text-white' : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 ring-1 ring-zinc-200 dark:ring-zinc-700'}`}>
               {tf.emoji ? `${tf.emoji} ` : ''}{t(tf.labelKey)}
             </button>
           ))}
@@ -176,7 +176,7 @@ export default function OrdersPage() {
         {STATUS_FILTERS.map((s) => (
           <button
             key={s.value} onClick={() => setStatusFilter(s.value)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === s.value ? 'bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'bg-white text-zinc-500 ring-1 ring-zinc-200 hover:bg-zinc-50'}`}
+            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === s.value ? 'bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-zinc-50'}`}
           >
             {t(s.labelKey)}{counts[s.value] ? ` · ${counts[s.value]}` : ''}
           </button>
@@ -186,50 +186,50 @@ export default function OrdersPage() {
       {loading ? (
         <Spinner label={t('orders.connecting')} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl bg-white py-16 text-center text-sm text-zinc-400 ring-1 ring-zinc-100">{t('orders.no_match')}</div>
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400 dark:text-zinc-500 ring-1 ring-zinc-100 dark:ring-zinc-800">{t('orders.no_match')}</div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((o) => {
             const action = nextAction(o);
             const cancellable = ['pending', 'confirmed'].includes(o.status);
             return (
-              <div key={o.id} className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-100">
+              <div key={o.id} className="flex flex-col rounded-2xl bg-white dark:bg-zinc-900 p-4 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-800">
                 <div className="flex items-center gap-2">
-                  <span className="font-display text-base font-bold text-zinc-900">{orderNumber(o.id)}</span>
+                  <span className="font-display text-base font-bold text-zinc-900 dark:text-zinc-100">{orderNumber(o.id)}</span>
                   <OrderTypeTag type={o.order_type} />
-                  <span className="ms-auto text-[11px] text-zinc-400">{timeAgo(o.created_at)}</span>
+                  <span className="ms-auto text-[11px] text-zinc-400 dark:text-zinc-500">{timeAgo(o.created_at)}</span>
                 </div>
 
-                <div className="mt-2 space-y-1 text-xs text-zinc-500">
+                <div className="mt-2 space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                   {o.order_type === 'dine_in' && (
-                    <p className="flex items-center gap-1.5 font-semibold text-zinc-700"><Users size={12} /> {t('orders.table')} {o.table_number}</p>
+                    <p className="flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-300"><Users size={12} /> {t('orders.table')} {o.table_number}</p>
                   )}
                   {o.order_type === 'delivery' && (
                     <>
-                      <p className="font-semibold text-zinc-700">{o.customer_name}</p>
+                      <p className="font-semibold text-zinc-700 dark:text-zinc-300">{o.customer_name}</p>
                       <p className="flex items-center gap-1.5"><Phone size={11} /> {o.customer_phone}</p>
                       <p className="flex items-center gap-1.5"><MapPin size={11} /> {o.delivery_address}</p>
                     </>
                   )}
-                  {o.order_type === 'takeaway' && <p className="font-semibold text-zinc-700">{t('orders.pickup_counter')}</p>}
+                  {o.order_type === 'takeaway' && <p className="font-semibold text-zinc-700 dark:text-zinc-300">{t('orders.pickup_counter')}</p>}
                 </div>
 
-                <div className="mt-3 flex-1 rounded-xl bg-zinc-50 p-2.5 text-xs">
+                <div className="mt-3 flex-1 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5 text-xs">
                   {(o.items && o.items.length > 0 ? o.items : []).slice(0, 4).map((it) => (
                     <div key={it.id} className="py-0.5">
-                      <p className="flex justify-between text-zinc-600">
+                      <p className="flex justify-between text-zinc-600 dark:text-zinc-300">
                         <span className="truncate">{it.quantity}× {it.product_name}</span>
-                        <span className="ms-2 shrink-0 text-zinc-400">{money(it.line_total)}</span>
+                        <span className="ms-2 shrink-0 text-zinc-400 dark:text-zinc-500">{money(it.line_total)}</span>
                       </p>
                       {((it.sauces?.length ?? 0) > 0 || (it.supplements?.length ?? 0) > 0) && (
-                        <p className="truncate ps-3 text-[10px] text-zinc-400">
+                        <p className="truncate ps-3 text-[10px] text-zinc-400 dark:text-zinc-500">
                           + {[...(it.sauces ?? []), ...(it.supplements ?? [])].map((s) => s.name).join(', ')}
                         </p>
                       )}
                     </div>
                   ))}
-                  {(!o.items || o.items.length === 0) && <p className="text-zinc-400">{t('orders.no_items')}</p>}
-                  {(o.items?.length ?? 0) > 4 && <p className="pt-0.5 text-[10px] text-zinc-400">{t('orders.more', { n: o.items!.length - 4 })}</p>}
+                  {(!o.items || o.items.length === 0) && <p className="text-zinc-400 dark:text-zinc-500">{t('orders.no_items')}</p>}
+                  {(o.items?.length ?? 0) > 4 && <p className="pt-0.5 text-[10px] text-zinc-400 dark:text-zinc-500">{t('orders.more', { n: o.items!.length - 4 })}</p>}
                 </div>
 
                 {o.notes && <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-700">📝 {o.notes}</p>}
@@ -248,13 +248,13 @@ export default function OrdersPage() {
                 )}
 
                 <div className="mt-3 flex items-center justify-between border-t border-zinc-50 pt-3">
-                  <span className="font-display text-base font-bold text-zinc-900">{money(o.total)}</span>
+                  <span className="font-display text-base font-bold text-zinc-900 dark:text-zinc-100">{money(o.total)}</span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => printInvoice(o)}
                       title={t('register.print_invoice')}
                       aria-label={t('register.print_invoice')}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-50 hover:text-brand-600"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-500 hover:bg-zinc-50 hover:text-brand-600"
                     >
                       <Printer size={15} />
                     </button>
@@ -283,8 +283,8 @@ export default function OrdersPage() {
                 {/* Phone support: relay the delivery code to the customer if
                     they lost their tracker (staff-only screen). */}
                 {o.order_type === 'delivery' && o.delivery_status === 'on_the_way' && Boolean(o.delivery_otp) && (
-                  <p className="mt-1.5 text-[11px] font-bold text-zinc-500">
-                    {t('driver.delivery_code')}: <span className="tracking-[0.3em] text-zinc-800">{o.delivery_otp}</span>
+                  <p className="mt-1.5 text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                    {t('driver.delivery_code')}: <span className="tracking-[0.3em] text-zinc-800 dark:text-zinc-200">{o.delivery_otp}</span>
                   </p>
                 )}
 
@@ -309,7 +309,7 @@ export default function OrdersPage() {
                     {o.status === 'cancelled' && (
                       <button
                         onClick={() => deleteOrder(o.id)}
-                        className="rounded-xl border border-zinc-200 p-2 text-zinc-400 hover:text-red-500"
+                        className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-2 text-zinc-400 dark:text-zinc-500 hover:text-red-500"
                         aria-label={t('orders.delete_order')}
                       >
                         <Trash2 size={14} />

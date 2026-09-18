@@ -29,8 +29,8 @@ export default function InstallBanner() {
               <Download size={16} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-bold text-zinc-900">{t('pwa.install_title')}</p>
-              <p className="truncate text-[11px] text-zinc-500">{t('pwa.install_body')}</p>
+              <p className="truncate text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{t('pwa.install_title')}</p>
+              <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{t('pwa.install_body')}</p>
             </div>
             <button
               onClick={promptInstall}
@@ -41,7 +41,7 @@ export default function InstallBanner() {
             <button
               onClick={dismiss}
               aria-label={t('pwa.install_dismiss')}
-              className="shrink-0 rounded-full p-1.5 text-zinc-400 transition hover:bg-black/5"
+              className="shrink-0 rounded-full p-1.5 text-zinc-400 dark:text-zinc-500 transition hover:bg-black/5"
             >
               <X size={15} />
             </button>

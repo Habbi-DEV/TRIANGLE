@@ -47,7 +47,7 @@ export default function CancelOrderConfirmModal({ open, onClose, onConfirm, busy
         </div>
 
         <div>
-          <label htmlFor="cancel-reason" className="mb-1.5 block text-xs font-semibold text-zinc-500">
+          <label htmlFor="cancel-reason" className="mb-1.5 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             {t('shop.cancel_order.reason_label')}
           </label>
           <select
@@ -55,7 +55,7 @@ export default function CancelOrderConfirmModal({ open, onClose, onConfirm, busy
             value={reason}
             onChange={(e) => setReason(e.target.value as CustomerCancelReason)}
             disabled={busy}
-            className="w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3.5 py-3 text-sm font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-red-200 disabled:opacity-60"
+            className="w-full appearance-none rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3.5 py-3 text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-red-200 disabled:opacity-60"
           >
             <option value="" disabled>
               {t('shop.cancel_order.reason_placeholder')}
@@ -75,7 +75,7 @@ export default function CancelOrderConfirmModal({ open, onClose, onConfirm, busy
             placeholder={t('shop.cancel_order.note_placeholder')}
             rows={2}
             disabled={busy}
-            className="w-full resize-none rounded-xl border border-zinc-200 px-3.5 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-red-200 disabled:opacity-60"
+            className="w-full resize-none rounded-xl border border-zinc-200 dark:border-zinc-700 px-3.5 py-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-red-200 disabled:opacity-60"
           />
         )}
 
@@ -86,7 +86,7 @@ export default function CancelOrderConfirmModal({ open, onClose, onConfirm, busy
             type="button"
             onClick={handleClose}
             disabled={busy}
-            className="flex-1 rounded-full bg-zinc-100 py-3 text-sm font-bold text-zinc-700 transition active:scale-[0.98] disabled:opacity-60"
+            className="flex-1 rounded-full bg-zinc-100 dark:bg-zinc-800 py-3 text-sm font-bold text-zinc-700 dark:text-zinc-300 transition active:scale-[0.98] disabled:opacity-60"
           >
             {t('shop.cancel_order.back')}
           </button>

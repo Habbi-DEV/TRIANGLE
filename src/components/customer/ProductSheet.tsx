@@ -70,7 +70,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-soft-xl"
+            className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white dark:bg-zinc-900 shadow-soft-xl"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
           >
@@ -80,7 +80,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
               )}
               <button
                 onClick={onClose}
-                className="absolute end-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow"
+                className="absolute end-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-zinc-700 dark:text-zinc-300 shadow"
                 aria-label={t('shop.close')}
               >
                 <X size={18} />
@@ -89,14 +89,14 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                 <>
                   <button
                     onClick={() => setPhotoIdx((i) => (i - 1 + photos.length) % photos.length)}
-                    className="absolute start-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow transition hover:bg-white active:scale-90 rtl:rotate-180"
+                    className="absolute start-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-zinc-700 dark:text-zinc-300 shadow transition hover:bg-white active:scale-90 rtl:rotate-180"
                     aria-label={t('shop.prev_photo')}
                   >
                     <ChevronLeft size={18} />
                   </button>
                   <button
                     onClick={() => setPhotoIdx((i) => (i + 1) % photos.length)}
-                    className="absolute end-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow transition hover:bg-white active:scale-90 rtl:rotate-180"
+                    className="absolute end-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-zinc-700 dark:text-zinc-300 shadow transition hover:bg-white active:scale-90 rtl:rotate-180"
                     aria-label={t('shop.next_photo')}
                   >
                     <ChevronRight size={18} />
@@ -107,7 +107,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                         key={i}
                         onClick={() => setPhotoIdx(i)}
                         aria-label={t('shop.photo_n', { n: i + 1 })}
-                        className={`h-1.5 rounded-full transition-all ${i === photoIdx ? 'w-5 bg-white' : 'w-1.5 bg-white/60'}`}
+                        className={`h-1.5 rounded-full transition-all ${i === photoIdx ? 'w-5 bg-white dark:bg-zinc-900' : 'w-1.5 bg-white/60'}`}
                       />
                     ))}
                   </div>
@@ -116,14 +116,14 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
             </div>
             <div className="overflow-y-auto thin-scroll p-5 pb-8">
               <div className="flex items-start justify-between gap-3">
-                <h2 className="font-display text-xl font-bold text-zinc-900">{product.name}</h2>
+                <h2 className="font-display text-xl font-bold text-zinc-900 dark:text-zinc-100">{product.name}</h2>
                 <span className="font-display text-lg font-bold text-burnt">{money(unitPrice)}</span>
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-500">{product.description}</p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{product.description}</p>
 
               {sauces.length > 0 && (
                 <div className="mt-5">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('shop.sauces')}</p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sauces')}</p>
                   <div className="flex flex-wrap gap-4">
                     {sauces.map((s) => {
                       const active = selectedSauceIds.includes(s.id);
@@ -148,17 +148,17 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                               />
                             ) : (
                               <span
-                                className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-[filter] duration-200"
+                                className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 transition-[filter] duration-200"
                                 style={active ? { filter: SELECTED_FILTER } : undefined}
                               >
                                 <Droplet size={18} />
                               </span>
                             )}
                           </span>
-                          <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600'}`}>
+                          <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600 dark:text-zinc-300'}`}>
                             {s.name}
                           </span>
-                          {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400">+{money(s.price)}</span>}
+                          {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">+{money(s.price)}</span>}
                         </button>
                       );
                     })}
@@ -168,7 +168,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
 
               {supplements.length > 0 && (
                 <div className="mt-5">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400">{t('shop.supplements')}</p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.supplements')}</p>
                   <div className="flex flex-wrap gap-4">
                     {supplements.map((s) => {
                       const active = selectedSupplementIds.includes(s.id);
@@ -194,17 +194,17 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                               />
                             ) : (
                               <span
-                                className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-[filter] duration-200"
+                                className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 transition-[filter] duration-200"
                                 style={active ? { filter: SELECTED_FILTER } : undefined}
                               >
                                 <Layers size={18} />
                               </span>
                             )}
                           </span>
-                          <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600'}`}>
+                          <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600 dark:text-zinc-300'}`}>
                             {s.name}
                           </span>
-                          {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400">+{money(s.price)}</span>}
+                          {s.price > 0 && <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">+{money(s.price)}</span>}
                         </button>
                       );
                     })}
@@ -213,10 +213,10 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
               )}
 
               <div className="mt-6 flex items-center gap-3">
-                <div className="flex items-center gap-4 rounded-full bg-zinc-100 px-2 py-1.5">
+                <div className="flex items-center gap-4 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-1.5">
                   <button
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-700 shadow-soft-sm active:scale-90"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 shadow-soft-sm active:scale-90"
                     aria-label={t('shop.decrease_qty')}
                   >
                     <Minus size={16} />
@@ -224,7 +224,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                   <span className="w-6 text-center font-display text-lg font-bold">{qty}</span>
                   <button
                     onClick={() => setQty((q) => Math.min(20, q + 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-700 shadow-soft-sm active:scale-90"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 shadow-soft-sm active:scale-90"
                     aria-label={t('shop.increase_qty')}
                   >
                     <Plus size={16} />

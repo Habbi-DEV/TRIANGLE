@@ -27,7 +27,7 @@ function SectionHeader({ n, title, action }: { n: number; title: string; action?
   return (
     <div className="mb-2.5 flex items-center gap-2">
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">{n}</span>
-      <p className="font-display text-[15px] font-bold text-zinc-900">{title}</p>
+      <p className="font-display text-[15px] font-bold text-zinc-900 dark:text-zinc-100">{title}</p>
       {action && <span className="ms-auto">{action}</span>}
     </div>
   );
@@ -203,26 +203,26 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[88vh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-soft-xl"
+            className="flex max-h-[88vh] w-full max-w-md flex-col rounded-t-3xl bg-white dark:bg-zinc-900 shadow-soft-xl"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
           >
             {/* header */}
-            <div className="flex items-center gap-3 border-b border-zinc-100 px-5 py-4">
+            <div className="flex items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 px-5 py-4">
               {step === 'checkout' && (
-                <button onClick={() => setStep('cart')} className="rounded-full p-1.5 text-zinc-500 hover:bg-zinc-100" aria-label={t('common.back')}>
+                <button onClick={() => setStep('cart')} className="rounded-full p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100" aria-label={t('common.back')}>
                   <ArrowLeft size={18} className="rtl:rotate-180" />
                 </button>
               )}
-              <h2 className="font-display text-lg font-bold text-zinc-900">
+              <h2 className="font-display text-lg font-bold text-zinc-900 dark:text-zinc-100">
                 {step === 'cart' ? t('cart.title') : t('cart.checkout')}
               </h2>
-              <span className="ms-auto text-sm font-semibold text-zinc-400">{lines.length} {lines.length === 1 ? t('cart.items') : t('cart.items_plural')}</span>
+              <span className="ms-auto text-sm font-semibold text-zinc-400 dark:text-zinc-500">{lines.length} {lines.length === 1 ? t('cart.items') : t('cart.items_plural')}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto thin-scroll px-5 py-4">
               {lines.length === 0 ? (
-                <p className="py-10 text-center text-sm text-zinc-400">{t('cart.empty')}</p>
+                <p className="py-10 text-center text-sm text-zinc-400 dark:text-zinc-500">{t('cart.empty')}</p>
               ) : step === 'cart' ? (
                 <ul className="space-y-3">
                   {lines.map((l) => {
@@ -231,20 +231,20 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                       + l.supplements.reduce((n, s) => n + s.price, 0);
                     const addOnNames = [...l.sauces, ...l.supplements].map((s) => s.name);
                     return (
-                      <li key={l.key} className="flex items-center gap-3 rounded-2xl bg-zinc-50 p-2.5">
+                      <li key={l.key} className="flex items-center gap-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5">
                         <img src={l.product.image_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-zinc-900">{l.product.name}</p>
+                          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{l.product.name}</p>
                           {addOnNames.length > 0 && (
-                            <p className="truncate text-[11px] text-zinc-400">+ {addOnNames.join(', ')}</p>
+                            <p className="truncate text-[11px] text-zinc-400 dark:text-zinc-500">+ {addOnNames.join(', ')}</p>
                           )}
                           <p className="text-sm font-bold text-burnt">{money(unitPrice * l.qty)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => dec(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-soft-sm" aria-label={t('cart.decrease')}><Minus size={13} /></button>
+                          <button onClick={() => dec(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-zinc-900 shadow-soft-sm" aria-label={t('cart.decrease')}><Minus size={13} /></button>
                           <span className="w-5 text-center text-sm font-bold">{l.qty}</span>
-                          <button onClick={() => inc(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-soft-sm" aria-label={t('cart.increase')}><Plus size={13} /></button>
-                          <button onClick={() => remove(l.key)} className="ms-1 text-zinc-300 hover:text-red-500" aria-label={t('cart.remove')}><Trash2 size={16} /></button>
+                          <button onClick={() => inc(l.key)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-zinc-900 shadow-soft-sm" aria-label={t('cart.increase')}><Plus size={13} /></button>
+                          <button onClick={() => remove(l.key)} className="ms-1 text-zinc-300 dark:text-zinc-600 hover:text-red-500" aria-label={t('cart.remove')}><Trash2 size={16} /></button>
                         </div>
                       </li>
                     );
@@ -265,11 +265,11 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                             className={`relative flex flex-col items-center gap-1 rounded-2xl border-2 px-2 py-3 text-center transition ${
                               selected
                                 ? 'border-brand-500 bg-brand-500 text-white shadow-md shadow-orange-500/30'
-                                : 'border-zinc-100 bg-white text-zinc-500 hover:border-zinc-200'
+                                : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-200'
                             }`}
                           >
                             {selected && (
-                              <span className="absolute end-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-500 shadow-sm ring-1 ring-brand-100">
+                              <span className="absolute end-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-zinc-900 text-brand-500 shadow-sm ring-1 ring-brand-100">
                                 <Check size={12} strokeWidth={3} />
                               </span>
                             )}
@@ -298,7 +298,7 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                             className={`rounded-xl py-2.5 text-sm font-bold transition ${
                               tableNumber === tbl.table_number
                                 ? 'bg-brand-500 text-white shadow-md shadow-orange-500/30'
-                                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200'
                             }`}
                           >
                             {tbl.table_number}
@@ -325,30 +325,30 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                         {/* name + phone side by side */}
                         <div className="grid grid-cols-2 gap-2.5">
                           <div>
-                            <div className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.name ? 'border-red-300' : 'border-zinc-200'}`}>
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                            <div className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.name ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-700'}`}>
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" /></svg>
                               </span>
-                              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className="w-full min-w-0 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
+                              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('cart.full_name')} className="w-full min-w-0 bg-transparent text-sm text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400" />
                             </div>
                             {errors.name && <p className="mt-1 text-xs font-medium text-red-500">{errors.name}</p>}
                           </div>
                           <div>
-                            <div className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.phone ? 'border-red-300' : 'border-zinc-200'}`}>
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                            <div className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.phone ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-700'}`}>
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.4 1.9.6 2.9.7a2 2 0 0 1 1.7 2z" /></svg>
                               </span>
-                              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className="w-full min-w-0 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
+                              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('cart.phone')} type="tel" className="w-full min-w-0 bg-transparent text-sm text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400" />
                             </div>
                             {errors.phone && <p className="mt-1 text-xs font-medium text-red-500">{errors.phone}</p>}
                           </div>
                         </div>
                         <div>
-                          <div className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.address ? 'border-red-300' : 'border-zinc-200'}`}>
-                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                          <div className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-200 ${errors.address ? 'border-red-300' : 'border-zinc-200 dark:border-zinc-700'}`}>
+                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
                               <MapPin size={14} />
                             </span>
-                            <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('cart.delivery_address')} rows={2} className="w-full resize-none bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
+                            <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('cart.delivery_address')} rows={2} className="w-full resize-none bg-transparent text-sm text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400" />
                           </div>
                           {errors.address && <p className="mt-1 text-xs font-medium text-red-500">{errors.address}</p>}
                         </div>
@@ -356,14 +356,14 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                         <button
                           type="button"
                           onClick={() => setMapOpen(true)}
-                          className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 px-3.5 py-3 text-start transition hover:border-brand-200 hover:bg-brand-50/40"
+                          className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 px-3.5 py-3 text-start transition hover:border-brand-200 hover:bg-brand-50/40"
                         >
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
                             <Map size={16} />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-bold text-zinc-900">{t('cart.pick_on_map')}</span>
-                            <span className="block text-[11px] text-zinc-400">{t('cart.pick_on_map.hint_short')}</span>
+                            <span className="block text-sm font-bold text-zinc-900 dark:text-zinc-100">{t('cart.pick_on_map')}</span>
+                            <span className="block text-[11px] text-zinc-400 dark:text-zinc-500">{t('cart.pick_on_map.hint_short')}</span>
                           </span>
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
                             <ChevronRight size={14} className="rtl:rotate-180" />
@@ -385,7 +385,7 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                   {/* notes — step number shifts up when there's no step 2 (takeaway) */}
                   <div>
                     <SectionHeader n={orderType === 'takeaway' ? 2 : 3} title={t('cart.kitchen_notes')} />
-                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('cart.kitchen_notes.placeholder')} className="w-full resize-none rounded-xl border border-zinc-200 px-3.5 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-200" />
+                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('cart.kitchen_notes.placeholder')} className="w-full resize-none rounded-xl border border-zinc-200 dark:border-zinc-700 px-3.5 py-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-200" />
                   </div>
 
                   {/* payment method is fixed (Algeria: cash only) and enforced
@@ -393,12 +393,12 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                       doesn't actually make. */}
 
                   {/* totals */}
-                  <div className="space-y-1.5 rounded-2xl bg-orange-50/70 p-4 text-sm">
-                    <div className="flex justify-between text-zinc-500"><span>{t('common.subtotal')}</span><span>{money(subtotal)}</span></div>
+                  <div className="space-y-1.5 rounded-2xl bg-orange-50/70 dark:bg-orange-500/10 p-4 text-sm">
+                    <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>{t('common.subtotal')}</span><span>{money(subtotal)}</span></div>
                     {deliveryFee > 0 && (
-                      <div className="flex justify-between text-zinc-500"><span>{t('common.delivery_fee')}</span><span>{money(deliveryFee)}</span></div>
+                      <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>{t('common.delivery_fee')}</span><span>{money(deliveryFee)}</span></div>
                     )}
-                    <div className="flex justify-between border-t border-dashed border-orange-200 pt-2 font-display text-base font-bold text-zinc-900"><span>{t('common.total')}</span><span className="text-burnt">{money(total)}</span></div>
+                    <div className="flex justify-between border-t border-dashed border-orange-200 pt-2 font-display text-base font-bold text-zinc-900 dark:text-zinc-100"><span>{t('common.total')}</span><span className="text-burnt">{money(total)}</span></div>
                   </div>
 
                   {serverError && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{serverError}</p>}
@@ -408,7 +408,7 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
 
             {/* footer */}
             {lines.length > 0 && (
-              <div className="border-t border-zinc-100 p-4 pb-6">
+              <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 pb-6">
                 {step === 'cart' ? (
                   <button
                     onClick={() => setStep('checkout')}

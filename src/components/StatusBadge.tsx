@@ -7,7 +7,7 @@ const MAP: Record<OrderStatus, { key: string; cls: string; dot: string }> = {
   preparing: { key: 'status.preparing', cls: 'bg-brand-50 text-brand-700 ring-brand-200', dot: 'bg-brand-500 animate-pulse' },
   ready: { key: 'status.ready', cls: 'bg-brand-100 text-burnt ring-brand-300', dot: 'bg-burnt' },
   out_for_delivery: { key: 'status.out_for_delivery', cls: 'bg-indigo-50 text-indigo-700 ring-indigo-200', dot: 'bg-indigo-500' },
-  completed: { key: 'status.completed', cls: 'bg-zinc-100 text-zinc-600 ring-zinc-200', dot: 'bg-zinc-400' },
+  completed: { key: 'status.completed', cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 ring-zinc-200 dark:ring-zinc-700', dot: 'bg-zinc-400' },
   cancelled: { key: 'status.cancelled', cls: 'bg-red-50 text-red-600 ring-red-200', dot: 'bg-red-500' },
 };
 

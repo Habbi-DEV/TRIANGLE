@@ -56,12 +56,12 @@ function Card({ icon: Icon, title, description, children }: {
   icon: typeof Building2; title: string; description: string; children: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-100 md:p-5">
+    <div className="mb-4 rounded-2xl bg-white dark:bg-zinc-900 p-4 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-800 md:p-5">
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600"><Icon size={17} /></div>
         <div>
-          <h2 className="font-display text-sm font-bold text-zinc-900">{title}</h2>
-          <p className="text-[11px] text-zinc-400">{description}</p>
+          <h2 className="font-display text-sm font-bold text-zinc-900 dark:text-zinc-100">{title}</h2>
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{description}</p>
         </div>
       </div>
       <div className="space-y-3">{children}</div>
@@ -72,13 +72,13 @@ function Card({ icon: Icon, title, description, children }: {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400">{label}</label>
+      <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{label}</label>
       {children}
     </div>
   );
 }
 
-const inputCls = 'w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100';
+const inputCls = 'w-full rounded-xl border border-zinc-200 dark:border-zinc-700 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -122,20 +122,20 @@ function LogoPicker({ url, tone, busy, locked, hint, onPick, onClear }: {
     <div className="flex items-center gap-3">
       <div
         className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ${
-          dark ? 'bg-zinc-900 ring-zinc-800' : 'bg-white ring-zinc-200'
+          dark ? 'bg-zinc-900 ring-zinc-800' : 'bg-white dark:bg-zinc-900 ring-zinc-200 dark:ring-zinc-700'
         }`}
       >
         {url ? (
           <img src={url} alt="" className="h-full w-full object-contain p-1.5" />
         ) : (
-          <ImagePlus size={20} className={dark ? 'text-zinc-600' : 'text-zinc-300'} />
+          <ImagePlus size={20} className={dark ? 'text-zinc-600 dark:text-zinc-300' : 'text-zinc-300 dark:text-zinc-600'} />
         )}
       </div>
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <label
-            className={`cursor-pointer rounded-xl border border-zinc-200 px-3 py-2 text-xs font-bold text-zinc-600 transition hover:bg-zinc-50 ${
+            className={`cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-300 transition hover:bg-zinc-50 ${
               locked ? 'pointer-events-none opacity-50' : ''
             }`}
           >
@@ -154,12 +154,12 @@ function LogoPicker({ url, tone, busy, locked, hint, onPick, onClear }: {
             />
           </label>
           {url && !busy && (
-            <button type="button" onClick={onClear} className="text-xs font-bold text-zinc-400 transition hover:text-red-500">
+            <button type="button" onClick={onClear} className="text-xs font-bold text-zinc-400 dark:text-zinc-500 transition hover:text-red-500">
               {t('settings.remove_logo')}
             </button>
           )}
         </div>
-        <p className="mt-1 text-[11px] text-zinc-400">{hint}</p>
+        <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">{hint}</p>
       </div>
     </div>
   );
@@ -171,12 +171,12 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
       type="button"
       onClick={() => onChange(!checked)}
       className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm font-semibold transition ${
-        checked ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-zinc-200 text-zinc-500'
+        checked ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400'
       }`}
     >
       {label}
       <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${checked ? 'bg-brand-500' : 'bg-zinc-300'}`}>
-        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${checked ? 'left-4' : 'left-0.5'}`} />
+        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white dark:bg-zinc-900 shadow transition ${checked ? 'left-4' : 'left-0.5'}`} />
       </span>
     </button>
   );
@@ -284,8 +284,8 @@ export default function SettingsPage() {
     <div className="p-4 pb-28 md:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-zinc-900">{t('settings.title')}</h1>
-          <p className="text-sm text-zinc-500">{t('settings.subtitle')}</p>
+          <h1 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t('settings.title')}</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">{t('settings.subtitle')}</p>
         </div>
         <button
           onClick={save}
@@ -366,7 +366,7 @@ export default function SettingsPage() {
             <input value={form.delivery_min_order} onChange={(e) => set('delivery_min_order', e.target.value)} type="number" step="0.10" min="0" className={inputCls} />
           </Field>
         </div>
-        <p className="text-[11px] text-zinc-400">{t('settings.payment_note')}</p>
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{t('settings.payment_note')}</p>
       </Card>
 
       {/* Notifications */}
@@ -375,7 +375,7 @@ export default function SettingsPage() {
         <Field label={t('settings.low_stock_threshold')}>
           <input value={form.low_stock_threshold} onChange={(e) => set('low_stock_threshold', e.target.value)} type="number" min="0" className={inputCls} />
         </Field>
-        <p className="text-[11px] text-zinc-400">{t('settings.low_stock_note')}</p>
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{t('settings.low_stock_note')}</p>
       </Card>
 
       {/* Branding */}
@@ -389,7 +389,7 @@ export default function SettingsPage() {
                 picker always has something sane to open with. */}
             <label
               className={`relative h-8 w-8 shrink-0 cursor-pointer overflow-hidden rounded-lg ring-1 ${
-                brandColorValid ? 'ring-zinc-200' : 'ring-red-300'
+                brandColorValid ? 'ring-zinc-200 dark:ring-zinc-700' : 'ring-red-300'
               }`}
             >
               <span
@@ -418,8 +418,8 @@ export default function SettingsPage() {
             <p className="mt-1.5 text-[11px] font-semibold text-red-500">{t('settings.brand_color.invalid')}</p>
           )}
         </Field>
-        <p className="text-[11px] text-zinc-400">
-          {t('settings.brand_color.note1')}<code className="rounded bg-zinc-100 px-1 py-0.5">brand-500</code>{t('settings.brand_color.note2')}
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          {t('settings.brand_color.note1')}<code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5">brand-500</code>{t('settings.brand_color.note2')}
         </p>
       </Card>
     </div>

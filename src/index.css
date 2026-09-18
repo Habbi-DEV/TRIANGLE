@@ -80,6 +80,45 @@ html.dark .food-photo {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
+/* Every text-like form control in the app (admin settings, product forms,
+   POS checkout, customer checkout, etc.) relies on the browser's default
+   field background + inherited text color instead of an explicit Tailwind
+   color class. That's invisible by default in dark mode: `html.dark body`
+   above switches the inherited text color to a near-white, but the field
+   itself keeps its native white background (iOS Safari in particular does
+   not reliably re-skin native inputs from `color-scheme` alone) — so typed
+   or saved values render as near-white text on a white field and vanish.
+   Giving every such control its own explicit light/dark colors here fixes
+   every current instance of that bug in one place, and any future input
+   that forgets to set its own text color is safe by default too.
+   Scoped away from checkbox/radio/range/file/color inputs, which have
+   their own native appearance that shouldn't be recolored this way. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+textarea,
+select {
+  background-color: #ffffff;
+  color: #18181b;
+}
+html.dark input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+html.dark textarea,
+html.dark select {
+  background-color: #27272a;
+  color: #f4f4f5;
+}
+/* Placeholder text needs its own explicit color too — otherwise it can
+   inherit the same near-invisible contrast against the field background
+   in one theme or the other. */
+input::placeholder,
+textarea::placeholder {
+  color: #a1a1aa;
+  opacity: 1;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #71717a;
+  opacity: 1;
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

@@ -69,6 +69,10 @@ export default function MenuPage() {
   // given slide from either the dots or the timer.
   const [bannerIdx, setBannerIdx] = useState(0);
   const bannerRef = useRef<HTMLDivElement>(null);
+  // Pausing is read by the autoplay timer below but shouldn't itself
+  // trigger a re-render on every hover/touch — a ref is enough since
+  // nothing in the UI needs to reflect "paused" visually.
+  const bannerPausedRef = useRef(false);
 
   // The last placed order and whether its tracker is currently shown are
   // kept separate: closing the tracker (via its own X, or by tapping the
@@ -134,9 +138,13 @@ export default function MenuPage() {
   // Auto-advance the banner carousel every 4.5s. Restarting on every
   // bannerIdx change (not just on mount) means a manual swipe or a dot tap
   // resets the countdown instead of fighting the timer's own scroll.
+  // Paused for as long as the finger/cursor is on the banner (see
+  // bannerPausedRef, set from the container's own pointer handlers below)
+  // so a slide mid-read never gets yanked away by the timer.
   useEffect(() => {
     if (promotions.length < 2) return;
     const id = setInterval(() => {
+      if (bannerPausedRef.current) return;
       const el = bannerRef.current;
       if (!el) return;
       const next = (bannerIdx + 1) % promotions.length;
@@ -336,7 +344,17 @@ export default function MenuPage() {
                   const el = e.currentTarget;
                   setBannerIdx(Math.round(el.scrollLeft / el.clientWidth));
                 }}
-                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white"
+                onMouseEnter={() => { bannerPausedRef.current = true; }}
+                onMouseLeave={() => { bannerPausedRef.current = false; }}
+                onTouchStart={() => { bannerPausedRef.current = true; }}
+                onTouchEnd={() => { bannerPausedRef.current = false; }}
+                // Light mode stays clean and relies on plain contrast against
+                // the page. Dark mode needs its own separation: the banner
+                // graphics have a dark background of their own, so without a
+                // border/glow they visually merge into the dark app shell and
+                // lose all depth — a thin brand-orange border plus a soft
+                // ambient glow restores the boundary without looking loud.
+                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white dark:bg-zinc-900 dark:border dark:border-[rgba(255,107,0,0.4)] dark:shadow-[0px_4px_20px_rgba(255,107,0,0.15)]"
               >
                 {promotions.map((p) => (
                   <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
@@ -352,7 +370,7 @@ export default function MenuPage() {
                         if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
                       }}
                       aria-label={t('shop.go_to_banner', { n: i + 1 })}
-                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200'}`}
+                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200 dark:bg-zinc-700'}`}
                     />
                   ))}
                 </div>

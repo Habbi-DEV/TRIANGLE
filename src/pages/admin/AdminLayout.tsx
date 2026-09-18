@@ -48,7 +48,7 @@ function Brand() {
       />
       <div>
         <p className="font-display text-[15px] font-extrabold leading-none text-white">{settings?.restaurant_name || 'TRIANGLE'}</p>
-        <p className="text-[10px] font-medium tracking-wide text-zinc-500">POS · RMS</p>
+        <p className="text-[10px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">POS · RMS</p>
       </div>
     </div>
   );
@@ -131,11 +131,11 @@ export default function AdminLayout() {
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold transition ${
-      isActive ? 'bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+      isActive ? 'bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'text-zinc-400 dark:text-zinc-500 hover:bg-white/5 hover:text-zinc-100'
     }`;
 
   return (
-    <div className="min-h-screen bg-zinc-100">
+    <div className="min-h-screen bg-zinc-100 dark:bg-zinc-800">
       {/* Last-resort manual unlock: covers the rare browser where neither
           the immediate attempt nor a generic pointerdown/keydown above
           actually got the context running. One deliberate tap here always
@@ -186,7 +186,7 @@ export default function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100">
+        <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-zinc-400 dark:text-zinc-500 transition hover:bg-white/5 hover:text-zinc-100">
           <ExternalLink size={15} /> {t('nav.customer_menu')}
         </a>
         <div className="mt-3 flex items-center gap-3 rounded-xl bg-white/5 p-3">
@@ -197,7 +197,7 @@ export default function AdminLayout() {
             <p className="truncate text-xs font-bold text-white">{user?.email}</p>
             <p className="text-[10px] font-semibold tracking-wide text-brand-400">{ROLE_LABEL[role as string] ?? t('nav.administrator')}</p>
           </div>
-          <button onClick={signOut} className="text-zinc-500 transition hover:text-red-400" aria-label={t('nav.sign_out')}>
+          <button onClick={signOut} className="text-zinc-500 dark:text-zinc-400 transition hover:text-red-400" aria-label={t('nav.sign_out')}>
             <LogOut size={16} />
           </button>
         </div>
@@ -209,8 +209,8 @@ export default function AdminLayout() {
           <Brand />
           <div className="flex items-center gap-2">
             <LanguageSwitch compact />
-            <a href="/" target="_blank" rel="noreferrer" className="text-zinc-400"><ExternalLink size={17} /></a>
-            <button onClick={signOut} className="text-zinc-400" aria-label={t('nav.sign_out')}><LogOut size={17} /></button>
+            <a href="/" target="_blank" rel="noreferrer" className="text-zinc-400 dark:text-zinc-500"><ExternalLink size={17} /></a>
+            <button onClick={signOut} className="text-zinc-400 dark:text-zinc-500" aria-label={t('nav.sign_out')}><LogOut size={17} /></button>
           </div>
         </div>
         <nav className="no-scrollbar -mx-1 mt-3 flex gap-1 overflow-x-auto px-1">
@@ -219,7 +219,7 @@ export default function AdminLayout() {
               key={n.to} to={n.to} end={n.end}
               className={({ isActive }) =>
                 `flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-                  isActive ? 'bg-brand-500 text-white' : 'text-zinc-400'
+                  isActive ? 'bg-brand-500 text-white' : 'text-zinc-400 dark:text-zinc-500'
                 }`
               }
             >

@@ -12,7 +12,7 @@ const STATUS_META: Record<TableStatus, { key: string; cls: string }> = {
   available: { key: 'tables.available', cls: 'bg-sky-50 text-sky-600 ring-sky-200' },
   occupied: { key: 'tables.occupied', cls: 'bg-brand-50 text-brand-700 ring-brand-200' },
   reserved: { key: 'tables.reserved', cls: 'bg-indigo-50 text-indigo-600 ring-indigo-200' },
-  cleaning: { key: 'tables.cleaning', cls: 'bg-zinc-100 text-zinc-500 ring-zinc-200' },
+  cleaning: { key: 'tables.cleaning', cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 ring-zinc-200 dark:ring-zinc-700' },
 };
 
 export default function TablesPage() {
@@ -105,8 +105,8 @@ export default function TablesPage() {
     <div className="p-4 md:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-zinc-900">{t('tables.title')}</h1>
-        <p className="text-sm text-zinc-500">
+          <h1 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t('tables.title')}</h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
           {tables.filter((tbl) => effectiveStatus(tbl) === 'available').length} {t('tables.available')} ·{' '}
           {tables.filter((tbl) => effectiveStatus(tbl) === 'occupied').length} {t('tables.occupied')} ·{' '}
           {tables.filter((tbl) => effectiveStatus(tbl) === 'reserved').length} {t('tables.reserved')} ·{' '}
@@ -127,11 +127,11 @@ export default function TablesPage() {
           const effStatus: TableStatus = active ? 'occupied' : tbl.status;
           const meta = STATUS_META[effStatus];
           return (
-            <div key={tbl.id} className={`rounded-2xl bg-white p-4 shadow-sm ring-1 transition ${effStatus === 'occupied' ? 'ring-brand-200' : 'ring-zinc-100'}`}>
+            <div key={tbl.id} className={`rounded-2xl bg-white dark:bg-zinc-900 p-4 shadow-sm ring-1 transition ${effStatus === 'occupied' ? 'ring-brand-200' : 'ring-zinc-100 dark:ring-zinc-800'}`}>
               <div className="flex items-start justify-between gap-1">
                 <div>
-                  <p className="font-display text-2xl font-extrabold text-zinc-900">T{tbl.table_number}</p>
-                  <p className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[11px] text-zinc-400"><Users size={11} /> {tbl.seats} {t('tables.seats')}</p>
+                  <p className="font-display text-2xl font-extrabold text-zinc-900 dark:text-zinc-100">T{tbl.table_number}</p>
+                  <p className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[11px] text-zinc-400 dark:text-zinc-500"><Users size={11} /> {tbl.seats} {t('tables.seats')}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${meta.cls}`}>{t(meta.key)}</span>
@@ -140,7 +140,7 @@ export default function TablesPage() {
                     disabled={!!active}
                     title={active ? t('tables.status_locked') : t('tables.delete_table')}
                     aria-label={t('tables.delete_table')}
-                    className="rounded-lg p-1.5 text-zinc-300 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-300"
+                    className="rounded-lg p-1.5 text-zinc-300 dark:text-zinc-600 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-300"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -174,7 +174,7 @@ export default function TablesPage() {
                     className={`rounded-lg px-1 py-1.5 text-[10px] font-bold transition disabled:cursor-not-allowed ${
                       effStatus === s
                         ? 'bg-zinc-900 text-white'
-                        : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 disabled:opacity-50 disabled:hover:bg-zinc-100'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 disabled:opacity-50 disabled:hover:bg-zinc-100'
                     }`}
                   >
                     {t(STATUS_META[s].key)}
@@ -182,7 +182,7 @@ export default function TablesPage() {
                 ))}
               </div>
               {active && (
-                <p className="mt-1.5 flex items-center gap-1 text-[10px] text-zinc-400">
+                <p className="mt-1.5 flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500">
                   <Lock size={10} /> {t('tables.status_locked')}
                 </p>
               )}
@@ -195,12 +195,12 @@ export default function TablesPage() {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400">{t('tables.table_number')}</label>
-              <input value={form.table_number} onChange={(e) => setForm({ ...form, table_number: e.target.value })} type="number" min="1" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400" />
+              <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('tables.table_number')}</label>
+              <input value={form.table_number} onChange={(e) => setForm({ ...form, table_number: e.target.value })} type="number" min="1" className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400" />
             </div>
             <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400">{t('tables.seats_label')}</label>
-              <input value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} type="number" min="1" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400" />
+              <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('tables.seats_label')}</label>
+              <input value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} type="number" min="1" className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400" />
             </div>
           </div>
           {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{error}</p>}
