@@ -63,10 +63,12 @@ export default function CancelOrderButton({ order, onCancelled }: Props) {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border-2 border-red-100 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-[0.98]"
+        className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full border-2 border-red-100 px-3 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-[0.98]"
       >
-        <Ban size={16} />
-        {t('shop.cancel_order.button')}
+        <span className="flex items-center gap-2">
+          <Ban size={16} className="shrink-0" />
+          {t('shop.cancel_order.button')}
+        </span>
         <span className="font-normal text-red-400">
           · {t('shop.cancel_order.time_left', { time: formatCountdown(remainingMs) })}
         </span>

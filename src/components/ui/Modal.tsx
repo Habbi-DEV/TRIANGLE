@@ -31,11 +31,11 @@ export default function Modal({ open, onClose, title, children, wide }: Props) {
             exit={{ y: 40, opacity: 0, scale: 0.98 }}
             transition={{ type: 'spring', damping: 28, stiffness: 350 }}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-lg font-bold text-zinc-900 dark:text-zinc-100">{title}</h3>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="min-w-0 flex-1 truncate font-display text-lg font-bold text-zinc-900 dark:text-zinc-100">{title}</h3>
               <button
                 onClick={onClose}
-                className="rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                className="shrink-0 rounded-full p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 aria-label={t('common.close')}
               >
                 <X size={18} />

@@ -13,6 +13,7 @@ import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
 import Skeleton from '../components/ui/Skeleton';
 import ThemeToggle from '../components/ThemeToggle';
+import LanguageSwitch from '../components/LanguageSwitch';
 import AppLogo from '../components/AppLogo';
 import InstallBanner from '../components/InstallBanner';
 import SoundAlertBanner from '../components/shared/SoundAlertBanner';
@@ -90,7 +91,7 @@ export default function MenuPage() {
   // manual fallback button below (see the unlock effect further down).
   const [soundUnlocked, setSoundUnlocked] = useState(isChimeUnlocked());
 
-  const { t, lang, setLang } = useLang();
+  const { t } = useLang();
   const settings = useSettings();
   const count = useCartStore(selectCount);
   const subtotal = useCartStore(selectSubtotal);
@@ -290,20 +291,7 @@ export default function MenuPage() {
               {settings === null ? '' : settings.restaurant_name || 'TRIANGLE'}
             </h1>
             <div className="ms-auto flex shrink-0 items-center gap-2">
-              <div className="flex rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-900">
-                <button
-                  onClick={() => setLang('fr')}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${lang === 'fr' ? 'bg-brand-500 text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
-                >
-                  FR
-                </button>
-                <button
-                  onClick={() => setLang('ar')}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${lang === 'ar' ? 'bg-brand-500 text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
-                >
-                  AR
-                </button>
-              </div>
+              <LanguageSwitch />
               <ThemeToggle />
               <button
                 onClick={() => setCartOpen(true)}
