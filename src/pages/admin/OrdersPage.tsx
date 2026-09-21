@@ -60,15 +60,16 @@ export default function OrdersPage() {
   const { orders, loading, patchOrder, removeOrder, addOrder, confirmPatch, rollbackPatch } = hook;
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<OrderType | 'all'>('all');
-  const [busyId, setBusyId] = useState<number | null>(null);
+  // Purely internal bookkeeping for the optimistic-update pipeline below —
+  // none of this blocks or visually alters the UI. inFlightRef marks an
+  // order as having a PUT in flight; queueRef holds any further clicks
+  // that arrive while it's in flight; targetRef tracks the status the
+  // order is *currently heading toward* (in-flight or queued) so a
+  // repeat click on the same target (double-click, or a click before the
+  // button re-renders) is silently ignored instead of being resent —
+  // which is what caused "Cannot move order from preparing to preparing".
   const inFlightRef = useRef<Set<number>>(new Set());
   const queueRef = useRef<Map<number, OrderStatus[]>>(new Map());
-  // Status this order is currently being driven towards (in-flight or
-  // queued). Lets us dedupe a double-click that re-fires the SAME target
-  // status before the optimistic UI has re-rendered with the new button —
-  // without this, the queue drain below can resend a status the order is
-  // already in (e.g. "preparing" -> "preparing"), which the backend's
-  // state machine correctly rejects with a 409.
   const targetRef = useRef<Map<number, OrderStatus>>(new Map());
 
   const filtered = useMemo(
@@ -90,9 +91,13 @@ export default function OrdersPage() {
     return () => clearInterval(iv);
   }, []);
 
+  // Fires the PUT in the background. The UI has ALREADY been updated
+  // (see setStatus below) before this is ever called, so there is
+  // nothing here that blocks or delays what the user sees — this only
+  // reconciles the store with the server, and rolls the optimistic
+  // change back if the server rejects it.
   const sendStatus = async (id: number, status: OrderStatus, prevStatus: OrderStatus) => {
     inFlightRef.current.add(id);
-    setBusyId(id);
     try {
       await api(`/api/orders`, { method: 'PUT', body: JSON.stringify({ id, status }) });
       confirmPatch(id);
@@ -105,7 +110,6 @@ export default function OrdersPage() {
       throw err;
     } finally {
       inFlightRef.current.delete(id);
-      setBusyId(null);
     }
   };
 
@@ -313,21 +317,15 @@ export default function OrdersPage() {
                     {action && (
                       <button
                         onClick={() => setStatus(o.id, action.to)}
-                        disabled={busyId === o.id}
-                        aria-busy={busyId === o.id}
-                        className="flex-1 rounded-xl bg-brand-500 py-2 text-xs font-bold text-white transition hover:bg-brand-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-brand-500 disabled:active:scale-100"
+                        className="flex-1 rounded-xl bg-brand-500 py-2 text-xs font-bold text-white transition hover:bg-brand-600 active:scale-[0.98]"
                       >
-                        {busyId === o.id ? (
-                          <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]" />
-                        ) : t(action.labelKey)}
+                        {t(action.labelKey)}
                       </button>
                     )}
                     {cancellable && (
                       <button
                         onClick={() => setStatus(o.id, 'cancelled')}
-                        disabled={busyId === o.id}
-                        aria-busy={busyId === o.id}
-                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent disabled:active:scale-100"
+                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 active:scale-[0.98]"
                       >
                         {t('orders.action.cancel')}
                       </button>
