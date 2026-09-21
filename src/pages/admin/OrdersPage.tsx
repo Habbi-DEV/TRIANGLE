@@ -60,17 +60,18 @@ export default function OrdersPage() {
   const { orders, loading, patchOrder, removeOrder, addOrder, confirmPatch, rollbackPatch } = hook;
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<OrderType | 'all'>('all');
-  // Purely internal bookkeeping for the optimistic-update pipeline below —
-  // none of this blocks or visually alters the UI. inFlightRef marks an
-  // order as having a PUT in flight; queueRef holds any further clicks
-  // that arrive while it's in flight; targetRef tracks the status the
-  // order is *currently heading toward* (in-flight or queued) so a
-  // repeat click on the same target (double-click, or a click before the
-  // button re-renders) is silently ignored instead of being resent —
-  // which is what caused "Cannot move order from preparing to preparing".
-  const inFlightRef = useRef<Set<number>>(new Set());
-  const queueRef = useRef<Map<number, OrderStatus[]>>(new Map());
+  // ── Sequential per-order request queue ──────────────────────────────
+  // targetRef: the status this order's UI is currently showing/aimed at
+  //   (i.e. the tail of everything queued so far). Used to collapse a
+  //   repeat click on the same target into a no-op instantly, with no
+  //   network call at all.
+  // chainRef: a Promise chain, one per order id. Each call to setStatus
+  //   appends `.then(() => sendStatus(...))` onto the existing chain, so
+  //   PUT #2 for a given order literally cannot start until PUT #1 for
+  //   that SAME order has resolved (success or failure) on the backend.
+  //   Different orders have independent chains and fire in parallel.
   const targetRef = useRef<Map<number, OrderStatus>>(new Map());
+  const chainRef = useRef<Map<number, Promise<OrderStatus>>>(new Map());
 
   const filtered = useMemo(
     () => orders.filter((o) =>
@@ -91,78 +92,57 @@ export default function OrdersPage() {
     return () => clearInterval(iv);
   }, []);
 
-  // Fires the PUT in the background. The UI has ALREADY been updated
-  // (see setStatus below) before this is ever called, so there is
-  // nothing here that blocks or delays what the user sees — this only
-  // reconciles the store with the server, and rolls the optimistic
-  // change back if the server rejects it.
-  const sendStatus = async (id: number, status: OrderStatus, prevStatus: OrderStatus) => {
-    inFlightRef.current.add(id);
+  // Fires ONE PUT for this order and reports back the status the backend
+  // actually ended up confirming — success -> `status`, failure -> the
+  // rolled-back `prevStatus` — so the next link in the chain (below)
+  // knows the true "before" state to send/rollback against, even though
+  // several links may have been queued before any of them ran.
+  const sendStatus = async (id: number, status: OrderStatus, prevStatus: OrderStatus): Promise<OrderStatus> => {
     try {
       await api(`/api/orders`, { method: 'PUT', body: JSON.stringify({ id, status }) });
       confirmPatch(id);
       toast(t(`status.${status}`), 'success');
+      return status;
     } catch (err) {
       rollbackPatch(id, { status: prevStatus });
-      queueRef.current.delete(id);
+      targetRef.current.set(id, prevStatus); // UI reflects the rollback too
       const msg = err instanceof Error ? err.message : t('orders.update_failed');
       toast(msg, 'error');
-      throw err;
-    } finally {
-      inFlightRef.current.delete(id);
+      return prevStatus; // chain continues from the confirmed (rolled-back) state
     }
   };
 
-  const setStatus = async (id: number, status: OrderStatus) => {
+  const setStatus = (id: number, status: OrderStatus) => {
     const cur = orders.find((o) => o.id === id);
     if (!cur) return;
 
-    // Compare against where this order is already headed (in-flight or
-    // queued), not just its last-known server status — a double-click
-    // (or a repeat tap before the button label updates) re-fires the
-    // same target and must be a no-op, otherwise it gets queued and
-    // replayed once the order is already in that state.
-    const pendingTarget = targetRef.current.get(id);
-    const effectiveCurrent = pendingTarget ?? cur.status;
-    if (effectiveCurrent === status) return;
+    // Already at, or already queued for, this exact status — a repeat
+    // click (double-tap / spam) is a pure no-op, no re-render, no request.
+    const already = targetRef.current.get(id) ?? cur.status;
+    if (already === status) return;
 
-    if (inFlightRef.current.has(id)) {
-      const q = queueRef.current.get(id) || [];
-      if (q[q.length - 1] !== status) {
-        q.push(status);
-        queueRef.current.set(id, q);
-        targetRef.current.set(id, status);
-        patchOrder(id, { status });
-      }
-      return;
-    }
-
-    let curStatus = status;
-    const prevStatus = cur.status as OrderStatus;
+    // 0ms optimistic UI update — completely independent of the network
+    // chain below, so clicking through all four buttons feels instant.
     targetRef.current.set(id, status);
     patchOrder(id, { status });
 
-    try {
-      await sendStatus(id, status, prevStatus);
-    } catch {
-      targetRef.current.delete(id);
-      return;
-    }
+    // Append this PUT to the END of this order's existing chain. If
+    // nothing is pending yet, the chain starts from the order's current
+    // confirmed status. `.then()` guarantees sendStatus() for this click
+    // isn't even invoked (so the fetch isn't sent) until every earlier
+    // click for this same order has fully resolved on the backend —
+    // this is what stops "completed" from racing ahead of "ready".
+    const prevLink = chainRef.current.get(id) ?? Promise.resolve(cur.status as OrderStatus);
+    const thisLink = prevLink.then((lastConfirmed) => sendStatus(id, status, lastConfirmed));
+    chainRef.current.set(id, thisLink);
 
-    while (queueRef.current.get(id)?.length) {
-      const q = queueRef.current.get(id)!;
-      const next = q.shift()!;
-      if (q.length === 0) queueRef.current.delete(id);
-      if (next === curStatus) continue; // already satisfied by the transition above
-      const beforeNext = curStatus;
-      try {
-        await sendStatus(id, next, beforeNext as OrderStatus);
-        curStatus = next;
-      } catch {
-        break;
+    thisLink.finally(() => {
+      // Only clear if nothing newer has been queued on top of us since.
+      if (chainRef.current.get(id) === thisLink) {
+        chainRef.current.delete(id);
+        targetRef.current.delete(id);
       }
-    }
-    targetRef.current.delete(id);
+    });
   };
 
   const deleteOrder = async (id: number) => {
