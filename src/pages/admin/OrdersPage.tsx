@@ -36,17 +36,6 @@ function nextAction(o: Order): { to: OrderStatus; labelKey: string } | null {
     case 'confirmed': return { to: 'preparing', labelKey: 'orders.action.start_prep' };
     case 'preparing': return { to: 'ready', labelKey: 'orders.action.mark_ready' };
     case 'ready':
-      // Delivery orders are handed off to the Driver Dashboard the moment
-      // they're marked "ready" — a driver self-assigns via /driver, then
-      // drives the rest of the lifecycle (picked_up -> out_for_delivery,
-      // delivered -> completed; see api/driver-orders.js). There is
-      // deliberately NO manual "send to driver" action here anymore: it
-      // used to flip status straight to out_for_delivery, which skipped
-      // driver assignment entirely and made the order invisible to the
-      // Driver Dashboard's "available" list (that list only shows
-      // status === 'ready') — orders dispatched that way never got a
-      // driver_id and silently got stuck. Kitchen/cashier just mark it
-      // ready; the driver flow takes it from there.
       return o.order_type === 'delivery' ? null : { to: 'completed', labelKey: 'orders.action.complete' };
     case 'out_for_delivery': return { to: 'completed', labelKey: 'orders.action.delivered' };
     default: return null;
@@ -56,34 +45,39 @@ function nextAction(o: Order): { to: OrderStatus; labelKey: string } | null {
 export default function OrdersPage() {
   const { t } = useLang();
   const { toast } = useToast();
-  const hook = useLiveOrders(120, 4000) as ReturnType<typeof useLiveOrders> & { patchOrder: (id:number,p:Partial<Order>)=>void; confirmPatch:(id:number)=>void; rollbackPatch:(id:number,p:Partial<Order>)=>void; removeOrder:(id:number)=>void; addOrder:(o:Order)=>void };
+  const hook = useLiveOrders(120, 4000) as ReturnType<typeof useLiveOrders> & {
+    patchOrder: (id: number, p: Partial<Order>) => void;
+    confirmPatch: (id: number) => void;
+    rollbackPatch: (id: number, p: Partial<Order>) => void;
+    removeOrder: (id: number) => void;
+    addOrder: (o: Order) => void;
+  };
   const { orders, loading, patchOrder, removeOrder, addOrder, confirmPatch, rollbackPatch } = hook;
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<OrderType | 'all'>('all');
+
   // ── Sequential per-order request queue ──────────────────────────────
-  // targetRef: the status this order's UI is currently showing/aimed at
-  //   (i.e. the tail of everything queued so far). Used to collapse a
-  //   repeat click on the same target into a no-op instantly, with no
-  //   network call at all.
-  // chainRef: a Promise chain, one per order id. Each call to setStatus
-  //   appends `.then(() => sendStatus(...))` onto the existing chain, so
-  //   PUT #2 for a given order literally cannot start until PUT #1 for
-  //   that SAME order has resolved (success or failure) on the backend.
-  //   Different orders have independent chains and fire in parallel.
   const targetRef = useRef<Map<number, OrderStatus>>(new Map());
   const chainRef = useRef<Map<number, Promise<OrderStatus>>>(new Map());
 
+  // دمج الحالات المحلية الفورية (targetRef) مع بيانات السيرفر لمنع إعادة إظهار الحالات القديمة أثناء Polling
+  const displayOrders = useMemo(() => {
+    return orders.map((o) => {
+      const pendingStatus = targetRef.current.get(o.id);
+      return pendingStatus ? { ...o, status: pendingStatus } : o;
+    });
+  }, [orders]);
+
   const filtered = useMemo(
-    () => orders.filter((o) =>
-      (statusFilter === 'all' || o.status === statusFilter) &&
-      (typeFilter === 'all' || o.order_type === typeFilter),
-    ),
-    [orders, statusFilter, typeFilter],
+    () =>
+      displayOrders.filter(
+        (o) =>
+          (statusFilter === 'all' || o.status === statusFilter) &&
+          (typeFilter === 'all' || o.order_type === typeFilter),
+      ),
+    [displayOrders, statusFilter, typeFilter],
   );
 
-  // Real per-status totals from the DB, not a count over the capped
-  // 120-row fetch above — otherwise "All" / "Pending" etc. silently
-  // plateau at whatever the fetch limit is once order volume passes it.
   const [counts, setCounts] = useState<Record<string, number>>({ all: 0 });
   useEffect(() => {
     const loadCounts = () => api<Record<string, number>>('/api/orders?counts=1').then(setCounts).catch(console.error);
@@ -92,11 +86,6 @@ export default function OrdersPage() {
     return () => clearInterval(iv);
   }, []);
 
-  // Fires ONE PUT for this order and reports back the status the backend
-  // actually ended up confirming — success -> `status`, failure -> the
-  // rolled-back `prevStatus` — so the next link in the chain (below)
-  // knows the true "before" state to send/rollback against, even though
-  // several links may have been queued before any of them ran.
   const sendStatus = async (id: number, status: OrderStatus, prevStatus: OrderStatus): Promise<OrderStatus> => {
     try {
       await api(`/api/orders`, { method: 'PUT', body: JSON.stringify({ id, status }) });
@@ -105,10 +94,10 @@ export default function OrdersPage() {
       return status;
     } catch (err) {
       rollbackPatch(id, { status: prevStatus });
-      targetRef.current.set(id, prevStatus); // UI reflects the rollback too
+      targetRef.current.set(id, prevStatus);
       const msg = err instanceof Error ? err.message : t('orders.update_failed');
       toast(msg, 'error');
-      return prevStatus; // chain continues from the confirmed (rolled-back) state
+      return prevStatus;
     }
   };
 
@@ -116,32 +105,25 @@ export default function OrdersPage() {
     const cur = orders.find((o) => o.id === id);
     if (!cur) return;
 
-    // Already at, or already queued for, this exact status — a repeat
-    // click (double-tap / spam) is a pure no-op, no re-render, no request.
     const already = targetRef.current.get(id) ?? cur.status;
     if (already === status) return;
 
-    // 0ms optimistic UI update — completely independent of the network
-    // chain below, so clicking through all four buttons feels instant.
+    // تحديث فوري 0ms في الواجهة
     targetRef.current.set(id, status);
     patchOrder(id, { status });
 
-    // Append this PUT to the END of this order's existing chain. If
-    // nothing is pending yet, the chain starts from the order's current
-    // confirmed status. `.then()` guarantees sendStatus() for this click
-    // isn't even invoked (so the fetch isn't sent) until every earlier
-    // click for this same order has fully resolved on the backend —
-    // this is what stops "completed" from racing ahead of "ready".
     const prevLink = chainRef.current.get(id) ?? Promise.resolve(cur.status as OrderStatus);
     const thisLink = prevLink.then((lastConfirmed) => sendStatus(id, status, lastConfirmed));
     chainRef.current.set(id, thisLink);
 
     thisLink.finally(() => {
-      // Only clear if nothing newer has been queued on top of us since.
-      if (chainRef.current.get(id) === thisLink) {
-        chainRef.current.delete(id);
-        targetRef.current.delete(id);
-      }
+      // إرجاء مسح targetRef لمدة ثانيتين لضمان استقرار السيرفر وعدم مسحه فوراً أثناء Background Fetch
+      setTimeout(() => {
+        if (chainRef.current.get(id) === thisLink) {
+          chainRef.current.delete(id);
+          targetRef.current.delete(id);
+        }
+      }, 2000);
     });
   };
 
@@ -169,8 +151,17 @@ export default function OrdersPage() {
         </div>
         <div className="flex gap-1.5">
           {TYPE_FILTERS.map((tf) => (
-            <button key={tf.value} onClick={() => setTypeFilter(tf.value)} className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${typeFilter === tf.value ? 'bg-zinc-900 text-white' : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 ring-1 ring-zinc-200 dark:ring-zinc-700'}`}>
-              {tf.emoji ? `${tf.emoji} ` : ''}{t(tf.labelKey)}
+            <button
+              key={tf.value}
+              onClick={() => setTypeFilter(tf.value)}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                typeFilter === tf.value
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 ring-1 ring-zinc-200 dark:ring-zinc-700'
+              }`}
+            >
+              {tf.emoji ? `${tf.emoji} ` : ''}
+              {t(tf.labelKey)}
             </button>
           ))}
         </div>
@@ -179,10 +170,16 @@ export default function OrdersPage() {
       <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto">
         {STATUS_FILTERS.map((s) => (
           <button
-            key={s.value} onClick={() => setStatusFilter(s.value)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === s.value ? 'bg-brand-500 text-white shadow-md shadow-orange-500/30' : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-zinc-50'}`}
+            key={s.value}
+            onClick={() => setStatusFilter(s.value)}
+            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
+              statusFilter === s.value
+                ? 'bg-brand-500 text-white shadow-md shadow-orange-500/30'
+                : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-zinc-50'
+            }`}
           >
-            {t(s.labelKey)}{counts[s.value] ? ` · ${counts[s.value]}` : ''}
+            {t(s.labelKey)}
+            {counts[s.value] ? ` · ${counts[s.value]}` : ''}
           </button>
         ))}
       </div>
@@ -190,40 +187,61 @@ export default function OrdersPage() {
       {loading ? (
         <Spinner label={t('orders.connecting')} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400 dark:text-zinc-500 ring-1 ring-zinc-100 dark:ring-zinc-800">{t('orders.no_match')}</div>
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400 dark:text-zinc-500 ring-1 ring-zinc-100 dark:ring-zinc-800">
+          {t('orders.no_match')}
+        </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((o) => {
             const action = nextAction(o);
             const cancellable = ['pending', 'confirmed'].includes(o.status);
             return (
-              <div key={o.id} className="flex flex-col rounded-2xl bg-white dark:bg-zinc-900 p-4 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-800">
+              <div
+                key={o.id}
+                className="flex flex-col rounded-2xl bg-white dark:bg-zinc-900 p-4 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-800"
+              >
                 <div className="flex items-center gap-2">
-                  <span className="font-display text-base font-bold text-zinc-900 dark:text-zinc-100">{orderNumber(o.id)}</span>
+                  <span className="font-display text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    {orderNumber(o.id)}
+                  </span>
                   <OrderTypeTag type={o.order_type} />
-                  <span className="ms-auto text-[11px] text-zinc-400 dark:text-zinc-500">{timeAgo(o.created_at)}</span>
+                  <span className="ms-auto text-[11px] text-zinc-400 dark:text-zinc-500">
+                    {timeAgo(o.created_at)}
+                  </span>
                 </div>
 
                 <div className="mt-2 space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                   {o.order_type === 'dine_in' && (
-                    <p className="flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-300"><Users size={12} /> {t('orders.table')} {o.table_number}</p>
+                    <p className="flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-300">
+                      <Users size={12} /> {t('orders.table')} {o.table_number}
+                    </p>
                   )}
                   {o.order_type === 'delivery' && (
                     <>
                       <p className="font-semibold text-zinc-700 dark:text-zinc-300">{o.customer_name}</p>
-                      <p className="flex items-center gap-1.5"><Phone size={11} /> {o.customer_phone}</p>
-                      <p className="flex items-center gap-1.5"><MapPin size={11} /> {o.delivery_address}</p>
+                      <p className="flex items-center gap-1.5">
+                        <Phone size={11} /> {o.customer_phone}
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <MapPin size={11} /> {o.delivery_address}
+                      </p>
                     </>
                   )}
-                  {o.order_type === 'takeaway' && <p className="font-semibold text-zinc-700 dark:text-zinc-300">{t('orders.pickup_counter')}</p>}
+                  {o.order_type === 'takeaway' && (
+                    <p className="font-semibold text-zinc-700 dark:text-zinc-300">{t('orders.pickup_counter')}</p>
+                  )}
                 </div>
 
                 <div className="mt-3 flex-1 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5 text-xs">
                   {(o.items && o.items.length > 0 ? o.items : []).slice(0, 4).map((it) => (
                     <div key={it.id} className="py-0.5">
                       <p className="flex justify-between text-zinc-600 dark:text-zinc-300">
-                        <span className="truncate">{it.quantity}× {it.product_name}</span>
-                        <span className="ms-2 shrink-0 text-zinc-400 dark:text-zinc-500">{money(it.line_total)}</span>
+                        <span className="truncate">
+                          {it.quantity}× {it.product_name}
+                        </span>
+                        <span className="ms-2 shrink-0 text-zinc-400 dark:text-zinc-500">
+                          {money(it.line_total)}
+                        </span>
                       </p>
                       {((it.sauces?.length ?? 0) > 0 || (it.supplements?.length ?? 0) > 0) && (
                         <p className="truncate ps-3 text-[10px] text-zinc-400 dark:text-zinc-500">
@@ -232,27 +250,37 @@ export default function OrdersPage() {
                       )}
                     </div>
                   ))}
-                  {(!o.items || o.items.length === 0) && <p className="text-zinc-400 dark:text-zinc-500">{t('orders.no_items')}</p>}
-                  {(o.items?.length ?? 0) > 4 && <p className="pt-0.5 text-[10px] text-zinc-400 dark:text-zinc-500">{t('orders.more', { n: o.items!.length - 4 })}</p>}
+                  {(!o.items || o.items.length === 0) && (
+                    <p className="text-zinc-400 dark:text-zinc-500">{t('orders.no_items')}</p>
+                  )}
+                  {(o.items?.length ?? 0) > 4 && (
+                    <p className="pt-0.5 text-[10px] text-zinc-400 dark:text-zinc-500">
+                      {t('orders.more', { n: o.items!.length - 4 })}
+                    </p>
+                  )}
                 </div>
 
                 {o.notes && <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-700">📝 {o.notes}</p>}
                 {o.status === 'cancelled' && o.cancel_reason && (
                   <p className="mt-2 rounded-lg bg-red-50 px-2 py-1 text-[11px] text-red-700">
-                    🚫 {t(
+                    🚫{' '}
+                    {t(
                       o.cancelled_by === 'customer'
                         ? 'orders.cancel_reason_customer'
                         : o.cancelled_by === 'driver'
                         ? 'orders.cancel_reason_driver'
                         : o.cancelled_by === 'staff'
                         ? 'orders.cancel_reason_staff'
-                        : 'orders.cancel_reason_generic'
-                    )} : {o.cancel_reason}
+                        : 'orders.cancel_reason_generic',
+                    )}{' '}
+                    : {o.cancel_reason}
                   </p>
                 )}
 
                 <div className="mt-3 flex items-center justify-between border-t border-zinc-50 pt-3">
-                  <span className="font-display text-base font-bold text-zinc-900 dark:text-zinc-100">{money(o.total)}</span>
+                  <span className="font-display text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    {money(o.total)}
+                  </span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => printInvoice(o)}
@@ -266,13 +294,9 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Driver Dashboard visibility: kitchen/cashier can see at a
-                   glance whether a delivery is still waiting for a driver
-                   to accept it, or where the assigned driver is in the
-                   pickup workflow — without needing the /driver screen. */}
                 {o.order_type === 'delivery' && o.status !== 'cancelled' && o.status !== 'completed' && (
                   <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold">
-                    {(!o.delivery_status || o.delivery_status === 'unassigned') ? (
+                    {!o.delivery_status || o.delivery_status === 'unassigned' ? (
                       o.status === 'ready' ? (
                         <span className="flex items-center gap-1.5 text-amber-600">
                           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
@@ -284,11 +308,10 @@ export default function OrdersPage() {
                     )}
                   </p>
                 )}
-                {/* Phone support: relay the delivery code to the customer if
-                    they lost their tracker (staff-only screen). */}
                 {o.order_type === 'delivery' && o.delivery_status === 'on_the_way' && Boolean(o.delivery_otp) && (
                   <p className="mt-1.5 text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-                    {t('driver.delivery_code')}: <span className="tracking-[0.3em] text-zinc-800 dark:text-zinc-200">{o.delivery_otp}</span>
+                    {t('driver.delivery_code')}:{' '}
+                    <span className="tracking-[0.3em] text-zinc-800 dark:text-zinc-200">{o.delivery_otp}</span>
                   </p>
                 )}
 
