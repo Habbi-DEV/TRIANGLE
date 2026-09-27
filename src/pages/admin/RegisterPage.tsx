@@ -12,6 +12,7 @@ import StatusBadge from '../../components/StatusBadge';
 import AppLogo from '../../components/AppLogo';
 import { OrderTypeTag, orderContext } from '../../components/OrderTypeTag';
 import Spinner from '../../components/ui/Spinner';
+import Modal from '../../components/ui/Modal';
 import { useToast } from '../../components/ui/ToastProvider';
 import type { OrderType } from '../../lib/types';
 
@@ -119,23 +120,28 @@ export default function RegisterPage() {
   const targetSupplements = (targetLine?.product.supplements ?? []).filter((s) => s.is_active);
   const targetVariants = (targetLine?.product.variants ?? []).filter((v) => v.is_available);
 
-  // A product with sizes always starts on the cheapest available one — the
-  // cashier can switch it from the Sizes panel below in one tap, same
-  // workflow as swapping a sauce, instead of needing a picker on every tap.
-  const defaultVariant = (p: Product): ProductVariant | null => {
-    const vs = (p.variants ?? []).filter((v) => v.is_available);
-    if (!vs.length) return null;
-    return [...vs].sort((a, b) => a.price - b.price)[0];
-  };
+  // A product with MORE THAN ONE size can never be silently guessed into
+  // the ticket — a wrong silent guess is a wrong charge at the till. It
+  // opens this small picker instead; exactly one size (or none) still adds
+  // in a single tap, same as any other product.
+  const [sizePicker, setSizePicker] = useState<Product | null>(null);
 
   const addProduct = (p: Product) => {
-    const variant = defaultVariant(p);
+    const vs = (p.variants ?? []).filter((v) => v.is_available);
+    if (vs.length > 1) { setSizePicker(p); return; }
+    const variant = vs[0] ?? null;
     add(p, 1, [], [], variant);
     // A fresh tap always targets the plain (no add-ons yet) variant of this
     // product's line — matches add()'s own default of empty sauces/
     // supplements, so the key predicted here always matches the line add()
     // just created or incremented.
     setActiveLineKey(lineKey(p.id, variant, [], []));
+  };
+
+  const chooseSizeAndAdd = (p: Product, variant: ProductVariant) => {
+    add(p, 1, [], [], variant);
+    setActiveLineKey(lineKey(p.id, variant, [], []));
+    setSizePicker(null);
   };
 
   const toggleExtraSauce = (s: Sauce) => {
@@ -373,18 +379,29 @@ export default function RegisterPage() {
                       {targetVariants.length > 0 && (
                         <div className="mb-6">
                           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sizes')}</p>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-4">
                             {targetVariants.map((v) => {
                               const active = targetLine.variant?.id === v.id;
                               return (
-                                <button
-                                  key={v.id}
-                                  onClick={() => pickExtraVariant(v)}
-                                  className={`flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition ${
-                                    active ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-200'
-                                  }`}
-                                >
-                                  {v.name} · {money(v.price)}
+                                <button key={v.id} onClick={() => pickExtraVariant(v)} className="flex w-16 flex-col items-center gap-1.5">
+                                  <span className="flex h-14 w-14 items-center justify-center">
+                                    {v.image_url ? (
+                                      <img
+                                        src={v.image_url}
+                                        alt=""
+                                        className="h-14 w-14 object-contain transition-[filter] duration-200"
+                                        style={active ? { filter: 'drop-shadow(0 0 0 2px #16a34a) drop-shadow(0 4px 8px rgba(22,163,74,.35))' } : undefined}
+                                      />
+                                    ) : (
+                                      <span
+                                        className={`flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 dark:text-zinc-500 ${active ? 'bg-green-100 text-green-600' : 'bg-zinc-100 dark:bg-zinc-800'}`}
+                                      >
+                                        <Droplet size={18} />
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600 dark:text-zinc-300'}`}>{v.name}</span>
+                                  <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">{money(v.price)}</span>
                                 </button>
                               );
                             })}
@@ -722,6 +739,31 @@ export default function RegisterPage() {
           </div>
         )}
       </aside>
+
+      <Modal open={!!sizePicker} onClose={() => setSizePicker(null)} title={sizePicker?.name ?? ''}>
+        <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">{t('shop.sizes')}</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          {(sizePicker?.variants ?? []).filter((v) => v.is_available).map((v) => (
+            <button
+              key={v.id}
+              onClick={() => chooseSizeAndAdd(sizePicker!, v)}
+              className="flex flex-col items-center gap-2 rounded-2xl border-2 border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 transition hover:border-brand-400"
+            >
+              <span className="flex h-14 w-14 items-center justify-center">
+                {v.image_url ? (
+                  <img src={v.image_url} alt="" className="h-14 w-14 object-contain" />
+                ) : (
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
+                    <Droplet size={18} />
+                  </span>
+                )}
+              </span>
+              <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{v.name}</span>
+              <span className="text-xs font-bold text-brand-600">{money(v.price)}</span>
+            </button>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }

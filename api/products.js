@@ -34,17 +34,18 @@ async function handleProductVariants(req, res) {
   if (req.method === 'POST') {
     const staff = await requireManager(req, res);
     if (!staff) return;
-    const { product_id, name, price, is_available } = req.body || {};
+    const { product_id, name, price, is_available, image_url } = req.body || {};
     const pid = toId(product_id);
     const cleanName = cleanText(name, 80);
     if (!pid || !cleanName || !isValidPrice(price)) {
       return res.status(400).json({ error: 'product_id, a name and a valid non-negative price are required' });
     }
+    if (image_url && !isSafeImageUrl(image_url)) return res.status(400).json({ error: 'Invalid image_url' });
     const { data: existing } = await supabase.from('product_variants').select('sort_order')
       .eq('product_id', pid).order('sort_order', { ascending: false }).limit(1);
     const nextOrder = existing?.[0] ? existing[0].sort_order + 1 : 0;
     const { data, error } = await supabase.from('product_variants')
-      .insert({ product_id: pid, name: cleanName, price: Number(price), is_available: is_available !== false, sort_order: nextOrder })
+      .insert({ product_id: pid, name: cleanName, price: Number(price), is_available: is_available !== false, sort_order: nextOrder, image_url: image_url ? String(image_url).trim().slice(0, 2000) : null })
       .select().single();
     if (error) {
       if (error.code === '23505') return res.status(409).json({ error: 'A size with this name already exists on this product' });
@@ -69,6 +70,11 @@ async function handleProductVariants(req, res) {
       fields.price = Number(req.body.price);
     }
     if (req.body?.is_available != null) fields.is_available = Boolean(req.body.is_available);
+    if (req.body?.image_url !== undefined) {
+      const img = req.body.image_url;
+      if (img && !isSafeImageUrl(img)) return res.status(400).json({ error: 'Invalid image_url' });
+      fields.image_url = img ? String(img).trim().slice(0, 2000) : null;
+    }
     if (req.body?.sort_order != null) {
       const so = Number(req.body.sort_order);
       if (!Number.isInteger(so)) return res.status(400).json({ error: 'Invalid sort_order' });

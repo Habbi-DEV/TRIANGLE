@@ -83,6 +83,9 @@ export interface ProductVariant {
   price: number;
   is_available: boolean;
   sort_order: number;
+  /** Optional photo (ideally a transparent PNG, like sauces/supplements).
+   *  Falls back to a generic icon in the UI when empty. */
+  image_url?: string | null;
 }
 
 export interface Sauce {

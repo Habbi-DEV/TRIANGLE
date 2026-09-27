@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Droplet, Layers, Minus, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CupSoda, Droplet, Layers, Minus, Plus, X } from 'lucide-react';
 import type { Product, ProductVariant, Sauce, Supplement } from '../../lib/types';
 import { money } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
@@ -139,20 +139,40 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
               {variants.length > 0 && (
                 <div className="mt-5">
                   <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sizes')}</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-4">
                     {variants.map((v) => {
                       const active = selectedVariantId === v.id;
                       return (
                         <button
                           key={v.id}
                           onClick={() => setSelectedVariantId(v.id)}
-                          className={`flex items-center gap-1.5 rounded-full border-2 px-3.5 py-2 text-xs font-bold transition ${
-                            active
-                              ? 'border-brand-500 bg-brand-50 text-brand-700'
-                              : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-200'
-                          }`}
+                          className="flex w-16 flex-col items-center gap-1.5"
                         >
-                          {v.name} · {money(v.price)}
+                          {/* Same bare-box + drop-shadow treatment as the sauce/
+                              supplement swatches: a transparent-PNG photo sits
+                              directly on the page, selection shown as a shadow
+                              hugging the photo's own silhouette. */}
+                          <span className="flex h-14 w-14 items-center justify-center">
+                            {v.image_url ? (
+                              <img
+                                src={v.image_url}
+                                alt=""
+                                className="h-14 w-14 object-contain transition-[filter] duration-200"
+                                style={active ? { filter: SELECTED_FILTER } : undefined}
+                              />
+                            ) : (
+                              <span
+                                className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 transition-[filter] duration-200"
+                                style={active ? { filter: SELECTED_FILTER } : undefined}
+                              >
+                                <CupSoda size={18} />
+                              </span>
+                            )}
+                          </span>
+                          <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600 dark:text-zinc-300'}`}>
+                            {v.name}
+                          </span>
+                          <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">{money(v.price)}</span>
                         </button>
                       );
                     })}

@@ -8,7 +8,7 @@ const EXT_MIME = {
   avif: 'image/avif', heic: 'image/heic', heif: 'image/heif',
 };
 const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED_FOLDERS = new Set(['Banniere', 'Categories', 'Logo', 'Menu Triangle', 'Sauces', 'Supplements']);
+const ALLOWED_FOLDERS = new Set(['Banniere', 'Categories', 'Logo', 'Menu Triangle', 'Sauces', 'Supplements', 'Variants']);
 const DEFAULT_FOLDER = 'Menu Triangle';
 
 // Magic-byte signatures (FIX content-spoof: don't trust extension alone)

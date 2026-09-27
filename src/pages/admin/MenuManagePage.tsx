@@ -65,9 +65,10 @@ export default function MenuManagePage() {
   // the product, same "saved rows + pending queue for a not-yet-created
   // product" split as the gallery above (not a shared catalog like sauces).
   const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [pendingVariants, setPendingVariants] = useState<{ name: string; price: string }[]>([]);
-  const [newVariant, setNewVariant] = useState({ name: '', price: '' });
+  const [pendingVariants, setPendingVariants] = useState<{ name: string; price: string; image_url: string }[]>([]);
+  const [newVariant, setNewVariant] = useState({ name: '', price: '', image_url: '' });
   const [savingVariant, setSavingVariant] = useState(false);
+  const [uploadingVariantPhoto, setUploadingVariantPhoto] = useState<'new' | number | null>(null);
 
   const load = () => {
     // Staff screen: use api() (Bearer) so hidden rows AND real stock levels
@@ -104,7 +105,7 @@ export default function MenuManagePage() {
     setSelectedSupplementIds([]);
     setVariants([]);
     setPendingVariants([]);
-    setNewVariant({ name: '', price: '' });
+    setNewVariant({ name: '', price: '', image_url: '' });
     setModalOpen(true);
   };
 
@@ -126,7 +127,7 @@ export default function MenuManagePage() {
     setSelectedSupplementIds((p.supplements ?? []).map((s) => s.id));
     setVariants(p.variants ?? []);
     setPendingVariants([]);
-    setNewVariant({ name: '', price: '' });
+    setNewVariant({ name: '', price: '', image_url: '' });
     setModalOpen(true);
   };
 
@@ -165,7 +166,7 @@ export default function MenuManagePage() {
         if (pendingVariants.length) {
           await Promise.all(
             pendingVariants.map((v) =>
-              api('/api/products?variants=1', { method: 'POST', body: JSON.stringify({ product_id: created.id, name: v.name, price: Number(v.price) || 0 }) }),
+              api('/api/products?variants=1', { method: 'POST', body: JSON.stringify({ product_id: created.id, name: v.name, price: Number(v.price) || 0, image_url: v.image_url || null }) }),
             ),
           ).catch(console.error);
         }
@@ -415,13 +416,13 @@ export default function MenuManagePage() {
       if (editing) {
         const saved = await api<ProductVariant>('/api/products?variants=1', {
           method: 'POST',
-          body: JSON.stringify({ product_id: editing.id, name: newVariant.name.trim(), price: Number(newVariant.price) }),
+          body: JSON.stringify({ product_id: editing.id, name: newVariant.name.trim(), price: Number(newVariant.price), image_url: newVariant.image_url || null }),
         });
         setVariants((vs) => [...vs, saved]);
       } else {
-        setPendingVariants((vs) => [...vs, { name: newVariant.name.trim(), price: newVariant.price }]);
+        setPendingVariants((vs) => [...vs, { name: newVariant.name.trim(), price: newVariant.price, image_url: newVariant.image_url }]);
       }
-      setNewVariant({ name: '', price: '' });
+      setNewVariant({ name: '', price: '', image_url: '' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.save_failed'));
     } finally {
@@ -439,6 +440,43 @@ export default function MenuManagePage() {
   const toggleVariantAvailable = async (v: ProductVariant) => {
     setVariants((vs) => vs.map((x) => (x.id === v.id ? { ...x, is_available: !x.is_available } : x)));
     await api('/api/products?variants=1', { method: 'PUT', body: JSON.stringify({ id: v.id, is_available: !v.is_available }) }).catch(console.error);
+  };
+
+  /** Same upload flow as uploadSaucePhoto — a size's photo either patches
+   *  an already-saved variant row directly, or (for a size added before the
+   *  product exists) just fills in the pending row's image_url so save()
+   *  carries it along when the size itself is flushed. */
+  const uploadVariantPhoto = async (file: File, target: 'new' | number) => {
+    setUploadingVariantPhoto(target);
+    setError('');
+    try {
+      const base64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ fileName: file.name, fileBase64: base64, contentType: file.type, folder: 'Variants' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('common.upload_failed'));
+
+      if (target === 'new') {
+        setNewVariant((v) => ({ ...v, image_url: data.url }));
+      } else {
+        const saved = await api<ProductVariant>('/api/products?variants=1', { method: 'PUT', body: JSON.stringify({ id: target, image_url: data.url }) });
+        setVariants((vs) => vs.map((v) => (v.id === target ? saved : v)));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.upload_failed'));
+    } finally {
+      setUploadingVariantPhoto(null);
+    }
   };
 
   /** Shared with both the "new sauce" form (target 'new') and an existing
@@ -944,6 +982,24 @@ export default function MenuManagePage() {
                       title={v.is_available ? t('menu.available') : t('menu.variant_unavailable')}
                       className={`h-2 w-2 shrink-0 rounded-full ${v.is_available ? 'bg-green-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
                     />
+                    <label className="relative shrink-0 cursor-pointer">
+                      {v.image_url ? (
+                        <img src={v.image_url} alt="" className="h-8 w-8 object-contain" />
+                      ) : (
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500">
+                          <Droplet size={13} />
+                        </span>
+                      )}
+                      {uploadingVariantPhoto === v.id && (
+                        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-white/70 dark:bg-zinc-900/70 text-[9px] font-bold">…</span>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => e.target.files?.[0] && uploadVariantPhoto(e.target.files[0], v.id)}
+                      />
+                    </label>
                     <span className="flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
                     <span className="text-xs text-zinc-400 dark:text-zinc-500">{money(Number(v.price))}</span>
                     <button type="button" onClick={() => removeVariant(v)} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500">
@@ -954,6 +1010,13 @@ export default function MenuManagePage() {
                 {pendingVariants.map((v, i) => (
                   <div key={`pending-${i}`} className="flex items-center gap-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-1.5">
                     <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                    {v.image_url ? (
+                      <img src={v.image_url} alt="" className="h-8 w-8 shrink-0 object-contain" />
+                    ) : (
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500">
+                        <Droplet size={13} />
+                      </span>
+                    )}
                     <span className="flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
                     <span className="text-xs text-zinc-400 dark:text-zinc-500">{money(Number(v.price) || 0)}</span>
                     <button type="button" onClick={() => removePendingVariant(i)} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500">
@@ -964,7 +1027,25 @@ export default function MenuManagePage() {
               </div>
             )}
 
-            <div className="flex gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <label className="relative shrink-0 cursor-pointer">
+                {newVariant.image_url ? (
+                  <img src={newVariant.image_url} alt="" className="h-9 w-9 object-contain" />
+                ) : (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
+                    <Droplet size={15} />
+                  </span>
+                )}
+                {uploadingVariantPhoto === 'new' && (
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-white/70 dark:bg-zinc-900/70 text-[9px] font-bold">…</span>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && uploadVariantPhoto(e.target.files[0], 'new')}
+                />
+              </label>
               <input
                 value={newVariant.name}
                 onChange={(e) => setNewVariant((v) => ({ ...v, name: e.target.value }))}
