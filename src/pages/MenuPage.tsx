@@ -486,7 +486,20 @@ export default function MenuPage() {
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {visible.map((p) => (
-              <ProductCard key={p.id} product={p} onOpen={setDetail} onQuickAdd={(prod) => add(prod, 1)} />
+              <ProductCard
+                key={p.id}
+                product={p}
+                onOpen={setDetail}
+                onQuickAdd={(prod) => {
+                  const vs = (prod.variants ?? []).filter((v) => v.is_available);
+                  // More than one size means the customer must choose —
+                  // open the detail sheet instead of guessing for them.
+                  // Exactly one (or none) size adds instantly, same as any
+                  // other product's quick-add.
+                  if (vs.length > 1) { setDetail(prod); return; }
+                  add(prod, 1, [], [], vs[0] ?? null);
+                }}
+              />
             ))}
           </div>
         )}
@@ -557,7 +570,7 @@ export default function MenuPage() {
         </div>
       </nav>
 
-      <ProductSheet key={detail?.id ?? 'none'} product={detail} onClose={() => setDetail(null)} onAdd={(p, q, sauces, supplements) => add(p, q, sauces, supplements)} />
+      <ProductSheet key={detail?.id ?? 'none'} product={detail} onClose={() => setDetail(null)} onAdd={(p, q, sauces, supplements, variant) => add(p, q, sauces, supplements, variant)} />
       <CartSheet
         open={cartOpen}
         onClose={() => setCartOpen(false)}

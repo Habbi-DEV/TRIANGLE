@@ -12,6 +12,12 @@ interface Props {
 export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
   const { t } = useLang();
   const soldOut = !product.is_available || product.stock <= 0;
+  const variants = (product.variants ?? []).filter((v) => v.is_available);
+  // A product with sizes shows its cheapest one on the card — the exact
+  // price the customer will pay depends on which size they pick in the
+  // sheet, same idea as a restaurant menu printing "from 2.00".
+  const cheapestVariant = variants.length ? [...variants].sort((a, b) => a.price - b.price)[0] : null;
+  const displayPrice = cheapestVariant ? cheapestVariant.price : product.price;
   return (
     <div
       onClick={() => !soldOut && onOpen(product)}
@@ -44,7 +50,10 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
           {/* Brand orange stays the accent in both themes — bumped one
               shade lighter (brand-400) on dark so it keeps AA contrast
               against zinc-900 instead of reading muddy. */}
-          <span className="font-display text-[15px] font-bold text-burnt dark:text-brand-400">{money(product.price)}</span>
+          <span className="font-display text-[15px] font-bold text-burnt dark:text-brand-400">
+            {variants.length > 1 && <span className="me-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.from')}</span>}
+            {money(displayPrice)}
+          </span>
           <button
             onClick={(e) => {
               e.stopPropagation();

@@ -22,6 +22,80 @@ async function syncProductSauces(productId, sauceIds) {
   if (insErr) throw insErr;
 }
 
+async function handleProductVariants(req, res) {
+  if (req.method === 'GET') {
+    const pid = toId(req.query.product_id);
+    if (!pid) return res.status(400).json({ error: 'product_id is required' });
+    const { data, error } = await supabase.from('product_variants').select('*')
+      .eq('product_id', pid).order('sort_order').order('id');
+    if (error) return internalError(res, error, 'product-variants GET');
+    return res.status(200).json(data);
+  }
+  if (req.method === 'POST') {
+    const staff = await requireManager(req, res);
+    if (!staff) return;
+    const { product_id, name, price, is_available } = req.body || {};
+    const pid = toId(product_id);
+    const cleanName = cleanText(name, 80);
+    if (!pid || !cleanName || !isValidPrice(price)) {
+      return res.status(400).json({ error: 'product_id, a name and a valid non-negative price are required' });
+    }
+    const { data: existing } = await supabase.from('product_variants').select('sort_order')
+      .eq('product_id', pid).order('sort_order', { ascending: false }).limit(1);
+    const nextOrder = existing?.[0] ? existing[0].sort_order + 1 : 0;
+    const { data, error } = await supabase.from('product_variants')
+      .insert({ product_id: pid, name: cleanName, price: Number(price), is_available: is_available !== false, sort_order: nextOrder })
+      .select().single();
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ error: 'A size with this name already exists on this product' });
+      return internalError(res, error, 'product-variants POST');
+    }
+    await audit(supabase, { actorId: staff.id, action: 'product_variant.create', entity: 'product_variants', entityId: data.id });
+    return res.status(201).json(data);
+  }
+  if (req.method === 'PUT') {
+    const staff = await requireManager(req, res);
+    if (!staff) return;
+    const vid = toId(req.body?.id);
+    if (!vid) return res.status(400).json({ error: 'id is required' });
+    const fields = {};
+    if (req.body?.name != null) {
+      const n = cleanText(req.body.name, 80);
+      if (!n) return res.status(400).json({ error: 'Invalid name' });
+      fields.name = n;
+    }
+    if (req.body?.price != null) {
+      if (!isValidPrice(req.body.price)) return res.status(400).json({ error: 'price must be 0..100000' });
+      fields.price = Number(req.body.price);
+    }
+    if (req.body?.is_available != null) fields.is_available = Boolean(req.body.is_available);
+    if (req.body?.sort_order != null) {
+      const so = Number(req.body.sort_order);
+      if (!Number.isInteger(so)) return res.status(400).json({ error: 'Invalid sort_order' });
+      fields.sort_order = so;
+    }
+    if (!Object.keys(fields).length) return res.status(400).json({ error: 'Nothing to update' });
+    const { data, error } = await supabase.from('product_variants').update(fields).eq('id', vid).select().single();
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ error: 'A size with this name already exists on this product' });
+      return internalError(res, error, 'product-variants PUT');
+    }
+    await audit(supabase, { actorId: staff.id, action: 'product_variant.update', entity: 'product_variants', entityId: vid, meta: { fields: Object.keys(fields) } });
+    return res.status(200).json(data);
+  }
+  if (req.method === 'DELETE') {
+    const staff = await requireManager(req, res);
+    if (!staff) return;
+    const vid = toId(req.body?.id);
+    if (!vid) return res.status(400).json({ error: 'id is required' });
+    const { error } = await supabase.from('product_variants').delete().eq('id', vid);
+    if (error) return internalError(res, error, 'product-variants DELETE');
+    await audit(supabase, { actorId: staff.id, action: 'product_variant.delete', entity: 'product_variants', entityId: vid });
+    return res.status(200).json({ ok: true });
+  }
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
 async function handleProductImages(req, res) {
   if (req.method === 'GET') {
     const pid = toId(req.query.product_id);
@@ -71,6 +145,11 @@ export default async function handler(req, res) {
     catch (err) { return internalError(res, err, 'product-images API error'); }
   }
 
+  if (req.query.variants) {
+    try { return await handleProductVariants(req, res); }
+    catch (err) { return internalError(res, err, 'product-variants API error'); }
+  }
+
   try {
     if (req.method === 'GET') {
       // Public menu: hide unavailable + hidden addons by default is done client-side,
@@ -87,17 +166,23 @@ export default async function handler(req, res) {
       if (error) return internalError(res, error, 'products GET');
 
       const ids = (data || []).map((p) => p.id);
-      let images = [], supplementLinks = [], sauceLinks = [];
+      let images = [], supplementLinks = [], sauceLinks = [], variants = [];
       if (ids.length) {
-        const [{ data: imgs }, { data: supLnk }, { data: sauceLnk }] = await Promise.all([
+        const [{ data: imgs }, { data: supLnk }, { data: sauceLnk }, { data: vars }] = await Promise.all([
           supabase.from('product_images').select('*').in('product_id', ids).order('sort_order'),
           supabase.from('product_supplements').select('product_id, supplements(*)').in('product_id', ids),
           supabase.from('product_sauces').select('product_id, sauces(*)').in('product_id', ids),
+          supabase.from('product_variants').select('*').in('product_id', ids).order('sort_order').order('id'),
         ]);
-        images = imgs || []; supplementLinks = supLnk || []; sauceLinks = sauceLnk || [];
+        images = imgs || []; supplementLinks = supLnk || []; sauceLinks = sauceLnk || []; variants = vars || [];
       }
       const byProduct = {};
       for (const img of images) (byProduct[img.product_id] ||= []).push(img);
+      const variantsByProduct = {};
+      for (const v of variants) {
+        if (!isStaffCall && !v.is_available) continue; // hide hidden sizes from the public menu, same as sauces/supplements
+        (variantsByProduct[v.product_id] ||= []).push(v);
+      }
       const supplementsByProduct = {};
       for (const l of supplementLinks) {
         if (!l.supplements) continue;
@@ -117,6 +202,7 @@ export default async function handler(req, res) {
           images: byProduct[p.id] || [],
           sauces: (saucesByProduct[p.id] || []).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
           supplements: (supplementsByProduct[p.id] || []).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
+          variants: variantsByProduct[p.id] || [],
         };
       }));
     }

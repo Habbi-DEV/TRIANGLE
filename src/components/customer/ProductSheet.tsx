@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Droplet, Layers, Minus, Plus, X } from 'lucide-react';
-import type { Product, Sauce, Supplement } from '../../lib/types';
+import type { Product, ProductVariant, Sauce, Supplement } from '../../lib/types';
 import { money } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
 
 interface Props {
   product: Product | null;
   onClose: () => void;
-  onAdd: (p: Product, qty: number, sauces: Sauce[], supplements: Supplement[]) => void;
+  onAdd: (p: Product, qty: number, sauces: Sauce[], supplements: Supplement[], variant: ProductVariant | null) => void;
 }
 
 // Multiple stacked drop-shadows (not a box border) so the green highlight
@@ -25,18 +25,20 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
   const [photoIdx, setPhotoIdx] = useState(0);
   const [selectedSauceIds, setSelectedSauceIds] = useState<number[]>([]);
   const [selectedSupplementIds, setSelectedSupplementIds] = useState<number[]>([]);
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
 
   // Cover photo first, then the gallery — one strip customers can flip through.
   const photos = product
     ? [product.image_url, ...(product.images ?? []).map((i) => i.url)].filter(Boolean)
     : [];
 
-  // Sauces and supplements both come straight off the product itself
-  // (attached by the API from product_sauces / product_supplements) — no
-  // separate fetch, no category rule. Only the ones the admin left visible
-  // (is_active) show up here.
+  // Sauces, supplements and sizes all come straight off the product itself
+  // (attached by the API from product_sauces / product_supplements /
+  // product_variants) — no separate fetch, no category rule. Only the ones
+  // the admin left visible show up here.
   const sauces = (product?.sauces ?? []).filter((s) => s.is_active);
   const supplements = (product?.supplements ?? []).filter((s) => s.is_active);
+  const variants = (product?.variants ?? []).filter((v) => v.is_available);
 
   useEffect(() => {
     if (!product) return;
@@ -44,6 +46,11 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
     setPhotoIdx(0);
     setSelectedSauceIds([]);
     setSelectedSupplementIds([]);
+    // A product with sizes always starts on the cheapest available one, so
+    // the price shown and the add-to-cart button are correct from the very
+    // first frame — the customer can still change it below before adding.
+    const vs = (product.variants ?? []).filter((v) => v.is_available);
+    setSelectedVariantId(vs.length ? [...vs].sort((a, b) => a.price - b.price)[0].id : null);
   }, [product]);
 
   const toggleSauce = (id: number) =>
@@ -54,11 +61,19 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
 
   const chosenSauces = sauces.filter((s) => selectedSauceIds.includes(s.id));
   const chosenSupplements = supplements.filter((s) => selectedSupplementIds.includes(s.id));
+  const chosenVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
+  // A chosen size's own price REPLACES the product's base price (a 33cl
+  // Coke is 2.00, not "product price + 2.00") — same rule enforced
+  // server-side in api/orders.js.
   const unitPrice = product
-    ? product.price
+    ? (chosenVariant ? chosenVariant.price : product.price)
       + chosenSauces.reduce((n, s) => n + s.price, 0)
       + chosenSupplements.reduce((n, s) => n + s.price, 0)
     : 0;
+  // A product that HAS sizes can't be added without one picked — practically
+  // always true since one is auto-selected above, but stays safe if a size
+  // becomes unavailable while the sheet is open.
+  const canAdd = variants.length === 0 || !!chosenVariant;
 
   return (
     <AnimatePresence>
@@ -120,6 +135,30 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                 <span className="font-display text-lg font-bold text-burnt">{money(unitPrice)}</span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{product.description}</p>
+
+              {variants.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sizes')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {variants.map((v) => {
+                      const active = selectedVariantId === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => setSelectedVariantId(v.id)}
+                          className={`flex items-center gap-1.5 rounded-full border-2 px-3.5 py-2 text-xs font-bold transition ${
+                            active
+                              ? 'border-brand-500 bg-brand-50 text-brand-700'
+                              : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-200'
+                          }`}
+                        >
+                          {v.name} · {money(v.price)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {sauces.length > 0 && (
                 <div className="mt-5">
@@ -232,10 +271,11 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                 </div>
                 <button
                   onClick={() => {
-                    onAdd(product, qty, chosenSauces, chosenSupplements);
+                    onAdd(product, qty, chosenSauces, chosenSupplements, chosenVariant);
                     onClose();
                   }}
-                  className="flex-1 rounded-full bg-brand-500 py-3.5 font-display text-[15px] font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-brand-600 active:scale-[0.98]"
+                  disabled={!canAdd}
+                  className="flex-1 rounded-full bg-brand-500 py-3.5 font-display text-[15px] font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-brand-600 active:scale-[0.98] disabled:bg-zinc-300 disabled:shadow-none dark:disabled:bg-zinc-700"
                 >
                   {t('shop.add_to_cart_cta')} · {money(unitPrice * qty)}
                 </button>

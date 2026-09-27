@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Droplet, Layers, Minus, Plus, Printer, Search, ShoppingBag, ShoppingCart, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import type { Category, Order, Product, RestaurantTable, Sauce, Supplement } from '../../lib/types';
+import type { Category, Order, Product, ProductVariant, RestaurantTable, Sauce, Supplement } from '../../lib/types';
 import { api } from '../../lib/api';
 import { money, orderNumber, timeAgo } from '../../lib/format';
 import { printInvoice } from '../../lib/invoice';
@@ -72,7 +72,7 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const settings = useSettings();
 
-  const { lines, add, inc, dec, remove, clear, setLineExtras } = useCartStore();
+  const { lines, add, inc, dec, remove, clear, setLineExtras, setLineVariant } = useCartStore();
   const subtotal = useCartStore(selectSubtotal);
 
   const [orderType, setOrderType] = useState<OrderType>('dine_in');
@@ -117,14 +117,25 @@ export default function RegisterPage() {
   const targetLine = activeLineKey ? lines.find((l) => l.key === activeLineKey) : undefined;
   const targetSauces = (targetLine?.product.sauces ?? []).filter((s) => s.is_active);
   const targetSupplements = (targetLine?.product.supplements ?? []).filter((s) => s.is_active);
+  const targetVariants = (targetLine?.product.variants ?? []).filter((v) => v.is_available);
+
+  // A product with sizes always starts on the cheapest available one — the
+  // cashier can switch it from the Sizes panel below in one tap, same
+  // workflow as swapping a sauce, instead of needing a picker on every tap.
+  const defaultVariant = (p: Product): ProductVariant | null => {
+    const vs = (p.variants ?? []).filter((v) => v.is_available);
+    if (!vs.length) return null;
+    return [...vs].sort((a, b) => a.price - b.price)[0];
+  };
 
   const addProduct = (p: Product) => {
-    add(p, 1);
+    const variant = defaultVariant(p);
+    add(p, 1, [], [], variant);
     // A fresh tap always targets the plain (no add-ons yet) variant of this
     // product's line — matches add()'s own default of empty sauces/
     // supplements, so the key predicted here always matches the line add()
     // just created or incremented.
-    setActiveLineKey(lineKey(p.id, [], []));
+    setActiveLineKey(lineKey(p.id, variant, [], []));
   };
 
   const toggleExtraSauce = (s: Sauce) => {
@@ -132,7 +143,7 @@ export default function RegisterPage() {
     const has = targetLine.sauces.some((x) => x.id === s.id);
     const nextSauces = has ? targetLine.sauces.filter((x) => x.id !== s.id) : [...targetLine.sauces, s];
     setLineExtras(targetLine.key, nextSauces, targetLine.supplements);
-    setActiveLineKey(lineKey(targetLine.product.id, nextSauces, targetLine.supplements));
+    setActiveLineKey(lineKey(targetLine.product.id, targetLine.variant, nextSauces, targetLine.supplements));
   };
 
   const toggleExtraSupplement = (s: Supplement) => {
@@ -140,7 +151,13 @@ export default function RegisterPage() {
     const has = targetLine.supplements.some((x) => x.id === s.id);
     const nextSupplements = has ? targetLine.supplements.filter((x) => x.id !== s.id) : [...targetLine.supplements, s];
     setLineExtras(targetLine.key, targetLine.sauces, nextSupplements);
-    setActiveLineKey(lineKey(targetLine.product.id, targetLine.sauces, nextSupplements));
+    setActiveLineKey(lineKey(targetLine.product.id, targetLine.variant, targetLine.sauces, nextSupplements));
+  };
+
+  const pickExtraVariant = (v: ProductVariant) => {
+    if (!targetLine) return;
+    setLineVariant(targetLine.key, v);
+    setActiveLineKey(lineKey(targetLine.product.id, v, targetLine.sauces, targetLine.supplements));
   };
 
   const placeOrder = async () => {
@@ -175,8 +192,8 @@ export default function RegisterPage() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       items: snapshot.map((l, i) => {
-        const unit = l.product.price + l.sauces.reduce((n, s) => n + s.price, 0) + l.supplements.reduce((n, s) => n + s.price, 0);
-        return { id: optimisticId * 1000 - i, order_id: optimisticId, product_id: l.product.id, product_name: l.product.name, unit_price: unit, quantity: l.qty, line_total: Math.round(unit * l.qty * 100) / 100, sauces: l.sauces.map((s) => ({ name: s.name, price: s.price })), supplements: l.supplements.map((s) => ({ name: s.name, price: s.price })) };
+        const unit = (l.variant ? l.variant.price : l.product.price) + l.sauces.reduce((n, s) => n + s.price, 0) + l.supplements.reduce((n, s) => n + s.price, 0);
+        return { id: optimisticId * 1000 - i, order_id: optimisticId, product_id: l.product.id, product_name: l.product.name, unit_price: unit, quantity: l.qty, line_total: Math.round(unit * l.qty * 100) / 100, sauces: l.sauces.map((s) => ({ name: s.name, price: s.price })), supplements: l.supplements.map((s) => ({ name: s.name, price: s.price })), variant_id: l.variant?.id ?? null, variant_name: l.variant?.name ?? null };
       }),
     } as Order;
 
@@ -204,6 +221,7 @@ export default function RegisterPage() {
           items: snapshot.map((l) => ({
             product_id: l.product.id,
             quantity: l.qty,
+            variant_id: l.variant?.id ?? undefined,
             sauce_ids: l.sauces.map((s) => s.id),
             supplement_ids: l.supplements.map((s) => s.id),
           })),
@@ -348,10 +366,31 @@ export default function RegisterPage() {
                     </p>
                   </div>
 
-                  {targetSauces.length === 0 && targetSupplements.length === 0 ? (
+                  {targetVariants.length === 0 && targetSauces.length === 0 && targetSupplements.length === 0 ? (
                     <p className="py-10 text-center text-xs text-zinc-400 dark:text-zinc-500">{t('register.extras_none_for_item')}</p>
                   ) : (
                     <>
+                      {targetVariants.length > 0 && (
+                        <div className="mb-6">
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sizes')}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {targetVariants.map((v) => {
+                              const active = targetLine.variant?.id === v.id;
+                              return (
+                                <button
+                                  key={v.id}
+                                  onClick={() => pickExtraVariant(v)}
+                                  className={`flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition ${
+                                    active ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-200'
+                                  }`}
+                                >
+                                  {v.name} · {money(v.price)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       {targetSauces.length > 0 && (
                         <div className="mb-6">
                           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sauces')}</p>
@@ -585,7 +624,10 @@ export default function RegisterPage() {
                 <ul className="space-y-2">
                   {lines.map((l) => {
                     const hasExtras = (l.product.sauces?.some((s) => s.is_active) || l.product.supplements?.some((s) => s.is_active));
-                    const extraNames = [...l.sauces, ...l.supplements].map((s) => s.name);
+                    const extraNames = [
+                      ...(l.variant ? [l.variant.name] : []),
+                      ...[...l.sauces, ...l.supplements].map((s) => s.name),
+                    ];
                     return (
                       <li
                         key={l.key}
@@ -596,7 +638,7 @@ export default function RegisterPage() {
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">{l.product.name}</p>
-                          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{money(l.product.price)} × {l.qty}</p>
+                          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{money(l.variant ? l.variant.price : l.product.price)} × {l.qty}</p>
                           {extraNames.length > 0 && (
                             <p className="truncate text-[10px] text-brand-600">+ {extraNames.join(', ')}</p>
                           )}

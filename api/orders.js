@@ -305,6 +305,20 @@ export default async function handler(req, res) {
         }
       }
 
+      // Variants (product sizes/formats, e.g. a drink's Can 33cl vs Bottle
+      // 1L): price and availability are read from the DB here, never
+      // trusted from the client, same as products/sauces/supplements above.
+      const variantIds = [...new Set(items.map((i) => Number(i.variant_id)).filter(Number.isFinite))].slice(0, 100);
+      let variantById = {};
+      if (variantIds.length) {
+        const { data: variants, error: vErr } = await supabase.from('product_variants').select('*').in('id', variantIds).eq('is_available', true);
+        if (vErr) return internalError(res, vErr, 'orders variants');
+        for (const v of variants || []) {
+          if (Number(v.price) < 0) continue;
+          variantById[v.id] = v;
+        }
+      }
+
       const rows = [];
       let subtotal = 0;
       for (const it of items) {
@@ -317,6 +331,14 @@ export default async function handler(req, res) {
         if ((p.stock ?? 0) < quantity) {
           return res.status(400).json({ error: 'Not enough stock for an item' });
         }
+        // A chosen variant must exist, belong to THIS product, and still be
+        // available — otherwise it's ignored rather than trusted, exactly
+        // like an unavailable sauce/supplement is silently dropped below.
+        let variant = null;
+        if (it.variant_id != null) {
+          const v = variantById[Number(it.variant_id)];
+          if (v && v.product_id === p.id) variant = v;
+        }
         const chosenSauces = (Array.isArray(it.sauce_ids) ? it.sauce_ids : []).slice(0, 10)
           .map((sid) => sauceById[Number(sid)]).filter(Boolean)
           .map((s) => ({ name: String(s.name).slice(0, 100), price: Math.max(0, Number(s.price) || 0) }));
@@ -325,10 +347,20 @@ export default async function handler(req, res) {
           .map((s) => ({ name: String(s.name).slice(0, 100), price: Math.max(0, Number(s.price) || 0) }));
         const sauceTotal = chosenSauces.reduce((n, s) => n + s.price, 0);
         const supplementTotal = chosenSupplements.reduce((n, s) => n + s.price, 0);
-        const unit_price = Math.max(0, Math.round((Number(p.price) + sauceTotal + supplementTotal) * 100) / 100);
+        // A variant's own price REPLACES the product's base price (a 33cl
+        // Coke is 2.00, not "product price + 2.00") — everything else about
+        // the line (sauces, supplements, stock, availability) still comes
+        // from the parent product.
+        const basePrice = variant ? Number(variant.price) : Number(p.price);
+        const unit_price = Math.max(0, Math.round((basePrice + sauceTotal + supplementTotal) * 100) / 100);
         const line_total = Math.round(unit_price * quantity * 100) / 100;
         subtotal += line_total;
-        rows.push({ product_id: p.id, product_name: String(p.name).slice(0, 200), unit_price, quantity, sauces: chosenSauces, supplements: chosenSupplements });
+        rows.push({
+          product_id: p.id, product_name: String(p.name).slice(0, 200), unit_price, quantity,
+          sauces: chosenSauces, supplements: chosenSupplements,
+          variant_id: variant ? variant.id : null,
+          variant_name: variant ? String(variant.name).slice(0, 80) : null,
+        });
       }
       const hasCoords = order_type === 'delivery' && Number.isFinite(Number(delivery_lat)) && Number.isFinite(Number(delivery_lng));
       const lat = hasCoords ? Number(delivery_lat) : null;

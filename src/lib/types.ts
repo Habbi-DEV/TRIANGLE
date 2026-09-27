@@ -65,6 +65,24 @@ export interface Product {
    *  hidden (is_active === false) ones; the customer sheet filters those
    *  out itself. */
   supplements?: Supplement[];
+  /** Size/format choices for this product (e.g. a drink's Can 33cl vs
+   *  Bottle 1L). May include hidden (is_available === false) ones; the
+   *  customer sheet filters those out itself. Empty/undefined for a
+   *  product that only comes in one size — the plain `price` applies. */
+  variants?: ProductVariant[];
+}
+
+/** A size/format row under one product (e.g. a drink's "Can 33cl" vs
+ *  "Bottle 1L"). Unlike Sauce/Supplement, a variant belongs to exactly one
+ *  product and its price REPLACES the product's base price when chosen —
+ *  it isn't an add-on. Optional: most products have none. */
+export interface ProductVariant {
+  id: number;
+  product_id: number;
+  name: string;
+  price: number;
+  is_available: boolean;
+  sort_order: number;
 }
 
 export interface Sauce {
@@ -117,6 +135,11 @@ export interface OrderItem {
   line_total: number;
   sauces?: OrderItemSauce[];
   supplements?: OrderItemSupplement[];
+  /** Snapshot of the chosen size/format at order time, e.g. "Bottle 1L".
+   *  variant_id is kept for reporting but, like product_id, must never be
+   *  used for display — a later rename must not rewrite history. */
+  variant_id?: number | null;
+  variant_name?: string | null;
 }
 
 export interface Order {

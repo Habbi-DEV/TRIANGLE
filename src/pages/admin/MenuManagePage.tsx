@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Droplet, ImagePlus, Layers, Pencil, Plus, Trash2, X } from 'lucide-react';
-import type { Category, Product, ProductImage, Promotion, Sauce, Settings, Supplement } from '../../lib/types';
+import type { Category, Product, ProductImage, ProductVariant, Promotion, Sauce, Settings, Supplement } from '../../lib/types';
 import { api } from '../../lib/api';
 import supabase from '../../lib/supabase';
 import { money } from '../../lib/format';
@@ -61,6 +61,14 @@ export default function MenuManagePage() {
   const [selectedSauceIds, setSelectedSauceIds] = useState<number[]>([]);
   const [selectedSupplementIds, setSelectedSupplementIds] = useState<number[]>([]);
 
+  // Sizes/formats (e.g. a drink's Can 33cl vs Bottle 1L) — owned directly by
+  // the product, same "saved rows + pending queue for a not-yet-created
+  // product" split as the gallery above (not a shared catalog like sauces).
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [pendingVariants, setPendingVariants] = useState<{ name: string; price: string }[]>([]);
+  const [newVariant, setNewVariant] = useState({ name: '', price: '' });
+  const [savingVariant, setSavingVariant] = useState(false);
+
   const load = () => {
     // Staff screen: use api() (Bearer) so hidden rows AND real stock levels
     // come back. Raw fetch without token hides stock from the admin.
@@ -94,6 +102,9 @@ export default function MenuManagePage() {
     setPendingGallery([]);
     setSelectedSauceIds([]);
     setSelectedSupplementIds([]);
+    setVariants([]);
+    setPendingVariants([]);
+    setNewVariant({ name: '', price: '' });
     setModalOpen(true);
   };
 
@@ -113,6 +124,9 @@ export default function MenuManagePage() {
     setPendingGallery([]);
     setSelectedSauceIds((p.sauces ?? []).map((s) => s.id));
     setSelectedSupplementIds((p.supplements ?? []).map((s) => s.id));
+    setVariants(p.variants ?? []);
+    setPendingVariants([]);
+    setNewVariant({ name: '', price: '' });
     setModalOpen(true);
   };
 
@@ -144,6 +158,14 @@ export default function MenuManagePage() {
           await Promise.all(
             pendingGallery.map((url) =>
               api('/api/products?images=1', { method: 'POST', body: JSON.stringify({ product_id: created.id, url }) }),
+            ),
+          ).catch(console.error);
+        }
+        // Flush any sizes added before the product existed.
+        if (pendingVariants.length) {
+          await Promise.all(
+            pendingVariants.map((v) =>
+              api('/api/products?variants=1', { method: 'POST', body: JSON.stringify({ product_id: created.id, name: v.name, price: Number(v.price) || 0 }) }),
             ),
           ).catch(console.error);
         }
@@ -381,6 +403,43 @@ export default function MenuManagePage() {
   };
 
   const removePendingGallery = (url: string) => setPendingGallery((g) => g.filter((u) => u !== url));
+
+  /** Adds a size to the product being edited — saved immediately if the
+   *  product already exists (editing), queued in pendingVariants otherwise
+   *  (new product, flushed by save() once the product is created). */
+  const addVariant = async () => {
+    if (!newVariant.name.trim() || newVariant.price === '' || isNaN(Number(newVariant.price))) return;
+    setSavingVariant(true);
+    setError('');
+    try {
+      if (editing) {
+        const saved = await api<ProductVariant>('/api/products?variants=1', {
+          method: 'POST',
+          body: JSON.stringify({ product_id: editing.id, name: newVariant.name.trim(), price: Number(newVariant.price) }),
+        });
+        setVariants((vs) => [...vs, saved]);
+      } else {
+        setPendingVariants((vs) => [...vs, { name: newVariant.name.trim(), price: newVariant.price }]);
+      }
+      setNewVariant({ name: '', price: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.save_failed'));
+    } finally {
+      setSavingVariant(false);
+    }
+  };
+
+  const removeVariant = async (v: ProductVariant) => {
+    setVariants((vs) => vs.filter((x) => x.id !== v.id));
+    await api('/api/products?variants=1', { method: 'DELETE', body: JSON.stringify({ id: v.id }) }).catch(console.error);
+  };
+
+  const removePendingVariant = (idx: number) => setPendingVariants((vs) => vs.filter((_, i) => i !== idx));
+
+  const toggleVariantAvailable = async (v: ProductVariant) => {
+    setVariants((vs) => vs.map((x) => (x.id === v.id ? { ...x, is_available: !x.is_available } : x)));
+    await api('/api/products?variants=1', { method: 'PUT', body: JSON.stringify({ id: v.id, is_available: !v.is_available }) }).catch(console.error);
+  };
 
   /** Shared with both the "new sauce" form (target 'new') and an existing
    *  sauce's own photo swatch (target = that sauce's id). */
@@ -869,6 +928,65 @@ export default function MenuManagePage() {
               </label>
             </div>
             <p className="mt-1.5 text-[10px] text-zinc-400 dark:text-zinc-500">{t('menu.gallery.desc')}</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('menu.variants')}</label>
+            <p className="mb-2 text-[10px] text-zinc-400 dark:text-zinc-500">{t('menu.variants.desc')}</p>
+
+            {(variants.length > 0 || pendingVariants.length > 0) && (
+              <div className="mb-2 space-y-1.5">
+                {variants.map((v) => (
+                  <div key={v.id} className="flex items-center gap-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleVariantAvailable(v)}
+                      title={v.is_available ? t('menu.available') : t('menu.variant_unavailable')}
+                      className={`h-2 w-2 shrink-0 rounded-full ${v.is_available ? 'bg-green-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+                    />
+                    <span className="flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
+                    <span className="text-xs text-zinc-400 dark:text-zinc-500">{money(Number(v.price))}</span>
+                    <button type="button" onClick={() => removeVariant(v)} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+                {pendingVariants.map((v, i) => (
+                  <div key={`pending-${i}`} className="flex items-center gap-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-1.5">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                    <span className="flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
+                    <span className="text-xs text-zinc-400 dark:text-zinc-500">{money(Number(v.price) || 0)}</span>
+                    <button type="button" onClick={() => removePendingVariant(i)} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-1.5">
+              <input
+                value={newVariant.name}
+                onChange={(e) => setNewVariant((v) => ({ ...v, name: e.target.value }))}
+                placeholder={t('menu.variant_name_placeholder')}
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
+              />
+              <input
+                value={newVariant.price}
+                onChange={(e) => setNewVariant((v) => ({ ...v, price: e.target.value }))}
+                placeholder={t('menu.variant_price_placeholder')}
+                inputMode="decimal"
+                className="w-20 shrink-0 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
+              />
+              <button
+                type="button"
+                onClick={addVariant}
+                disabled={savingVariant || !newVariant.name.trim() || newVariant.price === ''}
+                className="shrink-0 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-3 text-xs font-bold text-white dark:text-zinc-900 disabled:opacity-40"
+              >
+                {t('menu.add')}
+              </button>
+            </div>
           </div>
 
           <div>
