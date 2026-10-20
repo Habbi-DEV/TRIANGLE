@@ -222,20 +222,14 @@ export default async function handler(req, res) {
           meta: { reason, note: cleanNote || undefined },
         }).catch(console.error);
 
+        // Atomic + idempotent restore (per size when the line has one) done
+        // in SQL — see migration_v20_variant_stock.sql. Safe to call twice.
         (async () => {
-          const { data: cItems } = await supabase
-            .from('order_items').select('product_id, quantity').eq('order_id', existing.id);
-          if (!cItems?.length) return;
-          const { data: cProducts } = await supabase
-            .from('products').select('id, stock').in('id', cItems.map((i) => i.product_id));
-          const stockById = Object.fromEntries((cProducts || []).map((p) => [p.id, p.stock ?? 0]));
-          await Promise.all(cItems.flatMap((it) => [
-            supabase.from('products').update({ stock: (stockById[it.product_id] ?? 0) + it.quantity }).eq('id', it.product_id),
-            supabase.from('inventory_logs').insert({
-              product_id: it.product_id, change: it.quantity, reason: 'correction',
-              notes: `Order #${existing.id + 1000} cancelled by customer — stock restored`,
-            }),
-          ])).catch((err) => console.error(`Stock restore failed for order #${existing.id}:`, err));
+          const { error: restoreErr } = await supabase.rpc('restore_order_stock', {
+            p_order_id: existing.id,
+            p_note: `Order #${existing.id + 1000} cancelled by customer — stock restored`,
+          });
+          if (restoreErr) console.error(`Stock restore failed for order #${existing.id}:`, restoreErr);
         })().catch(console.error);
 
         if (existing.order_type === 'dine_in' && existing.table_number) {
@@ -308,19 +302,29 @@ export default async function handler(req, res) {
       // Variants (product sizes/formats, e.g. a drink's Can 33cl vs Bottle
       // 1L): price and availability are read from the DB here, never
       // trusted from the client, same as products/sauces/supplements above.
-      const variantIds = [...new Set(items.map((i) => Number(i.variant_id)).filter(Number.isFinite))].slice(0, 100);
-      let variantById = {};
-      if (variantIds.length) {
-        const { data: variants, error: vErr } = await supabase.from('product_variants').select('*').in('id', variantIds).eq('is_available', true);
+      // We load ALL sizes of every ordered product (not only the chosen ones)
+      // so the server knows whether a product has sizes at all: if it does,
+      // a valid size is mandatory — a client can't dodge a size's price or
+      // stock by simply omitting variant_id.
+      const orderedProductIds = Object.keys(byId).map(Number).filter(Number.isFinite).slice(0, 100);
+      const variantsByProduct = {};
+      const variantById = {};
+      if (orderedProductIds.length) {
+        const { data: variants, error: vErr } = await supabase.from('product_variants').select('*').in('product_id', orderedProductIds);
         if (vErr) return internalError(res, vErr, 'orders variants');
         for (const v of variants || []) {
           if (Number(v.price) < 0) continue;
           variantById[v.id] = v;
+          (variantsByProduct[v.product_id] ||= []).push(v);
         }
       }
 
       const rows = [];
       let subtotal = 0;
+      // Total quantity asked per stock bucket (one size, or one product
+      // without sizes) across ALL lines of this order, so two lines of the
+      // same size can't together exceed its stock.
+      const demand = {};
       for (const it of items) {
         const pid = Number(it.product_id);
         const p = byId[pid];
@@ -328,16 +332,24 @@ export default async function handler(req, res) {
         if (Number(p.price) < 0) return res.status(400).json({ error: 'Invalid product price' });
         if (!p.is_available) return res.status(400).json({ error: 'An item is currently unavailable' });
         const quantity = Math.max(1, Math.min(20, parseInt(it.quantity, 10) || 1));
-        if ((p.stock ?? 0) < quantity) {
-          return res.status(400).json({ error: 'Not enough stock for an item' });
-        }
-        // A chosen variant must exist, belong to THIS product, and still be
-        // available — otherwise it's ignored rather than trusted, exactly
-        // like an unavailable sauce/supplement is silently dropped below.
+        // A product that has sellable sizes MUST be ordered with one valid
+        // size: it has to exist, belong to THIS product and still be
+        // available. Its own price and its own stock then apply.
         let variant = null;
-        if (it.variant_id != null) {
-          const v = variantById[Number(it.variant_id)];
-          if (v && v.product_id === p.id) variant = v;
+        const sellableSizes = (variantsByProduct[p.id] || []).filter((v) => v.is_available);
+        if (sellableSizes.length > 0) {
+          const v = it.variant_id != null ? variantById[Number(it.variant_id)] : null;
+          if (!v || v.product_id !== p.id || !v.is_available) {
+            return res.status(400).json({ error: 'Please choose an available size for an item' });
+          }
+          variant = v;
+        }
+        // Stock lives on the size when one is chosen, on the product otherwise.
+        const bucket = variant ? `v${variant.id}` : `p${p.id}`;
+        demand[bucket] = (demand[bucket] || 0) + quantity;
+        const inStock = variant ? (variant.stock ?? 0) : (p.stock ?? 0);
+        if (demand[bucket] > inStock) {
+          return res.status(400).json({ error: 'Not enough stock for an item' });
         }
         const chosenSauces = (Array.isArray(it.sauce_ids) ? it.sauce_ids : []).slice(0, 10)
           .map((sid) => sauceById[Number(sid)]).filter(Boolean)
@@ -348,9 +360,8 @@ export default async function handler(req, res) {
         const sauceTotal = chosenSauces.reduce((n, s) => n + s.price, 0);
         const supplementTotal = chosenSupplements.reduce((n, s) => n + s.price, 0);
         // A variant's own price REPLACES the product's base price (a 33cl
-        // Coke is 2.00, not "product price + 2.00") — everything else about
-        // the line (sauces, supplements, stock, availability) still comes
-        // from the parent product.
+        // Coke is 2.00, not "product price + 2.00"). Sauces/supplements still
+        // come from the parent product; stock was checked on the size above.
         const basePrice = variant ? Number(variant.price) : Number(p.price);
         const unit_price = Math.max(0, Math.round((basePrice + sauceTotal + supplementTotal) * 100) / 100);
         const line_total = Math.round(unit_price * quantity * 100) / 100;
@@ -454,17 +465,11 @@ export default async function handler(req, res) {
 
       if (status === 'cancelled' && existing.status !== 'cancelled') {
         (async () => {
-          const { data: cancelledItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', existing.id);
-          if (!cancelledItems?.length) return;
-          const { data: currentProducts } = await supabase.from('products').select('id, stock').in('id', cancelledItems.map((i) => i.product_id));
-          const stockById = Object.fromEntries((currentProducts || []).map((p) => [p.id, p.stock ?? 0]));
-          await Promise.all(cancelledItems.flatMap((it) => [
-            supabase.from('products').update({ stock: (stockById[it.product_id] ?? 0) + it.quantity }).eq('id', it.product_id),
-            supabase.from('inventory_logs').insert({
-              product_id: it.product_id, change: it.quantity, reason: 'correction',
-              notes: `Order #${existing.id + 1000} cancelled — stock restored`,
-            }),
-          ])).catch((err) => console.error(`Stock restore failed for cancelled order #${existing.id}:`, err));
+          const { error: restoreErr } = await supabase.rpc('restore_order_stock', {
+            p_order_id: existing.id,
+            p_note: `Order #${existing.id + 1000} cancelled — stock restored`,
+          });
+          if (restoreErr) console.error(`Stock restore failed for cancelled order #${existing.id}:`, restoreErr);
         })().catch(console.error);
       }
 

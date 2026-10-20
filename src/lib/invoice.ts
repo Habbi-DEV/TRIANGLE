@@ -90,10 +90,11 @@ function buildReceiptHtml(order: Order, withBackButton: boolean): string {
       const sauces = addOns.length
         ? `<div class="sauces">+ ${addOns.map((s) => escapeHtml(s.name) + (s.price > 0 ? ` (${money(s.price)})` : '')).join(', ')}</div>`
         : '';
+      const size = it.variant_name ? ` · ${escapeHtml(it.variant_name)}` : '';
       return `
         <tr>
           <td class="qty">${it.quantity}×</td>
-          <td class="name">${escapeHtml(it.product_name)}${sauces}</td>
+          <td class="name">${escapeHtml(it.product_name)}${size}${sauces}</td>
           <td class="amt">${money(it.line_total)}</td>
         </tr>`;
     })

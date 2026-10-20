@@ -237,7 +237,7 @@ export default function OrdersPage() {
                     <div key={it.id} className="py-0.5">
                       <p className="flex justify-between text-zinc-600 dark:text-zinc-300">
                         <span className="truncate">
-                          {it.quantity}× {it.product_name}
+                          {it.quantity}× {it.product_name}{it.variant_name ? ` · ${it.variant_name}` : ''}
                         </span>
                         <span className="ms-2 shrink-0 text-zinc-400 dark:text-zinc-500">
                           {money(it.line_total)}

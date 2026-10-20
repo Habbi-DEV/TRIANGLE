@@ -70,6 +70,10 @@ export interface Product {
    *  customer sheet filters those out itself. Empty/undefined for a
    *  product that only comes in one size — the plain `price` applies. */
   variants?: ProductVariant[];
+  /** Server-computed on GET /api/products: false when the product (or all
+   *  of its sizes) is out of stock. The public API hides `stock` itself, so
+   *  this is what the customer menu uses to grey out sold-out items. */
+  in_stock?: boolean;
 }
 
 /** A size/format row under one product (e.g. a drink's "Can 33cl" vs
@@ -86,6 +90,13 @@ export interface ProductVariant {
   /** Optional photo (ideally a transparent PNG, like sauces/supplements).
    *  Falls back to a generic icon in the UI when empty. */
   image_url?: string | null;
+  /** Stock of THIS size. Only sent to staff — the public API strips it,
+   *  exactly like products.stock. */
+  stock?: number;
+  /** Server-computed "can this size still be ordered?" — sent to the public
+   *  menu instead of the stock number. Undefined only on staff payloads
+   *  that carry `stock` instead. */
+  in_stock?: boolean;
 }
 
 export interface Sauce {
@@ -197,6 +208,8 @@ export interface Order {
 export interface InventoryLog {
   id: number;
   product_id: number;
+  /** Set when the movement concerns one size of the product. */
+  variant_id?: number | null;
   change: number;
   reason: 'initial' | 'restock' | 'sale' | 'waste' | 'correction';
   notes: string | null;

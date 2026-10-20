@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Package } from 'lucide-react';
-import type { InventoryLog, Product } from '../../lib/types';
+import type { InventoryLog, Product, ProductVariant } from '../../lib/types';
 import { api } from '../../lib/api';
 import { timeAgo } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
@@ -29,13 +29,97 @@ function SummaryTile({ icon, value, label }: { icon: React.ReactNode; value: num
   );
 }
 
+/** One line of the stock list. A product WITHOUT sizes is one row; a product
+ *  WITH sizes is a read-only total row (its stock is the sum of its sizes,
+ *  maintained by the database) followed by one adjustable row per size. */
+function StockRow({
+  name, image, contain = false, stock, maxStock, onAdjust, indent = false, dim = false, tag,
+}: {
+  name: string;
+  image?: string | null;
+  contain?: boolean;
+  stock: number;
+  maxStock: number;
+  onAdjust?: () => void;
+  indent?: boolean;
+  dim?: boolean;
+  tag?: string;
+}) {
+  const { t } = useLang();
+  const low = stock <= 8 && !tag;
+  const bar = (
+    <div
+      className={`h-full rounded-full ${stock <= 8 ? 'bg-amber-400' : 'bg-brand-500'}`}
+      style={{ width: `${Math.max(4, (stock / Math.max(1, maxStock)) * 100)}%` }}
+    />
+  );
+  return (
+    // Two-row layout on phones (name + count on top, progress bar and the
+    // Adjust button underneath), collapsing back to a single row from `sm`
+    // up — same structure the list always had, now shared by every row.
+    <li className={`px-3 py-3 sm:px-5 ${indent ? 'ps-8 sm:ps-12' : ''} ${dim ? 'opacity-60' : ''}`}>
+      <div className="flex items-center gap-3">
+        {image ? (
+          <img src={image} alt="" className={`shrink-0 ${indent ? 'h-8 w-8' : 'h-10 w-10'} ${contain ? 'object-contain' : 'rounded-lg object-cover'}`} />
+        ) : (
+          <span className={`flex shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500 ${indent ? 'h-8 w-8' : 'h-10 w-10'}`}>
+            <Package size={indent ? 14 : 16} />
+          </span>
+        )}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <p className={`min-w-0 truncate font-semibold text-zinc-900 dark:text-zinc-100 ${indent ? 'text-[13px]' : 'text-sm'}`}>{name}</p>
+          {low && (
+            <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+              {t('inventory.low')}
+            </span>
+          )}
+          {tag && (
+            <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+              {tag}
+            </span>
+          )}
+        </div>
+
+        {/* desktop: bar sits inline, between name and count */}
+        <div className="hidden h-1.5 w-32 shrink-0 overflow-hidden rounded-full bg-zinc-100 sm:block lg:w-44 dark:bg-zinc-800">{bar}</div>
+
+        <span className="shrink-0 text-end font-display text-sm font-bold tabular-nums text-zinc-900 sm:w-12 dark:text-zinc-100">{stock}</span>
+
+        {onAdjust ? (
+          <button
+            onClick={onAdjust}
+            className="hidden shrink-0 whitespace-nowrap rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-brand-500/15 dark:hover:text-brand-400"
+          >
+            {t('inventory.adjust')}
+          </button>
+        ) : (
+          <span className="hidden w-[72px] shrink-0 sm:block" />
+        )}
+      </div>
+
+      {/* mobile: bar + full-height tap target on their own row */}
+      <div className="mt-2.5 flex items-center gap-3 sm:hidden">
+        <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">{bar}</div>
+        {onAdjust && (
+          <button
+            onClick={onAdjust}
+            className="shrink-0 whitespace-nowrap rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-600 transition active:scale-95 dark:bg-zinc-800 dark:text-zinc-300"
+          >
+            {t('inventory.adjust')}
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export default function InventoryPage() {
   const { t } = useLang();
   const [products, setProducts] = useState<Product[]>([]);
   const [logs, setLogs] = useState<InventoryLog[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [target, setTarget] = useState<Product | null>(null);
+  const [target, setTarget] = useState<{ product: Product; variant?: ProductVariant } | null>(null);
   const [reason, setReason] = useState<'restock' | 'waste' | 'correction'>('restock');
   const [qty, setQty] = useState('10');
   const [notes, setNotes] = useState('');
@@ -64,11 +148,28 @@ export default function InventoryPage() {
     return (id: number) => m.get(id) ?? t('inventory.product_fallback', { id });
   }, [products, t]);
 
-  const lowStock = products.filter((p) => p.stock <= 8);
-  const maxStock = Math.max(1, ...products.map((p) => p.stock));
+  // "Coca-Cola · Bouteille 1L" for a movement that concerns one size.
+  const logLabel = useMemo(() => {
+    const sizes = new Map(products.flatMap((p) => (p.variants ?? []).map((v) => [v.id, v.name] as const)));
+    return (l: InventoryLog) => {
+      const base = productName(l.product_id);
+      const size = l.variant_id != null ? sizes.get(l.variant_id) : undefined;
+      return size ? `${base} · ${size}` : base;
+    };
+  }, [products, productName]);
 
-  const openModal = (p: Product) => {
-    setTarget(p);
+  // The adjustable "leaves": a product without sizes, or each size of a
+  // product that has some. (A product's own stock is then just their sum.)
+  const leafStocks = products.flatMap((p) =>
+    (p.variants?.length ?? 0) > 0
+      ? (p.variants ?? []).filter((v) => v.is_available).map((v) => v.stock ?? 0)
+      : [p.stock],
+  );
+  const lowStock = leafStocks.filter((n) => n <= 8);
+  const maxStock = Math.max(1, ...leafStocks, ...products.map((p) => p.stock));
+
+  const openModal = (p: Product, variant?: ProductVariant) => {
+    setTarget({ product: p, variant });
     setReason('restock');
     setQty('10');
     setNotes('');
@@ -88,7 +189,7 @@ export default function InventoryPage() {
     try {
       await api('/api/inventory', {
         method: 'POST',
-        body: JSON.stringify({ product_id: target.id, change: signed, reason, notes: notes || undefined }),
+        body: JSON.stringify({ product_id: target.product.id, variant_id: target.variant?.id, change: signed, reason, notes: notes || undefined }),
       });
       setTarget(null);
       load();
@@ -140,60 +241,47 @@ export default function InventoryPage() {
             {products.length === 0 && (
               <li className="px-5 py-8 text-center text-xs text-zinc-400 dark:text-zinc-500">—</li>
             )}
-            {products.map((p) => (
-              // Two-row layout on phones (name + count on top, progress bar
-              // and the Adjust button underneath), collapsing back to the
-              // original single row from `sm` up. The old single-row flex
-              // had four rigid children — thumbnail, name+bar, count, button
-              // — with no wrapping, so below ~400px the count and the button
-              // were squeezed on top of each other and over the name.
-              <li key={p.id} className="px-3 py-3 sm:px-5">
-                <div className="flex items-center gap-3">
-                  <img src={p.image_url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <p className="min-w-0 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{p.name}</p>
-                    {p.stock <= 8 && (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
-                        {t('inventory.low')}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* desktop: bar sits inline, between name and count */}
-                  <div className="hidden h-1.5 w-32 shrink-0 overflow-hidden rounded-full bg-zinc-100 sm:block lg:w-44 dark:bg-zinc-800">
-                    <div
-                      className={`h-full rounded-full ${p.stock <= 8 ? 'bg-amber-400' : 'bg-brand-500'}`}
-                      style={{ width: `${Math.max(4, (p.stock / maxStock) * 100)}%` }}
+            {products.map((p) => {
+              const sizes = p.variants ?? [];
+              if (sizes.length === 0) {
+                return (
+                  <StockRow
+                    key={p.id}
+                    name={p.name}
+                    image={p.image_url}
+                    stock={p.stock}
+                    maxStock={maxStock}
+                    onAdjust={() => openModal(p)}
+                  />
+                );
+              }
+              return (
+                <li key={p.id} className="list-none">
+                  <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    <StockRow
+                      name={p.name}
+                      image={p.image_url}
+                      stock={p.stock}
+                      maxStock={maxStock}
+                      tag={t('inventory.by_size')}
                     />
-                  </div>
-
-                  <span className="shrink-0 text-end font-display text-sm font-bold tabular-nums text-zinc-900 sm:w-12 dark:text-zinc-100">{p.stock}</span>
-
-                  <button
-                    onClick={() => openModal(p)}
-                    className="hidden shrink-0 whitespace-nowrap rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-brand-500/15 dark:hover:text-brand-400"
-                  >
-                    {t('inventory.adjust')}
-                  </button>
-                </div>
-
-                {/* mobile: bar + full-height tap target on their own row */}
-                <div className="mt-2.5 flex items-center gap-3 sm:hidden">
-                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <div
-                      className={`h-full rounded-full ${p.stock <= 8 ? 'bg-amber-400' : 'bg-brand-500'}`}
-                      style={{ width: `${Math.max(4, (p.stock / maxStock) * 100)}%` }}
-                    />
-                  </div>
-                  <button
-                    onClick={() => openModal(p)}
-                    className="shrink-0 whitespace-nowrap rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-600 transition active:scale-95 dark:bg-zinc-800 dark:text-zinc-300"
-                  >
-                    {t('inventory.adjust')}
-                  </button>
-                </div>
-              </li>
-            ))}
+                    {sizes.map((v) => (
+                      <StockRow
+                        key={v.id}
+                        indent
+                        dim={!v.is_available}
+                        name={v.is_available ? v.name : `${v.name} · ${t('menu.variant_unavailable')}`}
+                        image={v.image_url || p.image_url}
+                        contain={!!v.image_url}
+                        stock={v.stock ?? 0}
+                        maxStock={maxStock}
+                        onAdjust={() => openModal(p, v)}
+                      />
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -208,7 +296,7 @@ export default function InventoryPage() {
                   {l.change >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-200">{productName(l.product_id)}</p>
+                  <p className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-200">{logLabel(l)}</p>
                   <p className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{l.reason}{l.notes ? ` · ${l.notes}` : ''}</p>
                 </div>
                 {/* Delta and timestamp travel together in one shrink-0
@@ -227,7 +315,7 @@ export default function InventoryPage() {
       </div>
 
       {/* adjust modal */}
-      <Modal open={!!target} onClose={() => setTarget(null)} title={`${t('inventory.adjust_stock')} ${target?.name ?? ''}`}>
+      <Modal open={!!target} onClose={() => setTarget(null)} title={`${t('inventory.adjust_stock')} ${target?.product.name ?? ''}${target?.variant ? ` · ${target.variant.name}` : ''}`}>
         <div className="space-y-3">
           {/* Reason labels wrap instead of overflowing their pill on a
               narrow phone; the three stay on one row, just taller. */}

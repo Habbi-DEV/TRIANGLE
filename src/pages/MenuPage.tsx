@@ -9,6 +9,7 @@ import { useSettings } from '../lib/settings';
 import { useCartStore, selectCount, selectSubtotal } from '../stores/cartStore';
 import ProductCard from '../components/customer/ProductCard';
 import ProductSheet from '../components/customer/ProductSheet';
+import { sellableVariants } from '../lib/variants';
 import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
 import Skeleton from '../components/ui/Skeleton';
@@ -491,7 +492,7 @@ export default function MenuPage() {
                 product={p}
                 onOpen={setDetail}
                 onQuickAdd={(prod) => {
-                  const vs = (prod.variants ?? []).filter((v) => v.is_available);
+                  const vs = sellableVariants(prod);
                   // More than one size means the customer must choose —
                   // open the detail sheet instead of guessing for them.
                   // Exactly one (or none) size adds instantly, same as any

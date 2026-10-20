@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, CupSoda, Droplet, Layers, Minus, Plus, X } f
 import type { Product, ProductVariant, Sauce, Supplement } from '../../lib/types';
 import { money } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
+import { cheapestSellable, isVariantSellable, visibleVariants } from '../../lib/variants';
 
 interface Props {
   product: Product | null;
@@ -38,7 +39,9 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
   // the admin left visible show up here.
   const sauces = (product?.sauces ?? []).filter((s) => s.is_active);
   const supplements = (product?.supplements ?? []).filter((s) => s.is_active);
-  const variants = (product?.variants ?? []).filter((v) => v.is_available);
+  // Sold-out sizes stay visible (greyed out, not selectable) so the customer
+  // sees the whole range, but only in-stock ones can be chosen.
+  const variants = visibleVariants(product);
 
   useEffect(() => {
     if (!product) return;
@@ -49,8 +52,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
     // A product with sizes always starts on the cheapest available one, so
     // the price shown and the add-to-cart button are correct from the very
     // first frame — the customer can still change it below before adding.
-    const vs = (product.variants ?? []).filter((v) => v.is_available);
-    setSelectedVariantId(vs.length ? [...vs].sort((a, b) => a.price - b.price)[0].id : null);
+    setSelectedVariantId(cheapestSellable(product)?.id ?? null);
   }, [product]);
 
   const toggleSauce = (id: number) =>
@@ -61,7 +63,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
 
   const chosenSauces = sauces.filter((s) => selectedSauceIds.includes(s.id));
   const chosenSupplements = supplements.filter((s) => selectedSupplementIds.includes(s.id));
-  const chosenVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
+  const chosenVariant = variants.find((v) => v.id === selectedVariantId && isVariantSellable(v)) ?? null;
   // A chosen size's own price REPLACES the product's base price (a 33cl
   // Coke is 2.00, not "product price + 2.00") — same rule enforced
   // server-side in api/orders.js.
@@ -141,12 +143,15 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                   <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sizes')}</p>
                   <div className="flex flex-wrap gap-4">
                     {variants.map((v) => {
-                      const active = selectedVariantId === v.id;
+                      const sellable = isVariantSellable(v);
+                      const active = sellable && selectedVariantId === v.id;
                       return (
                         <button
                           key={v.id}
-                          onClick={() => setSelectedVariantId(v.id)}
-                          className="flex w-16 flex-col items-center gap-1.5"
+                          onClick={() => sellable && setSelectedVariantId(v.id)}
+                          disabled={!sellable}
+                          aria-disabled={!sellable}
+                          className={`flex w-16 flex-col items-center gap-1.5 ${sellable ? '' : 'cursor-not-allowed opacity-45 grayscale'}`}
                         >
                           {/* Same bare-box + drop-shadow treatment as the sauce/
                               supplement swatches: a transparent-PNG photo sits
@@ -172,7 +177,9 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                           <span className={`truncate text-[11px] leading-tight ${active ? 'font-bold text-green-700' : 'font-semibold text-zinc-600 dark:text-zinc-300'}`}>
                             {v.name}
                           </span>
-                          <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">{money(v.price)}</span>
+                          <span className="-mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">
+                            {sellable ? money(v.price) : t('shop.sold_out')}
+                          </span>
                         </button>
                       );
                     })}

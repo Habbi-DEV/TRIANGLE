@@ -34,24 +34,31 @@ async function handleProductVariants(req, res) {
   if (req.method === 'POST') {
     const staff = await requireManager(req, res);
     if (!staff) return;
-    const { product_id, name, price, is_available, image_url } = req.body || {};
+    const { product_id, name, price, is_available, image_url, stock } = req.body || {};
     const pid = toId(product_id);
     const cleanName = cleanText(name, 80);
     if (!pid || !cleanName || !isValidPrice(price)) {
       return res.status(400).json({ error: 'product_id, a name and a valid non-negative price are required' });
     }
     if (image_url && !isSafeImageUrl(image_url)) return res.status(400).json({ error: 'Invalid image_url' });
+    const stockN = stock == null || stock === '' ? 0 : Number(stock);
+    if (!Number.isInteger(stockN) || stockN < 0 || stockN > 1000000) return res.status(400).json({ error: 'Invalid stock' });
     const { data: existing } = await supabase.from('product_variants').select('sort_order')
       .eq('product_id', pid).order('sort_order', { ascending: false }).limit(1);
     const nextOrder = existing?.[0] ? existing[0].sort_order + 1 : 0;
     const { data, error } = await supabase.from('product_variants')
-      .insert({ product_id: pid, name: cleanName, price: Number(price), is_available: is_available !== false, sort_order: nextOrder, image_url: image_url ? String(image_url).trim().slice(0, 2000) : null })
+      .insert({ product_id: pid, name: cleanName, price: Number(price), is_available: is_available !== false, sort_order: nextOrder, stock: stockN, image_url: image_url ? String(image_url).trim().slice(0, 2000) : null })
       .select().single();
     if (error) {
       if (error.code === '23505') return res.status(409).json({ error: 'A size with this name already exists on this product' });
       return internalError(res, error, 'product-variants POST');
     }
     await audit(supabase, { actorId: staff.id, action: 'product_variant.create', entity: 'product_variants', entityId: data.id });
+    if (stockN > 0) {
+      await supabase.from('inventory_logs').insert({
+        product_id: pid, variant_id: data.id, change: stockN, reason: 'initial', notes: `Initial stock — ${cleanName}`,
+      }).then(({ error: logErr }) => { if (logErr) console.error('[variant initial stock log]', logErr); });
+    }
     return res.status(201).json(data);
   }
   if (req.method === 'PUT') {
@@ -70,6 +77,17 @@ async function handleProductVariants(req, res) {
       fields.price = Number(req.body.price);
     }
     if (req.body?.is_available != null) fields.is_available = Boolean(req.body.is_available);
+    let stockDelta = 0;
+    let stockProductId = null;
+    if (req.body?.stock != null && req.body.stock !== '') {
+      const sn = Number(req.body.stock);
+      if (!Number.isInteger(sn) || sn < 0 || sn > 1000000) return res.status(400).json({ error: 'Invalid stock' });
+      const { data: cur } = await supabase.from('product_variants').select('product_id, stock').eq('id', vid).single();
+      if (!cur) return res.status(404).json({ error: 'Size not found' });
+      stockDelta = sn - (cur.stock ?? 0);
+      stockProductId = cur.product_id;
+      fields.stock = sn;
+    }
     if (req.body?.image_url !== undefined) {
       const img = req.body.image_url;
       if (img && !isSafeImageUrl(img)) return res.status(400).json({ error: 'Invalid image_url' });
@@ -87,6 +105,11 @@ async function handleProductVariants(req, res) {
       return internalError(res, error, 'product-variants PUT');
     }
     await audit(supabase, { actorId: staff.id, action: 'product_variant.update', entity: 'product_variants', entityId: vid, meta: { fields: Object.keys(fields) } });
+    if (stockDelta !== 0 && stockProductId) {
+      await supabase.from('inventory_logs').insert({
+        product_id: stockProductId, variant_id: vid, change: stockDelta, reason: 'correction', notes: 'Stock edited from the product form',
+      }).then(({ error: logErr }) => { if (logErr) console.error('[variant stock log]', logErr); });
+    }
     return res.status(200).json(data);
   }
   if (req.method === 'DELETE') {
@@ -187,7 +210,10 @@ export default async function handler(req, res) {
       const variantsByProduct = {};
       for (const v of variants) {
         if (!isStaffCall && !v.is_available) continue; // hide hidden sizes from the public menu, same as sauces/supplements
-        (variantsByProduct[v.product_id] ||= []).push(v);
+        // Same rule as products: the public never sees stock counts, only
+        // whether the size can still be ordered.
+        const { stock: vStock, ...vPublic } = v;
+        (variantsByProduct[v.product_id] ||= []).push(isStaffCall ? v : { ...vPublic, in_stock: (vStock ?? 0) > 0 });
       }
       const supplementsByProduct = {};
       for (const l of supplementLinks) {
@@ -203,8 +229,16 @@ export default async function handler(req, res) {
       }
       return res.status(200).json((data || []).map((p) => {
         const { stock, ...rest } = p;
+        // Server-computed "can it still be ordered?" so the public menu can
+        // grey out sold-out items without ever receiving the stock number.
+        // A product with sizes is in stock as long as one size is.
+        const pv = variantsByProduct[p.id] || [];
+        const in_stock = pv.length
+          ? pv.some((v) => (isStaffCall ? (v.is_available && v.stock > 0) : v.in_stock))
+          : (stock ?? 0) > 0;
         return {
           ...(isStaffCall ? p : rest), // public never sees stock
+          in_stock,
           images: byProduct[p.id] || [],
           sauces: (saucesByProduct[p.id] || []).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
           supplements: (supplementsByProduct[p.id] || []).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
@@ -266,6 +300,12 @@ export default async function handler(req, res) {
         const s = Number(fields.stock);
         if (!Number.isInteger(s) || s < 0 || s > 1000000) return res.status(400).json({ error: 'Invalid stock' });
         fields.stock = s;
+        // A product with sizes keeps its stock per size: products.stock is the
+        // sum of those (maintained by the database), so a direct edit is
+        // ignored instead of overwriting it with a possibly stale number.
+        const { count: sizeCount } = await supabase.from('product_variants')
+          .select('id', { count: 'exact', head: true }).eq('product_id', pid);
+        if ((sizeCount ?? 0) > 0) delete fields.stock;
       }
       if (fields.category_id != null && fields.category_id !== '') {
         const c = toId(fields.category_id);

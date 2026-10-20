@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react';
 import type { Product } from '../../lib/types';
 import { money } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
+import { cheapestSellable, sellableVariants, visibleVariants } from '../../lib/variants';
 
 interface Props {
   product: Product;
@@ -11,12 +12,14 @@ interface Props {
 
 export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
   const { t } = useLang();
-  const soldOut = !product.is_available || product.stock <= 0;
-  const variants = (product.variants ?? []).filter((v) => v.is_available);
-  // A product with sizes shows its cheapest one on the card — the exact
-  // price the customer will pay depends on which size they pick in the
-  // sheet, same idea as a restaurant menu printing "from 2.00".
-  const cheapestVariant = variants.length ? [...variants].sort((a, b) => a.price - b.price)[0] : null;
+  // The public API hides `stock` and sends a server-computed `in_stock`
+  // instead (true as long as one size — or the product itself — has stock).
+  const soldOut = !product.is_available || product.in_stock === false || product.stock <= 0;
+  const variants = visibleVariants(product);
+  // A product with sizes shows its cheapest orderable size on the card — the
+  // exact price depends on which size is picked in the sheet, same idea as a
+  // restaurant menu printing "from 2.00".
+  const cheapestVariant = cheapestSellable(product) ?? (variants.length ? [...variants].sort((a, b) => a.price - b.price)[0] : null);
   const displayPrice = cheapestVariant ? cheapestVariant.price : product.price;
   return (
     <div
@@ -51,7 +54,7 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
               shade lighter (brand-400) on dark so it keeps AA contrast
               against zinc-900 instead of reading muddy. */}
           <span className="font-display text-[15px] font-bold text-burnt dark:text-brand-400">
-            {variants.length > 1 && <span className="me-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.from')}</span>}
+            {sellableVariants(product).length > 1 && <span className="me-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.from')}</span>}
             {money(displayPrice)}
           </span>
           <button

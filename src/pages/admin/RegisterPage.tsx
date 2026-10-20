@@ -7,6 +7,7 @@ import { printInvoice } from '../../lib/invoice';
 import { useCartStore, selectSubtotal, lineKey } from '../../stores/cartStore';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
+import { isVariantSellable, lineImage, sellableVariants, visibleVariants } from '../../lib/variants';
 import useLiveOrders from '../../hooks/useLiveOrders';
 import StatusBadge from '../../components/StatusBadge';
 import AppLogo from '../../components/AppLogo';
@@ -118,7 +119,7 @@ export default function RegisterPage() {
   const targetLine = activeLineKey ? lines.find((l) => l.key === activeLineKey) : undefined;
   const targetSauces = (targetLine?.product.sauces ?? []).filter((s) => s.is_active);
   const targetSupplements = (targetLine?.product.supplements ?? []).filter((s) => s.is_active);
-  const targetVariants = (targetLine?.product.variants ?? []).filter((v) => v.is_available);
+  const targetVariants = visibleVariants(targetLine?.product);
 
   // A product with MORE THAN ONE size can never be silently guessed into
   // the ticket — a wrong silent guess is a wrong charge at the till. It
@@ -127,7 +128,7 @@ export default function RegisterPage() {
   const [sizePicker, setSizePicker] = useState<Product | null>(null);
 
   const addProduct = (p: Product) => {
-    const vs = (p.variants ?? []).filter((v) => v.is_available);
+    const vs = sellableVariants(p);
     if (vs.length > 1) { setSizePicker(p); return; }
     const variant = vs[0] ?? null;
     add(p, 1, [], [], variant);
@@ -363,8 +364,12 @@ export default function RegisterPage() {
                 <>
                   <div className="mb-4 flex items-center gap-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-orange-50 dark:bg-zinc-800">
-                      {targetLine.product.image_url && (
-                        <img src={targetLine.product.image_url} alt="" className="h-full w-full object-cover" />
+                      {lineImage(targetLine.product, targetLine.variant) && (
+                        <img
+                          src={lineImage(targetLine.product, targetLine.variant)}
+                          alt=""
+                          className={`h-full w-full ${targetLine.variant?.image_url ? 'object-contain' : 'object-cover'}`}
+                        />
                       )}
                     </span>
                     <p className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400">
@@ -381,9 +386,15 @@ export default function RegisterPage() {
                           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.sizes')}</p>
                           <div className="flex flex-wrap gap-4">
                             {targetVariants.map((v) => {
+                              const sellable = isVariantSellable(v);
                               const active = targetLine.variant?.id === v.id;
                               return (
-                                <button key={v.id} onClick={() => pickExtraVariant(v)} className="flex w-16 flex-col items-center gap-1.5">
+                                <button
+                                  key={v.id}
+                                  onClick={() => sellable && pickExtraVariant(v)}
+                                  disabled={!sellable && !active}
+                                  className={`flex w-16 flex-col items-center gap-1.5 ${sellable || active ? '' : 'cursor-not-allowed opacity-45 grayscale'}`}
+                                >
                                   <span className="flex h-14 w-14 items-center justify-center">
                                     {v.image_url ? (
                                       <img
@@ -743,11 +754,12 @@ export default function RegisterPage() {
       <Modal open={!!sizePicker} onClose={() => setSizePicker(null)} title={sizePicker?.name ?? ''}>
         <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">{t('shop.sizes')}</p>
         <div className="grid grid-cols-2 gap-2.5">
-          {(sizePicker?.variants ?? []).filter((v) => v.is_available).map((v) => (
+          {visibleVariants(sizePicker).map((v) => (
             <button
               key={v.id}
               onClick={() => chooseSizeAndAdd(sizePicker!, v)}
-              className="flex flex-col items-center gap-2 rounded-2xl border-2 border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 transition hover:border-brand-400"
+              disabled={!isVariantSellable(v)}
+              className={`flex flex-col items-center gap-2 rounded-2xl border-2 border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 transition ${isVariantSellable(v) ? 'hover:border-brand-400' : 'cursor-not-allowed opacity-45 grayscale'}`}
             >
               <span className="flex h-14 w-14 items-center justify-center">
                 {v.image_url ? (
@@ -759,7 +771,10 @@ export default function RegisterPage() {
                 )}
               </span>
               <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{v.name}</span>
-              <span className="text-xs font-bold text-brand-600">{money(v.price)}</span>
+              <span className="text-xs font-bold text-brand-600">
+                {isVariantSellable(v) ? money(v.price) : t('shop.sold_out')}
+                {isVariantSellable(v) && v.stock != null && v.stock <= 8 ? ` · ${v.stock}` : ''}
+              </span>
             </button>
           ))}
         </div>

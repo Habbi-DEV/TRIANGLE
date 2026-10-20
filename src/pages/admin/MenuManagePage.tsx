@@ -65,8 +65,8 @@ export default function MenuManagePage() {
   // the product, same "saved rows + pending queue for a not-yet-created
   // product" split as the gallery above (not a shared catalog like sauces).
   const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [pendingVariants, setPendingVariants] = useState<{ name: string; price: string; image_url: string }[]>([]);
-  const [newVariant, setNewVariant] = useState({ name: '', price: '', image_url: '' });
+  const [pendingVariants, setPendingVariants] = useState<{ name: string; price: string; stock: string; image_url: string }[]>([]);
+  const [newVariant, setNewVariant] = useState({ name: '', price: '', stock: '', image_url: '' });
   const [savingVariant, setSavingVariant] = useState(false);
   const [uploadingVariantPhoto, setUploadingVariantPhoto] = useState<'new' | number | null>(null);
 
@@ -105,7 +105,7 @@ export default function MenuManagePage() {
     setSelectedSupplementIds([]);
     setVariants([]);
     setPendingVariants([]);
-    setNewVariant({ name: '', price: '', image_url: '' });
+    setNewVariant({ name: '', price: '', stock: '', image_url: '' });
     setModalOpen(true);
   };
 
@@ -127,7 +127,7 @@ export default function MenuManagePage() {
     setSelectedSupplementIds((p.supplements ?? []).map((s) => s.id));
     setVariants(p.variants ?? []);
     setPendingVariants([]);
-    setNewVariant({ name: '', price: '', image_url: '' });
+    setNewVariant({ name: '', price: '', stock: '', image_url: '' });
     setModalOpen(true);
   };
 
@@ -144,7 +144,9 @@ export default function MenuManagePage() {
       price: Number(form.price),
       category_id: form.category_id ? Number(form.category_id) : null,
       image_url: form.image_url,
-      stock: Number(form.stock) || 0,
+      // With sizes, stock lives on each size and products.stock is their sum
+      // (kept by the database) — sending a stale number here would overwrite it.
+      ...(variants.length + pendingVariants.length > 0 ? {} : { stock: Number(form.stock) || 0 }),
       is_available: form.is_available,
       sauce_ids: selectedSauceIds,
       supplement_ids: selectedSupplementIds,
@@ -166,7 +168,7 @@ export default function MenuManagePage() {
         if (pendingVariants.length) {
           await Promise.all(
             pendingVariants.map((v) =>
-              api('/api/products?variants=1', { method: 'POST', body: JSON.stringify({ product_id: created.id, name: v.name, price: Number(v.price) || 0, image_url: v.image_url || null }) }),
+              api('/api/products?variants=1', { method: 'POST', body: JSON.stringify({ product_id: created.id, name: v.name, price: Number(v.price) || 0, stock: Number(v.stock) || 0, image_url: v.image_url || null }) }),
             ),
           ).catch(console.error);
         }
@@ -409,20 +411,23 @@ export default function MenuManagePage() {
    *  product already exists (editing), queued in pendingVariants otherwise
    *  (new product, flushed by save() once the product is created). */
   const addVariant = async () => {
+    const stockNum = Number(newVariant.stock);
     if (!newVariant.name.trim() || newVariant.price === '' || isNaN(Number(newVariant.price))) return;
+    // Stock is mandatory for a size, like for any product.
+    if (newVariant.stock === '' || !Number.isInteger(stockNum) || stockNum < 0) return;
     setSavingVariant(true);
     setError('');
     try {
       if (editing) {
         const saved = await api<ProductVariant>('/api/products?variants=1', {
           method: 'POST',
-          body: JSON.stringify({ product_id: editing.id, name: newVariant.name.trim(), price: Number(newVariant.price), image_url: newVariant.image_url || null }),
+          body: JSON.stringify({ product_id: editing.id, name: newVariant.name.trim(), price: Number(newVariant.price), stock: stockNum, image_url: newVariant.image_url || null }),
         });
         setVariants((vs) => [...vs, saved]);
       } else {
-        setPendingVariants((vs) => [...vs, { name: newVariant.name.trim(), price: newVariant.price, image_url: newVariant.image_url }]);
+        setPendingVariants((vs) => [...vs, { name: newVariant.name.trim(), price: newVariant.price, stock: String(stockNum), image_url: newVariant.image_url }]);
       }
-      setNewVariant({ name: '', price: '', image_url: '' });
+      setNewVariant({ name: '', price: '', stock: '', image_url: '' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.save_failed'));
     } finally {
@@ -433,6 +438,18 @@ export default function MenuManagePage() {
   const removeVariant = async (v: ProductVariant) => {
     setVariants((vs) => vs.filter((x) => x.id !== v.id));
     await api('/api/products?variants=1', { method: 'DELETE', body: JSON.stringify({ id: v.id }) }).catch(console.error);
+  };
+
+  /** Edits one size's stock in place (saved right away, like availability). */
+  const updateVariantStock = async (v: ProductVariant, raw: string) => {
+    const n = Number(raw);
+    if (raw === '' || !Number.isInteger(n) || n < 0 || n === (v.stock ?? 0)) return;
+    setVariants((vs) => vs.map((x) => (x.id === v.id ? { ...x, stock: n } : x)));
+    await api('/api/products?variants=1', { method: 'PUT', body: JSON.stringify({ id: v.id, stock: n }) }).catch((err) => {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('common.save_failed'));
+      setVariants((vs) => vs.map((x) => (x.id === v.id ? { ...x, stock: v.stock } : x)));
+    });
   };
 
   const removePendingVariant = (idx: number) => setPendingVariants((vs) => vs.filter((_, i) => i !== idx));
@@ -894,7 +911,13 @@ export default function MenuManagePage() {
             </div>
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('menu.stock_label')}</label>
-              <input value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} type="number" min="0" className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-2.5 text-sm outline-none focus:border-brand-400" />
+              {variants.length + pendingVariants.length > 0 ? (
+                <p className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                  {t('menu.variant_stock.hint')}
+                </p>
+              ) : (
+                <input value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} type="number" min="0" className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-2.5 text-sm outline-none focus:border-brand-400" />
+              )}
             </div>
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('menu.category')}</label>
@@ -1000,8 +1023,19 @@ export default function MenuManagePage() {
                         onChange={(e) => e.target.files?.[0] && uploadVariantPhoto(e.target.files[0], v.id)}
                       />
                     </label>
-                    <span className="flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
                     <span className="text-xs text-zinc-400 dark:text-zinc-500">{money(Number(v.price))}</span>
+                    <input
+                      key={`${v.id}-${v.stock ?? 0}`}
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      defaultValue={v.stock ?? 0}
+                      aria-label={t('menu.variant_stock')}
+                      title={t('menu.variant_stock')}
+                      onBlur={(e) => updateVariantStock(v, e.target.value)}
+                      className="w-14 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-1.5 py-1 text-center text-xs font-bold tabular-nums outline-none focus:border-brand-400"
+                    />
                     <button type="button" onClick={() => removeVariant(v)} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500">
                       <X size={13} />
                     </button>
@@ -1017,8 +1051,9 @@ export default function MenuManagePage() {
                         <Droplet size={13} />
                       </span>
                     )}
-                    <span className="flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
                     <span className="text-xs text-zinc-400 dark:text-zinc-500">{money(Number(v.price) || 0)}</span>
+                    <span className="w-14 shrink-0 text-center text-xs font-bold tabular-nums text-zinc-500 dark:text-zinc-400" title={t('menu.variant_stock')}>{v.stock}</span>
                     <button type="button" onClick={() => removePendingVariant(i)} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500">
                       <X size={13} />
                     </button>
@@ -1027,6 +1062,7 @@ export default function MenuManagePage() {
               </div>
             )}
 
+            <div className="space-y-1.5">
             <div className="flex items-center gap-1.5">
               <label className="relative shrink-0 cursor-pointer">
                 {newVariant.image_url ? (
@@ -1052,21 +1088,33 @@ export default function MenuManagePage() {
                 placeholder={t('menu.variant_name_placeholder')}
                 className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
               />
+            </div>
+            <div className="flex items-center gap-1.5">
               <input
                 value={newVariant.price}
                 onChange={(e) => setNewVariant((v) => ({ ...v, price: e.target.value }))}
                 placeholder={t('menu.variant_price_placeholder')}
                 inputMode="decimal"
-                className="w-20 shrink-0 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
+              />
+              <input
+                value={newVariant.stock}
+                onChange={(e) => setNewVariant((v) => ({ ...v, stock: e.target.value }))}
+                placeholder={t('menu.variant_stock')}
+                type="number"
+                min="0"
+                inputMode="numeric"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs outline-none focus:border-brand-400"
               />
               <button
                 type="button"
                 onClick={addVariant}
-                disabled={savingVariant || !newVariant.name.trim() || newVariant.price === ''}
-                className="shrink-0 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-3 text-xs font-bold text-white dark:text-zinc-900 disabled:opacity-40"
+                disabled={savingVariant || !newVariant.name.trim() || newVariant.price === '' || newVariant.stock === ''}
+                className="shrink-0 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-3 py-1.5 text-xs font-bold text-white dark:text-zinc-900 disabled:opacity-40"
               >
                 {t('menu.add')}
               </button>
+            </div>
             </div>
           </div>
 

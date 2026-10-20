@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { money } from '../../lib/format';
 import { useSettings } from '../../lib/settings';
 import { useLang } from '../../lib/i18n';
+import { lineImage } from '../../lib/variants';
 import { useToast } from '../ui/ToastProvider';
 import LocationPickerModal from './LocationPickerModal';
 import type { Order, OrderType, RestaurantTable } from '../../lib/types';
@@ -238,7 +239,14 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                     ];
                     return (
                       <li key={l.key} className="flex items-center gap-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5">
-                        <img src={l.product.image_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
+                        {/* The chosen size's own photo (transparent PNG → contain);
+                            the product cover shows every size together, so it is only
+                            the fallback for a line without a sized photo. */}
+                        <img
+                          src={lineImage(l.product, l.variant)}
+                          alt=""
+                          className={`h-14 w-14 rounded-xl ${l.variant?.image_url ? 'object-contain' : 'object-cover'}`}
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{l.product.name}</p>
                           {addOnNames.length > 0 && (
