@@ -18,15 +18,15 @@ export default function ThemeToggle() {
       aria-checked={dark}
       onClick={toggle}
       aria-label={t('theme.toggle')}
-      className="relative flex h-8 w-14 shrink-0 items-center rounded-full border border-zinc-200 bg-zinc-100 p-1 transition-colors duration-300 dark:border-zinc-800 dark:bg-zinc-900"
+      className="relative flex h-9 w-14 shrink-0 items-center rounded-full border border-zinc-200 bg-zinc-100 p-1 transition-colors duration-300 dark:border-orange-500/30 dark:bg-zinc-900"
     >
       <motion.span
         layout
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-soft-sm dark:bg-zinc-950"
-        style={{ marginInlineStart: dark ? 'calc(100% - 1.5rem)' : 0 }}
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-soft-sm dark:bg-zinc-950 dark:shadow-[0_0_10px_rgba(255,106,0,0.35)]"
+        style={{ marginInlineStart: dark ? 'calc(100% - 1.75rem)' : 0 }}
       >
-        {dark ? <Moon size={13} className="text-brand-400" /> : <Sun size={13} className="text-brand-500" />}
+        {dark ? <Moon size={14} className="text-brand-400" /> : <Sun size={14} className="text-brand-500" />}
       </motion.span>
     </button>
   );

@@ -6,6 +6,9 @@ import { internalError, cleanText, isSafeImageUrl, audit } from './_lib/validate
 // NOTE: light_logo_url / dark_logo_url require migration_v17 — run it before
 // deploying this file, or this SELECT fails on the missing columns.
 const PUBLIC_FIELDS = 'id, restaurant_name, logo_url, light_logo_url, dark_logo_url, address, phone, contact_email, opening_hours, brand_color, delivery_fee, delivery_min_order, all_category_image_url';
+// free_delivery_threshold needs migration_v21. Tried first; if the column does
+// not exist yet we fall back to PUBLIC_FIELDS so the whole app keeps loading.
+const PUBLIC_FIELDS_V21 = PUBLIC_FIELDS + ', free_delivery_threshold';
 
 // Image columns an admin can write. Each is length-capped at 2000 and must
 // pass isSafeImageUrl() below; an empty string is allowed and means "cleared".
@@ -17,7 +20,10 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { data, error } = await supabase.from('settings').select(PUBLIC_FIELDS).eq('id', 1).single();
+      let { data, error } = await supabase.from('settings').select(PUBLIC_FIELDS_V21).eq('id', 1).single();
+      if (error) {
+        ({ data, error } = await supabase.from('settings').select(PUBLIC_FIELDS).eq('id', 1).single());
+      }
       if (error) return internalError(res, error, 'settings GET');
       return res.status(200).json(data);
     }
@@ -51,7 +57,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid phone' });
       }
 
-      for (const key of ['delivery_fee', 'delivery_min_order']) {
+      for (const key of ['delivery_fee', 'delivery_min_order', 'free_delivery_threshold']) {
         if (body[key] != null) {
           const n = Number(body[key]);
           if (!Number.isFinite(n) || n < 0 || n > 100000) return res.status(400).json({ error: `${key} must be 0..100000` });

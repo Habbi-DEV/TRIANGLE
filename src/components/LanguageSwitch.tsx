@@ -13,7 +13,7 @@ export default function LanguageSwitch({ compact: _compact = false }: { compact?
 
   return (
     <div
-      className="flex rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-900"
+      className="flex rounded-full border border-transparent bg-zinc-100 p-1 dark:border-orange-500/30 dark:bg-zinc-900"
       role="group"
       aria-label="Language"
     >
@@ -22,8 +22,8 @@ export default function LanguageSwitch({ compact: _compact = false }: { compact?
           key={l}
           type="button"
           onClick={() => setLang(l)}
-          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${
-            lang === l ? 'bg-brand-500 text-white' : 'text-zinc-500 dark:text-zinc-400'
+          className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+            lang === l ? 'bg-gradient-to-b from-brand-400 to-brand-600 text-white shadow-[0_0_12px_rgba(255,106,0,0.45)]' : 'text-zinc-500 dark:text-zinc-400'
           }`}
         >
           {l === 'fr' ? 'FR' : 'AR'}

@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, Search, ShoppingBag, ShoppingBasket, UtensilsCrossed, X } from 'lucide-react';
+import { Bell, Heart, Search, ShoppingBag, ShoppingBasket, UtensilsCrossed, X, type LucideIcon } from 'lucide-react';
 import type { Category, Order, OrderStatus, Product, Promotion } from '../lib/types';
 import { ACTIVE_STATUSES } from '../lib/types';
 import { money, orderNumber } from '../lib/format';
 import { useSettings } from '../lib/settings';
 import { useCartStore, selectCount, selectSubtotal } from '../stores/cartStore';
+import { useFavoritesStore } from '../stores/favoritesStore';
 import ProductCard from '../components/customer/ProductCard';
 import ProductSheet from '../components/customer/ProductSheet';
+import TrustStrip from '../components/customer/TrustStrip';
+import FreeDeliveryBar from '../components/customer/FreeDeliveryBar';
 import { sellableVariants } from '../lib/variants';
 import CartSheet from '../components/customer/CartSheet';
 import OrderTracker from '../components/customer/OrderTracker';
@@ -29,30 +32,42 @@ import { useLang } from '../lib/i18n';
 // server, never trusted from storage.
 const LAST_ORDER_KEY = 'restolink:lastOrderId';
 
-// Same treatment as the sauce/supplement swatches in ProductSheet: stacked
-// drop-shadows (not a box ring) so the selected state traces the category
-// photo's own alpha silhouette — works whether the PNG is round, square, or
-// an odd shape. Brand orange instead of the sauce picker's green.
-//
-// Tuned down from the sauce version: sauce swatches are 56px (h-14) and can
-// carry a 6px blur without it reading as fog. Category tiles are 48px
-// (h-12), so the same blur radius was proportionally much larger — it ate
-// into the photo's own edges and looked like smudging rather than a crisp
-// outline. Halving the blur radii keeps the glow a thin line hugging the
-// silhouette instead of a haze.
-//
-// The reference "neon bowl" mock has a second ingredient this was missing:
-// a thin WHITE rim sitting right at the photo's edge, with the orange glow
-// starting outside that white line rather than touching the pixels
-// directly. That gap is what reads as a crisp lit outline instead of a
-// smudge — without it, the orange blur blends straight into the photo's
-// own edge colors and looks like bleeding rather than a glow. CSS applies
-// stacked drop-shadows in order, each one drawn from the combined result so
-// far, so listing the white layers first (near-zero blur, so they trace the
-// silhouette tightly) and the orange layers after (larger blur) naturally
-// produces white-then-orange working outward from the edge.
-const CATEGORY_SELECTED_FILTER =
-  'drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 3px rgba(249,115,22,0.55))';
+/** One tile of the category rail. The selected one gets its photo outlined
+ *  along the photo's own edge (see .cat-active in index.css) plus an underline
+ *  bar; the rest sit flat, separated by a hairline divider. `children` is the picture (photo or emoji). */
+function CategoryTile({ active, divider, label, onClick, children }: {
+  active: boolean;
+  divider: boolean;
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`group relative flex w-[80px] shrink-0 flex-col items-center gap-2 px-1.5 pb-4 pt-3.5 ${active ? 'cat-active' : ''} ${
+        divider ? 'before:absolute before:inset-y-4 before:start-0 before:w-px before:bg-zinc-200/80 dark:before:bg-white/[0.07]' : ''
+      }`}
+    >
+      <span className="flex h-12 w-12 items-center justify-center">{children}</span>
+      <span className={`max-w-full truncate text-[11px] font-semibold ${active ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 dark:text-zinc-300'}`}>{label}</span>
+      {active && <span aria-hidden="true" className="absolute bottom-1.5 h-[3px] w-8 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(255,106,0,0.8)]" />}
+    </button>
+  );
+}
+
+/** Bottom-nav item: icon + label, with an ember underline when active. */
+function NavItem({ active, icon: Icon, label, onClick }: { active: boolean; icon: LucideIcon; label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className="relative flex flex-col items-center gap-0.5 px-3 pb-2 pt-0.5">
+      <Icon size={21} className={active ? 'text-brand-500' : 'text-zinc-400 dark:text-zinc-500'} />
+      <span className={`text-[11px] font-semibold ${active ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-400 dark:text-zinc-500'}`}>{label}</span>
+      {active && <span aria-hidden="true" className="absolute bottom-0 h-[3px] w-7 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(255,106,0,0.8)]" />}
+    </button>
+  );
+}
 
 export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -64,6 +79,8 @@ export default function MenuPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [favOnly, setFavOnly] = useState(false);
+  const favIds = useFavoritesStore((st) => st.ids);
 
   // Promo banner carousel: bannerIdx tracks the slide currently in view
   // (updated both by manual swipe, via the container's own onScroll, and
@@ -244,12 +261,14 @@ export default function MenuPage() {
   const visible = useMemo(() => {
     const sorted = [...products].sort((a, b) => a.name.localeCompare(b.name));
     const byCat = activeCat === 'all' ? sorted : sorted.filter((p) => p.category_id === activeCat);
+    const byFav = favOnly && favIds.length > 0 ? byCat.filter((p) => favIds.includes(p.id)) : byCat;
     const q = search.trim().toLowerCase();
-    return q ? byCat.filter((p) => p.name.toLowerCase().includes(q)) : byCat;
-  }, [products, activeCat, search]);
+    return q ? byFav.filter((p) => p.name.toLowerCase().includes(q)) : byFav;
+  }, [products, activeCat, search, favOnly, favIds]);
+  const freeThreshold = Number(settings?.free_delivery_threshold) || 0;
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-36 dark:bg-zinc-950">
+    <div className="menu-ambient min-h-screen bg-zinc-50 pb-48 dark:bg-zinc-950">
       {/* Last-resort manual unlock, in case the order/status wasn't placed
           on this exact page load (e.g. the bell restored a previous order
           across a reload) and no other gesture happened to unlock it yet. */}
@@ -260,7 +279,7 @@ export default function MenuPage() {
             unlockChime();
             if (isChimeUnlocked()) setSoundUnlocked(true);
           }}
-          className="fixed bottom-24 end-4 z-[100] rounded-full bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-zinc-800 active:scale-95"
+          className="fixed bottom-40 end-4 z-[100] rounded-full bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-zinc-800 active:scale-95"
         >
           🔔 {t('shop.enable_sound')}
         </button>
@@ -279,29 +298,29 @@ export default function MenuPage() {
         {/* header — sticky identity bar only (logo, name, language, cart). Kept
             separate from the banner/categories below so it's always the very
             first thing on screen, pinned, instead of the banner pushing it down. */}
-        <header className="sticky top-0 z-30 -mx-4 border-b border-zinc-100 bg-white/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur md:mx-0 md:px-0 md:pt-3 dark:border-zinc-800 dark:bg-zinc-950/90">
-          <div className="flex items-center gap-2.5">
+        <header className="sticky top-0 z-30 -mx-4 rounded-b-[28px] border-b border-zinc-200/70 bg-white/85 px-4 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top))] shadow-soft-sm backdrop-blur-xl md:mx-0 md:px-5 md:pt-3 dark:border-orange-500/25 dark:bg-zinc-950/80 dark:shadow-[0_12px_40px_-14px_rgba(255,106,0,0.4)]">
+          <div className="flex items-center gap-2">
             {/* Swaps to the white wordmark the moment the header goes
                 zinc-950 in dark mode — loading and no-logo states live in
                 the component (see components/AppLogo.tsx). */}
             <AppLogo
-              className="flex h-11 w-11 shrink-0 items-center justify-center text-lg"
+              className="flex h-10 w-10 shrink-0 items-center justify-center text-lg"
               fallbackClassName="rounded-xl bg-brand-500 shadow-sm shadow-orange-500/30"
             />
             <h1 className="min-w-0 flex-1 truncate font-display text-[17px] font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
               {settings === null ? '' : settings.restaurant_name || 'TRIANGLE'}
             </h1>
-            <div className="ms-auto flex shrink-0 items-center gap-2">
+            <div className="ms-auto flex shrink-0 items-center gap-1.5">
               <LanguageSwitch />
               <ThemeToggle />
               <button
                 onClick={() => setCartOpen(true)}
                 aria-label={t('shop.cart_aria')}
-                className="relative flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 active:scale-90 dark:text-zinc-200 dark:hover:bg-zinc-900"
               >
-                <ShoppingBag size={19} />
+                <ShoppingBag size={22} />
                 {count > 0 && (
-                  <span className="absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[9px] font-bold text-white">
+                  <span className="absolute -end-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-[0_0_10px_rgba(239,68,68,0.55)]">
                     {count}
                   </span>
                 )}
@@ -321,12 +340,12 @@ export default function MenuPage() {
             shape and let it collapse away once the real promotions array
             resolves (possibly empty). */}
         {loading ? (
-          <div className="pt-3">
-            <Skeleton className="aspect-[2/1] w-full rounded-2xl" />
+          <div className="pt-4">
+            <Skeleton className="aspect-[2/1] w-full rounded-3xl" />
           </div>
         ) : (
           promotions.length > 0 && (
-            <div className="pt-3">
+            <div className="pt-4">
               <div
                 ref={bannerRef}
                 onScroll={(e) => {
@@ -343,14 +362,14 @@ export default function MenuPage() {
                 // border/glow they visually merge into the dark app shell and
                 // lose all depth — a thin brand-orange border plus a soft
                 // ambient glow restores the boundary without looking loud.
-                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-white dark:bg-zinc-900 dark:border dark:border-[rgba(255,107,0,0.4)] dark:shadow-[0px_4px_20px_rgba(255,107,0,0.15)]"
+                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-3xl border border-orange-500/30 bg-white shadow-soft dark:border-orange-500/40 dark:bg-zinc-900 dark:shadow-ember"
               >
                 {promotions.map((p) => (
-                  <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center rounded-2xl object-cover" />
+                  <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center object-cover" />
                 ))}
               </div>
               {promotions.length > 1 && (
-                <div className="mt-2 flex justify-center gap-1.5">
+                <div className="mt-3 flex justify-center gap-1.5">
                   {promotions.map((p, i) => (
                     <button
                       key={p.id}
@@ -359,7 +378,7 @@ export default function MenuPage() {
                         if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
                       }}
                       aria-label={t('shop.go_to_banner', { n: i + 1 })}
-                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-4 bg-brand-500' : 'w-1.5 bg-zinc-200 dark:bg-zinc-700'}`}
+                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-6 bg-brand-500 shadow-[0_0_8px_rgba(255,106,0,0.7)]' : 'w-1.5 bg-zinc-300 dark:bg-zinc-700'}`}
                     />
                   ))}
                 </div>
@@ -368,89 +387,62 @@ export default function MenuPage() {
           )
         )}
 
-        {/* category rail — scrolls away with the banner, not pinned. When a
-            category has a photo it's rendered bare (object-contain, no
-            frame) so a transparent-PNG image floats on the page like the
-            sauce swatches; categories without a photo fall back to an emoji
-            in a rounded tile. Extra top padding keeps the drop-shadow /
-            selection ring from being clipped by the scroll container
-            (overflow-x-auto also clips the y-axis unless it has room to
-            spare). */}
-        <div className="no-scrollbar -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-1 pt-2 md:mx-0 md:px-0">
+        {/* category rail — one glass panel, scrolls away with the banner (not
+            pinned). Each category is a tile (see CategoryTile): its photo
+            floats bare (transparent PNGs look best), categories without one
+            fall back to an emoji in a rounded square. */}
+        <div className="no-scrollbar mt-4 flex overflow-x-auto rounded-3xl border border-zinc-200/80 bg-white/70 px-1.5 py-1 backdrop-blur dark:border-orange-500/20 dark:bg-zinc-900/50">
           {loading ? (
-            // Six placeholder circles — a plausible category-rail count —
-            // instead of the real "Tout" button + empty categories array
-            // (categories haven't loaded yet, so today it'd otherwise just
-            // show one lonely "Tout" until the fetch resolves).
+            // Six placeholder tiles — a plausible category-rail count —
+            // since categories haven't loaded yet.
             Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex shrink-0 flex-col items-center gap-1.5">
+              <div key={i} className="flex w-[80px] shrink-0 flex-col items-center gap-2 px-1.5 pb-4 pt-3.5">
                 <Skeleton className="h-12 w-12 rounded-xl" />
-                <Skeleton className="h-2.5 w-8 rounded" />
+                <Skeleton className="h-2.5 w-10 rounded" />
               </div>
             ))
           ) : (
             <>
-              <button onClick={() => setActiveCat('all')} className="flex shrink-0 flex-col items-center gap-1.5">
+              <CategoryTile active={activeCat === 'all'} divider={false} label={t('shop.all')} onClick={() => setActiveCat('all')}>
                 {/* "Tout" is the brand tile: its own artwork on a light
                     background, the white wordmark in dark mode so it doesn't
-                    vanish into the page. Bare layout box — no bg/border/
-                    overflow-hidden — so a transparent PNG sits directly on
-                    the page, same treatment as the sauce swatches in
-                    ProductSheet; the selected state is a drop-shadow hugging
-                    the artwork's real silhouette, not a ring around a box. */}
+                    vanish into the page. */}
                 <AppLogo
                   sources={{ light: settings?.all_category_image_url }}
                   className="flex h-12 w-12 items-center justify-center"
-                  fallbackClassName={`rounded-xl text-xl transition ${
-                    activeCat === 'all' ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
-                  }`}
-                  imgClassName="h-12 w-12 object-contain transition-[filter] duration-200"
-                  imgStyle={activeCat === 'all' ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
+                  fallbackClassName="rounded-xl bg-zinc-100 text-xl transition group-aria-pressed:ring-2 group-aria-pressed:ring-orange-500 dark:bg-zinc-800"
+                  imgClassName="cat-photo h-12 w-12 object-contain"
                   fallback="✨"
                 />
-                <span className={`text-[10px] font-semibold ${activeCat === 'all' ? 'text-brand-600' : 'text-zinc-500'}`}>{t('shop.all')}</span>
-              </button>
+              </CategoryTile>
               {categories.filter((c) => c.is_active).map((c) => (
-                <button key={c.id} onClick={() => setActiveCat(c.id)} className="flex shrink-0 flex-col items-center gap-1.5">
+                <CategoryTile key={c.id} active={activeCat === c.id} divider label={c.name} onClick={() => setActiveCat(c.id)}>
                   {c.image_url ? (
-                    <span className="flex h-12 w-12 items-center justify-center">
-                      <img
-                        src={c.image_url}
-                        alt=""
-                        className="h-12 w-12 object-contain transition-[filter] duration-200"
-                        style={activeCat === c.id ? { filter: CATEGORY_SELECTED_FILTER } : undefined}
-                      />
-                    </span>
+                    <img src={c.image_url} alt="" className="cat-photo h-12 w-12 object-contain" />
                   ) : (
-                    <span
-                      className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl transition ${
-                        activeCat === c.id ? 'bg-brand-50 ring-2 ring-brand-500' : 'bg-zinc-100'
-                      }`}
-                    >
-                      {c.icon}
-                    </span>
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 text-xl transition group-aria-pressed:ring-2 group-aria-pressed:ring-orange-500 dark:bg-zinc-800">{c.icon}</span>
                   )}
-                  <span className={`max-w-[56px] truncate text-[10px] font-semibold ${activeCat === c.id ? 'text-brand-600' : 'text-zinc-500'}`}>
-                    {c.name}
-                  </span>
-                </button>
+                </CategoryTile>
               ))}
             </>
           )}
         </div>
 
+        <TrustStrip />
+
         {/* inline search — opened from the bottom nav, which also scrolls the
             page back to the top so this is reachable even mid-scroll */}
         {searchOpen && (
           <div className="mt-3">
-            <div className="flex items-center gap-2 rounded-full bg-zinc-100 px-3.5 py-2.5">
+            <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-3 dark:border-orange-500/25 dark:bg-zinc-900">
               <Search size={16} className="shrink-0 text-zinc-400" />
               <input
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('shop.search_placeholder')}
-                className="flex-1 bg-transparent text-[13px] text-zinc-800 placeholder:text-zinc-400 focus:outline-none"
+                style={{ backgroundColor: 'transparent' }}
+                className="flex-1 text-[14px] text-zinc-800 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100"
               />
               {search && (
                 <button onClick={() => setSearch('')} className="shrink-0 text-zinc-400" aria-label={t('shop.clear_search')}>
@@ -461,15 +453,31 @@ export default function MenuPage() {
           </div>
         )}
 
+        {favIds.length > 0 && (
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setFavOnly((v) => !v)}
+              aria-pressed={favOnly}
+              className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition ${
+                favOnly ? 'border-brand-500 bg-brand-500 text-white shadow-ember' : 'border-zinc-200 bg-white text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300'
+              }`}
+            >
+              <Heart size={13} className={favOnly ? 'fill-white' : ''} />
+              {t('shop.favorites')} · {favIds.length}
+            </button>
+          </div>
+        )}
+
         {/* product grid */}
         {loading ? (
           // Eight card-shaped placeholders matching ProductCard's own
           // proportions (aspect-[5/4] image + two text lines), in the same
           // grid the real cards will render into — so the skeleton doesn't
           // reflow into a different shape once data lands.
-          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-soft-sm ring-1 ring-zinc-100">
+              <div key={i} className="flex flex-col overflow-hidden rounded-3xl bg-white shadow-soft-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:shadow-none dark:ring-orange-500/20">
                 <Skeleton className="aspect-[5/4] w-full rounded-none" />
                 <div className="flex flex-1 flex-col gap-2 p-3">
                   <Skeleton className="h-3 w-4/5 rounded" />
@@ -485,7 +493,7 @@ export default function MenuPage() {
         ) : visible.length === 0 ? (
           <p className="py-16 text-center text-sm text-zinc-400">{search ? t('shop.no_results', { q: search }) : t('shop.empty')}</p>
         ) : (
-          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <div id="menu-grid" className="mt-4 grid scroll-mt-28 grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-4">
             {visible.map((p) => (
               <ProductCard
                 key={p.id}
@@ -512,7 +520,7 @@ export default function MenuPage() {
             staff have no way at all to reach the dashboard. Kept tiny and
             muted so it doesn't read as a customer-facing action. */}
         <div className="mt-10 pb-2 text-center">
-          <Link to="/login" className="text-[11px] font-medium text-zinc-300 transition hover:text-zinc-400">
+          <Link to="/login" className="text-[11px] font-medium text-zinc-400 transition hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400">
             {t('shop.staff_access')}
           </Link>
         </div>
@@ -524,24 +532,31 @@ export default function MenuPage() {
           initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           onClick={() => setCartOpen(true)}
-          className="fixed inset-x-4 bottom-20 z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-zinc-900 px-5 py-4 text-white shadow-soft-xl transition active:scale-[0.98]"
+          className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-4 text-white shadow-ember-lg transition active:scale-[0.98]"
         >
           <span className="flex items-center gap-2 text-sm font-semibold">
-            <ShoppingBasket size={18} className="text-brand-400" />
+            <ShoppingBasket size={18} />
             {count} {count === 1 ? t('cart.items') : t('cart.items_plural')}
           </span>
           <span className="font-display text-[15px] font-bold">{t('shop.view_cart')} · {money(subtotal)}</span>
         </motion.button>
       )}
 
-      {/* bottom nav — Menu / Search / order status */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-md items-center justify-around px-6 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2.5 md:max-w-3xl lg:max-w-5xl">
-          <button onClick={() => setSearchOpen(false)} className="flex flex-col items-center gap-0.5">
-            <UtensilsCrossed size={19} className={!searchOpen ? 'text-zinc-900' : 'text-zinc-400'} />
-            <span className={`text-[10px] font-semibold ${!searchOpen ? 'text-zinc-900' : 'text-zinc-400'}`}>{t('shop.nav_menu')}</span>
-          </button>
-          <button
+      {freeThreshold > 0 && count === 0 && !trackerOpen && !loading && (
+        <FreeDeliveryBar
+          threshold={freeThreshold}
+          onClick={() => document.getElementById('menu-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        />
+      )}
+
+      {/* bottom nav — a floating pill: Menu / Search / order status */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex max-w-md items-center justify-around rounded-[28px] border border-zinc-200/80 bg-white/85 px-6 py-2.5 shadow-soft-xl backdrop-blur-xl md:max-w-3xl lg:max-w-5xl dark:border-orange-500/25 dark:bg-zinc-950/85 dark:shadow-[0_-8px_40px_-12px_rgba(255,106,0,0.35)]">
+          <NavItem active={!searchOpen} icon={UtensilsCrossed} label={t('shop.nav_menu')} onClick={() => setSearchOpen(false)} />
+          <NavItem
+            active={searchOpen}
+            icon={Search}
+            label={t('shop.nav_search')}
             onClick={() => {
               setSearchOpen((v) => {
                 const next = !v;
@@ -549,11 +564,7 @@ export default function MenuPage() {
                 return next;
               });
             }}
-            className="flex flex-col items-center gap-0.5"
-          >
-            <Search size={19} className={searchOpen ? 'text-zinc-900' : 'text-zinc-400'} />
-            <span className={`text-[10px] font-semibold ${searchOpen ? 'text-zinc-900' : 'text-zinc-400'}`}>{t('shop.nav_search')}</span>
-          </button>
+          />
           <button
             onClick={() => {
               if (!order) return;
@@ -563,10 +574,12 @@ export default function MenuPage() {
             disabled={!order}
             aria-label={t('shop.order_status_aria')}
             title={order ? undefined : t('shop.no_active_order')}
-            className={`relative flex h-9 w-9 items-center justify-center rounded-full transition ${order ? 'bg-brand-500 text-white' : 'bg-zinc-100 text-zinc-300'}`}
+            className={`relative flex h-12 w-12 items-center justify-center rounded-full transition ${
+              order ? 'bg-gradient-to-b from-brand-400 to-brand-600 text-white shadow-[0_6px_20px_-4px_rgba(255,106,0,0.7)] active:scale-90' : 'bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600'
+            }`}
           >
-            <Bell size={17} />
-            {orderUnseen && <span className="absolute -end-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />}
+            <Bell size={20} />
+            {orderUnseen && <span className="absolute -end-0.5 -top-0.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-950" />}
           </button>
         </div>
       </nav>

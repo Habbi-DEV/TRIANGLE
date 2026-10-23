@@ -36,10 +36,17 @@ function pushBodyFor(status, orderType) {
   }
 }
 
-async function getDeliveryFee() {
+async function getDeliveryFee(subtotal = 0) {
   const { data, error } = await supabase.from('settings').select('delivery_fee').eq('id', 1).single();
   if (error || data == null) return 0;
-  return Number(data.delivery_fee) || 0;
+  const fee = Number(data.delivery_fee) || 0;
+  if (fee <= 0) return 0;
+  // Free delivery from a threshold (migration_v21). Separate query so a
+  // database that hasn't run the migration still charges the normal fee.
+  const { data: t, error: tErr } = await supabase.from('settings').select('free_delivery_threshold').eq('id', 1).single();
+  const threshold = !tErr && t ? Number(t.free_delivery_threshold) || 0 : 0;
+  if (threshold > 0 && subtotal >= threshold) return 0;
+  return fee;
 }
 
 // Mask PII for customer self-lookup: only returned when order_token matches.
@@ -381,7 +388,7 @@ export default async function handler(req, res) {
       }
 
       subtotal = Math.round(subtotal * 100) / 100;
-      const delivery_fee = order_type === 'delivery' ? await getDeliveryFee() : 0;
+      const delivery_fee = order_type === 'delivery' ? await getDeliveryFee(subtotal) : 0;
       const total = Math.max(0, Math.round((subtotal + delivery_fee) * 100) / 100);
 
       // FIX C2: merge hijack disabled by default. Only merge when the caller proves

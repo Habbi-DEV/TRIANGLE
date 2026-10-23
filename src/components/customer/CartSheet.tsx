@@ -62,7 +62,13 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
 
   // Delivery fee only applies once the customer has picked "Delivery" —
   // dine-in/takeaway totals are unaffected by settings.delivery_fee.
-  const deliveryFee = orderType === 'delivery' ? Number(settings?.delivery_fee ?? 0) : 0;
+  // Free delivery from a threshold (settings.free_delivery_threshold, 0 = off).
+  // api/orders.js applies the same rule, so this is display-only parity.
+  const freeThreshold = Number(settings?.free_delivery_threshold) || 0;
+  const baseFee = Number(settings?.delivery_fee ?? 0);
+  const feeWaived = orderType === 'delivery' && baseFee > 0 && freeThreshold > 0 && subtotal >= freeThreshold;
+  const deliveryFee = orderType === 'delivery' && !feeWaived ? baseFee : 0;
+  const freeLeft = orderType === 'delivery' && baseFee > 0 && freeThreshold > 0 && !feeWaived ? freeThreshold - subtotal : 0;
   const total = Math.round((subtotal + deliveryFee) * 100) / 100;
   const [placing, setPlacing] = useState(false);
   const [serverError, setServerError] = useState('');
@@ -409,6 +415,12 @@ export default function CartSheet({ open, onClose, onPlaced, onRollback }: Props
                   {/* totals */}
                   <div className="space-y-1.5 rounded-2xl bg-orange-50/70 dark:bg-orange-500/10 p-4 text-sm">
                     <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>{t('common.subtotal')}</span><span>{money(subtotal)}</span></div>
+                    {freeLeft > 0 && (
+                      <p className="rounded-xl bg-orange-500/10 px-3 py-2 text-[12px] font-semibold text-brand-600 dark:text-brand-400">{t('cart.free_delivery_left', { amount: money(freeLeft) })}</p>
+                    )}
+                    {feeWaived && (
+                      <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>{t('common.delivery_fee')}</span><span className="font-semibold text-green-600">{t('cart.delivery_free')}</span></div>
+                    )}
                     {deliveryFee > 0 && (
                       <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>{t('common.delivery_fee')}</span><span>{money(deliveryFee)}</span></div>
                     )}

@@ -163,7 +163,11 @@ async function handleProductImages(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-const PRODUCT_UPDATE_ALLOW = new Set(['name', 'description', 'price', 'category_id', 'image_url', 'stock', 'is_available']);
+const PRODUCT_UPDATE_ALLOW = new Set(['name', 'description', 'price', 'category_id', 'image_url', 'stock', 'is_available', 'badge']);
+
+// Card badge shown on the customer menu. '' / null clears it.
+const PRODUCT_BADGES = new Set(['popular', 'new', 'limited']);
+const cleanBadge = (b) => (b == null || b === '' ? null : PRODUCT_BADGES.has(b) ? b : undefined);
 
 export default async function handler(req, res) {
   setCors(req, res, 'GET, POST, PUT, DELETE, OPTIONS');
@@ -251,7 +255,9 @@ export default async function handler(req, res) {
       const staff = await requireManager(req, res); // FIX H1: driver excluded
       if (!staff) return;
       if (!rateLimit(req, res, { max: 30, windowMs: 60_000, key: 'product-write' })) return;
-      const { name, description, price, category_id, image_url, stock, is_available, sauce_ids, supplement_ids } = req.body || {};
+      const { name, description, price, category_id, image_url, stock, is_available, sauce_ids, supplement_ids, badge } = req.body || {};
+      const badgeN = cleanBadge(badge);
+      if (badgeN === undefined) return res.status(400).json({ error: 'Invalid badge' });
       const cleanName = cleanText(name, 150);
       if (!cleanName || !isValidPrice(price)) return res.status(400).json({ error: 'Product name and a valid non-negative price are required' });
       if (image_url && (!isSafeImageUrl(image_url) || image_url.length > 2000)) {
@@ -269,6 +275,8 @@ export default async function handler(req, res) {
         price: Number(price), category_id: catId,
         image_url: image_url ? String(image_url).trim().slice(0, 2000) : '',
         stock: stockN, is_available: is_available !== false,
+        // Only sent when set, so installs that haven't run migration_v21 keep working.
+        ...(badgeN ? { badge: badgeN } : {}),
       }).select().single();
       if (error) return internalError(res, error, 'products POST');
       if (Array.isArray(sauce_ids) && sauce_ids.length) await syncProductSauces(data.id, sauce_ids);
@@ -319,6 +327,11 @@ export default async function handler(req, res) {
         fields.image_url = String(fields.image_url || '').trim().slice(0, 2000);
       }
       if (fields.is_available != null) fields.is_available = Boolean(fields.is_available);
+      if ('badge' in fields) {
+        const b = cleanBadge(fields.badge);
+        if (b === undefined) return res.status(400).json({ error: 'Invalid badge' });
+        fields.badge = b;
+      }
 
       let data = null;
       if (Object.keys(fields).length) {

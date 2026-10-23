@@ -17,6 +17,7 @@ const EMPTY_FORM = {
   image_url: '',
   stock: '20',
   is_available: true,
+  badge: '',
 };
 
 export default function MenuManagePage() {
@@ -119,6 +120,7 @@ export default function MenuManagePage() {
       image_url: p.image_url,
       stock: String(p.stock),
       is_available: p.is_available,
+      badge: p.badge ?? '',
     });
     setError('');
     setGallery(p.images ?? []);
@@ -148,6 +150,9 @@ export default function MenuManagePage() {
       // (kept by the database) — sending a stale number here would overwrite it.
       ...(variants.length + pendingVariants.length > 0 ? {} : { stock: Number(form.stock) || 0 }),
       is_available: form.is_available,
+      // Sent only when it changed / is set, so a database without
+      // migration_v21 can still save products.
+      ...((editing ? (editing.badge ?? '') !== form.badge : form.badge !== '') ? { badge: form.badge || null } : {}),
       sauce_ids: selectedSauceIds,
       supplement_ids: selectedSupplementIds,
     };
@@ -926,6 +931,16 @@ export default function MenuManagePage() {
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('menu.badge')}</label>
+            <select value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-2.5 text-sm outline-none focus:border-brand-400">
+              <option value="">{t('menu.badge.none')}</option>
+              <option value="popular">🔥 {t('shop.badge.popular')}</option>
+              <option value="new">✨ {t('shop.badge.new')}</option>
+              <option value="limited">⭐ {t('shop.badge.limited')}</option>
+            </select>
           </div>
 
           <div>

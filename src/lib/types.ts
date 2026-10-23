@@ -74,7 +74,12 @@ export interface Product {
    *  of its sizes) is out of stock. The public API hides `stock` itself, so
    *  this is what the customer menu uses to grey out sold-out items. */
   in_stock?: boolean;
+  /** Optional card badge on the customer menu (migration_v21). Null/absent =
+   *  no badge. */
+  badge?: ProductBadge | null;
 }
+
+export type ProductBadge = 'popular' | 'new' | 'limited';
 
 /** A size/format row under one product (e.g. a drink's "Can 33cl" vs
  *  "Bottle 1L"). Unlike Sauce/Supplement, a variant belongs to exactly one
@@ -248,6 +253,9 @@ export interface Settings {
   opening_hours: string;
   delivery_fee: number;
   delivery_min_order: number;
+  /** Delivery is free once the subtotal reaches this amount. 0/absent = off
+   *  (absent on installs that haven't run migration_v21). */
+  free_delivery_threshold?: number;
   new_order_sound_enabled: boolean;
   low_stock_threshold: number;
   brand_color: string;

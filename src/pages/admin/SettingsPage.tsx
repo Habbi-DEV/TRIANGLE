@@ -26,6 +26,7 @@ type FormState = {
   opening_hours: string;
   delivery_fee: string;
   delivery_min_order: string;
+  free_delivery_threshold: string;
   new_order_sound_enabled: boolean;
   low_stock_threshold: string;
   brand_color: string;
@@ -47,6 +48,7 @@ const toForm = (s: Settings): FormState => ({
   opening_hours: s.opening_hours,
   delivery_fee: String(s.delivery_fee),
   delivery_min_order: String(s.delivery_min_order),
+  free_delivery_threshold: String(s.free_delivery_threshold ?? 0),
   new_order_sound_enabled: s.new_order_sound_enabled,
   low_stock_threshold: String(s.low_stock_threshold),
   brand_color: s.brand_color,
@@ -264,6 +266,7 @@ export default function SettingsPage() {
         ...form,
         delivery_fee: Number(form.delivery_fee) || 0,
         delivery_min_order: Number(form.delivery_min_order) || 0,
+        free_delivery_threshold: Number(form.free_delivery_threshold) || 0,
         low_stock_threshold: parseInt(form.low_stock_threshold, 10) || 0,
       };
       const updated = await api<Settings>('/api/settings', { method: 'PUT', body: JSON.stringify(payload) });
@@ -364,6 +367,9 @@ export default function SettingsPage() {
           </Field>
           <Field label={t('settings.delivery_min_order')}>
             <input value={form.delivery_min_order} onChange={(e) => set('delivery_min_order', e.target.value)} type="number" step="0.10" min="0" className={inputCls} />
+          </Field>
+          <Field label={t('settings.free_delivery_threshold')}>
+            <input value={form.free_delivery_threshold} onChange={(e) => set('free_delivery_threshold', e.target.value)} type="number" step="1" min="0" className={inputCls} />
           </Field>
         </div>
         <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{t('settings.payment_note')}</p>

@@ -49,6 +49,12 @@
   --shadow-soft: 0 2px 4px rgba(24, 24, 27, 0.04), 0 10px 24px -6px rgba(24, 24, 27, 0.10);
   --shadow-soft-lg: 0 4px 8px rgba(24, 24, 27, 0.05), 0 18px 40px -10px rgba(24, 24, 27, 0.14);
   --shadow-soft-xl: 0 8px 16px rgba(24, 24, 27, 0.06), 0 28px 64px -12px rgba(24, 24, 27, 0.18);
+
+  /* Brand "ember" glow — a thin orange rim plus a wide, soft orange halo.
+     Used on the customer menu's banner, floating bars and primary buttons
+     (shadow-ember), and the stronger variant on the + button. */
+  --shadow-ember: 0 0 0 1px rgba(255, 106, 0, 0.35), 0 10px 30px -8px rgba(255, 106, 0, 0.4);
+  --shadow-ember-lg: 0 0 0 1px rgba(255, 106, 0, 0.45), 0 14px 40px -8px rgba(255, 106, 0, 0.55);
 }
 
 html {
@@ -119,7 +125,55 @@ html.dark textarea::placeholder {
   opacity: 1;
 }
 
+/* Ambient background for the customer menu: a few faint orange glows pinned to
+   the viewport (not the page), behind all content. `isolation: isolate` on the
+   page root keeps the negative z-index inside it. Stronger in dark mode, where
+   it gives the near-black page the warm "grill" atmosphere. */
+.menu-ambient { position: relative; isolation: isolate; }
+.menu-ambient::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 38% at 100% 0%, rgba(249, 115, 22, 0.10), transparent 70%),
+    radial-gradient(60% 34% at 0% 48%, rgba(249, 115, 22, 0.06), transparent 70%);
+}
+html.dark .menu-ambient::before {
+  background:
+    radial-gradient(75% 42% at 100% 0%, rgba(255, 106, 0, 0.24), transparent 70%),
+    radial-gradient(60% 38% at 0% 42%, rgba(255, 106, 0, 0.12), transparent 70%),
+    radial-gradient(80% 32% at 50% 100%, rgba(255, 106, 0, 0.16), transparent 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-ambient *, .menu-ambient *::before, .menu-ambient *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Selected category: the (transparent-background) photo itself is outlined —
+   a hairline white edge hugging the shape, an orange ring around that, then a
+   soft orange halo — instead of boxing it in a square. Cascaded drop-shadows
+   follow the alpha channel, so it traces the burger/drinks/wrap exactly. */
+.cat-photo { transition: transform 0.25s ease, filter 0.25s ease; }
+.cat-active .cat-photo {
+  transform: scale(1.1);
+  filter:
+    drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
+    drop-shadow(2px 0 0 #ff6a00) drop-shadow(-2px 0 0 #ff6a00) drop-shadow(0 2px 0 #ff6a00) drop-shadow(0 -2px 0 #ff6a00)
+    drop-shadow(0 0 8px rgba(255, 106, 0, 0.5));
+}
+html.dark .cat-active .cat-photo {
+  filter:
+    drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
+    drop-shadow(2px 0 0 #ff6a00) drop-shadow(-2px 0 0 #ff6a00) drop-shadow(0 2px 0 #ff6a00) drop-shadow(0 -2px 0 #ff6a00)
+    drop-shadow(0 0 10px rgba(255, 106, 0, 0.75));
+}
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
