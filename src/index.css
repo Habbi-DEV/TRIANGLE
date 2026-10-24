@@ -160,15 +160,19 @@ html.dark .menu-ambient::before {
    a hairline white edge hugging the shape, an orange ring around that, then a
    soft orange halo — instead of boxing it in a square. Cascaded drop-shadows
    follow the alpha channel, so it traces the burger/drinks/wrap exactly. */
-.cat-photo { transition: transform 0.25s ease, filter 0.25s ease; }
-.cat-active .cat-photo {
-  transform: scale(1.1);
+.cat-pic { transition: transform 0.25s ease; }
+.cat-active .cat-pic { transform: scale(1.1); }
+/* No transition on `filter` and no transform on the filtered <img> itself:
+   animating a cascaded drop-shadow (and scaling the same layer) leaves a
+   faint rectangular "ghost" of the layer behind in iOS Safari. The scale lives
+   on the wrapper (.cat-pic) instead, and the outline simply switches on. */
+.cat-active:not(.cat-plain) .cat-photo {
   filter:
     drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
     drop-shadow(2px 0 0 #ff6a00) drop-shadow(-2px 0 0 #ff6a00) drop-shadow(0 2px 0 #ff6a00) drop-shadow(0 -2px 0 #ff6a00)
     drop-shadow(0 0 8px rgba(255, 106, 0, 0.5));
 }
-html.dark .cat-active .cat-photo {
+html.dark .cat-active:not(.cat-plain) .cat-photo {
   filter:
     drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
     drop-shadow(2px 0 0 #ff6a00) drop-shadow(-2px 0 0 #ff6a00) drop-shadow(0 2px 0 #ff6a00) drop-shadow(0 -2px 0 #ff6a00)

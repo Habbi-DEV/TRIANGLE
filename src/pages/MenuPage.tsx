@@ -35,9 +35,11 @@ const LAST_ORDER_KEY = 'restolink:lastOrderId';
 /** One tile of the category rail. The selected one gets its photo outlined
  *  along the photo's own edge (see .cat-active in index.css) plus an underline
  *  bar; the rest sit flat, separated by a hairline divider. `children` is the picture (photo or emoji). */
-function CategoryTile({ active, divider, label, onClick, children }: {
+function CategoryTile({ active, divider, plain = false, label, onClick, children }: {
   active: boolean;
   divider: boolean;
+  /** Skip the photo outline (for the detailed brand logo — see "Tout"). */
+  plain?: boolean;
   label: string;
   onClick: () => void;
   children: ReactNode;
@@ -47,11 +49,17 @@ function CategoryTile({ active, divider, label, onClick, children }: {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`group relative flex w-[80px] shrink-0 flex-col items-center gap-2 px-1.5 pb-4 pt-3.5 ${active ? 'cat-active' : ''} ${
+      className={`group relative flex w-[80px] shrink-0 flex-col items-center gap-2 px-1.5 pb-4 pt-3.5 ${active ? 'cat-active' : ''} ${plain ? 'cat-plain' : ''} ${
         divider ? 'before:absolute before:inset-y-4 before:start-0 before:w-px before:bg-zinc-200/80 dark:before:bg-white/[0.07]' : ''
       }`}
     >
-      <span className="flex h-12 w-12 items-center justify-center">{children}</span>
+      {/* Plain tiles (the logo) get a soft radial glow behind instead of an
+          outline: a thin, detailed wordmark fills in when outlined. Plain
+          gradient, no filter, so nothing for Safari to mis-composite. */}
+      {active && plain && (
+        <span aria-hidden="true" className="pointer-events-none absolute top-1 h-[72px] w-[72px] rounded-full bg-[radial-gradient(circle,rgba(255,106,0,0.38),rgba(255,106,0,0)_70%)]" />
+      )}
+      <span className="cat-pic relative flex h-12 w-12 items-center justify-center">{children}</span>
       <span className={`max-w-full truncate text-[11px] font-semibold ${active ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 dark:text-zinc-300'}`}>{label}</span>
       {active && <span aria-hidden="true" className="absolute bottom-1.5 h-[3px] w-8 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(255,106,0,0.8)]" />}
     </button>
@@ -391,7 +399,7 @@ export default function MenuPage() {
             pinned). Each category is a tile (see CategoryTile): its photo
             floats bare (transparent PNGs look best), categories without one
             fall back to an emoji in a rounded square. */}
-        <div className="no-scrollbar mt-4 flex overflow-x-auto rounded-3xl border border-zinc-200/80 bg-white/70 px-1.5 py-1 backdrop-blur dark:border-orange-500/20 dark:bg-zinc-900/50">
+        <div className="no-scrollbar mt-4 flex overflow-x-auto rounded-3xl border border-zinc-200/80 bg-white/90 px-1.5 py-1 dark:border-orange-500/20 dark:bg-zinc-900/80">
           {loading ? (
             // Six placeholder tiles — a plausible category-rail count —
             // since categories haven't loaded yet.
@@ -403,7 +411,7 @@ export default function MenuPage() {
             ))
           ) : (
             <>
-              <CategoryTile active={activeCat === 'all'} divider={false} label={t('shop.all')} onClick={() => setActiveCat('all')}>
+              <CategoryTile active={activeCat === 'all'} divider={false} plain label={t('shop.all')} onClick={() => setActiveCat('all')}>
                 {/* "Tout" is the brand tile: its own artwork on a light
                     background, the white wordmark in dark mode so it doesn't
                     vanish into the page. */}
