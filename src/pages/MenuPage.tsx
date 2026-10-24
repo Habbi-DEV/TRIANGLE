@@ -395,11 +395,13 @@ export default function MenuPage() {
           )
         )}
 
+        <TrustStrip />
+
         {/* category rail — one glass panel, scrolls away with the banner (not
             pinned). Each category is a tile (see CategoryTile): its photo
             floats bare (transparent PNGs look best), categories without one
             fall back to an emoji in a rounded square. */}
-        <div className="no-scrollbar mt-4 flex overflow-x-auto rounded-3xl border border-zinc-200/80 bg-white/90 px-1.5 py-1 dark:border-orange-500/20 dark:bg-zinc-900/80">
+        <div className="no-scrollbar mt-3 flex overflow-x-auto rounded-3xl border border-zinc-200/80 bg-white/90 px-1.5 py-1 dark:border-orange-500/20 dark:bg-zinc-900/80">
           {loading ? (
             // Six placeholder tiles — a plausible category-rail count —
             // since categories haven't loaded yet.
@@ -435,8 +437,6 @@ export default function MenuPage() {
             </>
           )}
         </div>
-
-        <TrustStrip />
 
         {/* inline search — opened from the bottom nav, which also scrolls the
             page back to the top so this is reachable even mid-scroll */}

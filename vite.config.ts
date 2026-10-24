@@ -9,8 +9,11 @@ export default defineConfig(async ({ mode }) => {
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // 'prompt': a new build waits in the background until the user taps
+      // "Mettre à jour" in <UpdatePrompt /> (src/components/UpdatePrompt.tsx),
+      // which also does the registration — hence injectRegister: false.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: [
         'icons/favicon-16.png',
         'icons/favicon-32.png',

@@ -23,6 +23,7 @@ import DriverActivePage from './pages/driver/DriverActivePage';
 import DriverAvailablePage from './pages/driver/DriverAvailablePage';
 import DriverHistoryPage from './pages/driver/DriverHistoryPage';
 import { loadSettings } from './lib/settings';
+import UpdatePrompt from './components/UpdatePrompt';
 
 export default function App() {
   // Loaded once at the root so money() (used on both the public e-menu and
@@ -41,6 +42,7 @@ export default function App() {
     <LanguageProvider>
     <ToastProvider>
     <AuthProvider>
+      <UpdatePrompt />
       <BrowserRouter>
         <Routes>
           {/* Customer-facing, mobile-first e-menu */}
