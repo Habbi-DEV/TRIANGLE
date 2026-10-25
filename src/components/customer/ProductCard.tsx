@@ -1,4 +1,4 @@
-import { Flame, Heart, Plus, Sparkles, Star, type LucideIcon } from 'lucide-react';
+import { Flame, Heart, Package, Plus, Sparkles, Star, type LucideIcon } from 'lucide-react';
 import type { Product, ProductBadge } from '../../lib/types';
 import { money } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
@@ -30,7 +30,10 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
   // restaurant menu printing "from 2.00".
   const cheapestVariant = cheapestSellable(product) ?? (variants.length ? [...variants].sort((a, b) => a.price - b.price)[0] : null);
   const displayPrice = cheapestVariant ? cheapestVariant.price : product.price;
-  const badge = !soldOut && product.badge ? BADGES[product.badge] : null;
+  const isPack = product.is_pack === true;
+  // What the customer saves against buying the contents one by one.
+  const saving = isPack && product.pack_value && product.pack_value > product.price ? Math.round((product.pack_value - product.price) * 100) / 100 : 0;
+  const badge = !soldOut && !isPack && product.badge ? BADGES[product.badge] : null;
 
   return (
     <div
@@ -56,6 +59,17 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
         {soldOut && (
           <span className="absolute start-2.5 top-2.5 rounded-full bg-zinc-900/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white dark:bg-black/70">
             {t('shop.sold_out')}
+          </span>
+        )}
+        {isPack && !soldOut && (
+          <span className="absolute start-2 top-2.5 flex items-center gap-1 rounded-full bg-zinc-950/85 py-1 pe-2.5 ps-2 text-[10px] font-extrabold tracking-wider text-brand-400 ring-1 ring-orange-500/60 backdrop-blur">
+            <Package size={12} strokeWidth={2.4} className="shrink-0" />
+            {t('pack.label')}
+          </span>
+        )}
+        {saving > 0 && !soldOut && (
+          <span className="absolute bottom-2 start-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-[0_4px_14px_-2px_rgba(255,106,0,0.6)]">
+            {t('pack.save', { amount: money(saving) })}
           </span>
         )}
         {badge && (
@@ -84,7 +98,8 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
           {/* Brand orange stays the accent in both themes — bumped one
               shade lighter (brand-400) on dark so it keeps AA contrast
               against zinc-900 instead of reading muddy. */}
-          <span className="font-display text-[18px] font-bold leading-none text-burnt dark:text-brand-400">
+          <span className="whitespace-nowrap font-display text-[18px] font-bold leading-none text-burnt dark:text-brand-400">
+            {saving > 0 && <span className="mb-1 block text-[12px] font-semibold leading-none text-zinc-400 line-through decoration-1 dark:text-zinc-500">{money(product.pack_value as number)}</span>}
             {sellableVariants(product).length > 1 && <span className="me-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.from')}</span>}
             {money(displayPrice)}
           </span>

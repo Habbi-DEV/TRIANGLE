@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, CupSoda, Droplet, Layers, Minus, Plus, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, CupSoda, Droplet, Layers, Minus, Package, Plus, X } from 'lucide-react';
 import type { Product, ProductVariant, Sauce, Supplement } from '../../lib/types';
 import { money } from '../../lib/format';
 import { useLang } from '../../lib/i18n';
@@ -137,6 +137,34 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                 <span className="font-display text-lg font-bold text-burnt">{money(unitPrice)}</span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{product.description}</p>
+
+              {product.is_pack && (product.pack_items?.length ?? 0) > 0 && (() => {
+                const value = product.pack_value ?? 0;
+                const saving = value > product.price ? Math.round((value - product.price) * 100) / 100 : 0;
+                return (
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-orange-500/30 bg-orange-500/[0.06]">
+                    <div className="flex items-center gap-2 border-b border-orange-500/20 px-4 py-2.5">
+                      <Package size={15} className="text-brand-500" />
+                      <p className="text-xs font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">{t('pack.contains')}</p>
+                    </div>
+                    <ul className="space-y-1.5 px-4 py-3">
+                      {product.pack_items!.map((it) => (
+                        <li key={it.product_id} className="flex items-center gap-2.5 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white"><Check size={12} strokeWidth={3} /></span>
+                          <span className="min-w-0 flex-1 truncate">{it.name}</span>
+                          <span className="shrink-0 text-zinc-400 dark:text-zinc-500">×{it.quantity}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {saving > 0 && (
+                      <div className="flex items-center justify-between gap-3 border-t border-orange-500/20 bg-orange-500/10 px-4 py-2.5">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">{t('pack.value', { amount: '' })}<span className="font-semibold line-through">{money(value)}</span></span>
+                        <span className="rounded-full bg-gradient-to-r from-brand-500 to-brand-600 px-3 py-1 text-[11px] font-bold text-white">{t('pack.save', { amount: money(saving) })}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {variants.length > 0 && (
                 <div className="mt-5">

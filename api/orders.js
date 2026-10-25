@@ -326,6 +326,35 @@ export default async function handler(req, res) {
         }
       }
 
+      // PACKS: for any ordered pack, load what it contains. Its price is the
+      // pack product's own DB price (below, like any product); the contents
+      // are copied onto the order line for the kitchen and the invoice, and
+      // every component must still be on sale. A database that hasn't run
+      // migration_v22 has no is_pack column, so none of this runs.
+      const packContents = {};
+      const orderedPackIds = Object.values(byId).filter((p) => p.is_pack === true).map((p) => p.id);
+      if (orderedPackIds.length) {
+        const { data: links, error: lErr } = await supabase.from('pack_items').select('pack_id, product_id, quantity').in('pack_id', orderedPackIds);
+        if (lErr) return internalError(res, lErr, 'orders pack_items');
+        const compIds = [...new Set((links || []).map((l) => l.product_id))];
+        const { data: comps, error: cErr } = compIds.length
+          ? await supabase.from('products').select('id, name, is_available').in('id', compIds)
+          : { data: [], error: null };
+        if (cErr) return internalError(res, cErr, 'orders pack components');
+        const compById = Object.fromEntries((comps || []).map((c) => [c.id, c]));
+        for (const packId of orderedPackIds) {
+          const mine = (links || []).filter((l) => l.pack_id === packId);
+          if (!mine.length) return res.status(400).json({ error: 'This pack is not available' });
+          if (mine.some((l) => !compById[l.product_id] || !compById[l.product_id].is_available)) {
+            return res.status(400).json({ error: 'An item of this pack is currently unavailable' });
+          }
+          packContents[packId] = mine
+            .map((l) => `${l.quantity}× ${String(compById[l.product_id].name).slice(0, 80)}`)
+            .join(', ')
+            .slice(0, 500);
+        }
+      }
+
       const rows = [];
       let subtotal = 0;
       // Total quantity asked per stock bucket (one size, or one product
@@ -343,7 +372,8 @@ export default async function handler(req, res) {
         // size: it has to exist, belong to THIS product and still be
         // available. Its own price and its own stock then apply.
         let variant = null;
-        const sellableSizes = (variantsByProduct[p.id] || []).filter((v) => v.is_available);
+        const isPack = p.is_pack === true; // packs are sold as-is: no sizes, no add-ons
+        const sellableSizes = isPack ? [] : (variantsByProduct[p.id] || []).filter((v) => v.is_available);
         if (sellableSizes.length > 0) {
           const v = it.variant_id != null ? variantById[Number(it.variant_id)] : null;
           if (!v || v.product_id !== p.id || !v.is_available) {
@@ -358,10 +388,10 @@ export default async function handler(req, res) {
         if (demand[bucket] > inStock) {
           return res.status(400).json({ error: 'Not enough stock for an item' });
         }
-        const chosenSauces = (Array.isArray(it.sauce_ids) ? it.sauce_ids : []).slice(0, 10)
+        const chosenSauces = (isPack ? [] : (Array.isArray(it.sauce_ids) ? it.sauce_ids : [])).slice(0, 10)
           .map((sid) => sauceById[Number(sid)]).filter(Boolean)
           .map((s) => ({ name: String(s.name).slice(0, 100), price: Math.max(0, Number(s.price) || 0) }));
-        const chosenSupplements = (Array.isArray(it.supplement_ids) ? it.supplement_ids : []).slice(0, 10)
+        const chosenSupplements = (isPack ? [] : (Array.isArray(it.supplement_ids) ? it.supplement_ids : [])).slice(0, 10)
           .map((sid) => supplementById[Number(sid)]).filter(Boolean)
           .map((s) => ({ name: String(s.name).slice(0, 100), price: Math.max(0, Number(s.price) || 0) }));
         const sauceTotal = chosenSauces.reduce((n, s) => n + s.price, 0);
@@ -378,6 +408,7 @@ export default async function handler(req, res) {
           sauces: chosenSauces, supplements: chosenSupplements,
           variant_id: variant ? variant.id : null,
           variant_name: variant ? String(variant.name).slice(0, 80) : null,
+          ...(isPack ? { pack_contents: packContents[p.id] } : {}),
         });
       }
       const hasCoords = order_type === 'delivery' && Number.isFinite(Number(delivery_lat)) && Number.isFinite(Number(delivery_lng));

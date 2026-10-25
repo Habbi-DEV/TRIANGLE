@@ -5,7 +5,7 @@ import { internalError, toId, cleanText, isSafeImageUrl, isValidPrice, audit } f
 const TABLES = { category: 'categories', promotion: 'promotions' };
 const tableFor = (type) => TABLES[type] || TABLES.category;
 const CAT_ALLOW = new Set(['name', 'icon', 'image_url', 'sort_order', 'is_active']);
-const PROMO_ALLOW = new Set(['image_url', 'sort_order', 'is_active']);
+const PROMO_ALLOW = new Set(['image_url', 'sort_order', 'is_active', 'link_product_id']);
 
 export default async function handler(req, res) {
   setCors(req, res, 'GET, POST, PUT, DELETE, OPTIONS');
@@ -77,6 +77,19 @@ export default async function handler(req, res) {
         fields.sort_order = so;
       }
       if (fields.is_active != null) fields.is_active = Boolean(fields.is_active);
+      // Banner → product/pack link. null/'' clears it; anything else must be
+      // a real product, so a banner can never point at nothing.
+      if ('link_product_id' in fields) {
+        if (fields.link_product_id === null || fields.link_product_id === '') {
+          fields.link_product_id = null;
+        } else {
+          const lp = toId(fields.link_product_id);
+          if (!lp) return res.status(400).json({ error: 'Invalid link_product_id' });
+          const { data: exists } = await supabase.from('products').select('id').eq('id', lp).maybeSingle();
+          if (!exists) return res.status(400).json({ error: 'The linked product does not exist' });
+          fields.link_product_id = lp;
+        }
+      }
       if (!Object.keys(fields).length) return res.status(400).json({ error: 'No valid fields' });
       const { data, error } = await supabase.from(table).update(fields).eq('id', rowId).select().single();
       if (error) return internalError(res, error, 'categories PUT');

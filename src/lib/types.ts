@@ -35,6 +35,8 @@ export interface Promotion {
   image_url: string;
   sort_order: number;
   is_active: boolean;
+  /** Product/pack opened when the customer taps this banner (migration_v22). */
+  link_product_id?: number | null;
 }
 
 export interface ProductImage {
@@ -77,9 +79,24 @@ export interface Product {
   /** Optional card badge on the customer menu (migration_v21). Null/absent =
    *  no badge. */
   badge?: ProductBadge | null;
+  /** A pack: one product, one price, made of several other products
+   *  (migration_v22). Packs are sold as-is — no sizes, no add-ons. */
+  is_pack?: boolean;
+  /** What a pack contains (server-built, packs only). */
+  pack_items?: PackItem[];
+  /** What the contents would cost bought separately — the "value" the
+   *  customer saves against. Server-computed, packs only. */
+  pack_value?: number;
 }
 
 export type ProductBadge = 'popular' | 'new' | 'limited';
+
+/** One line of a pack's contents, as sent by GET /api/products. */
+export interface PackItem {
+  product_id: number;
+  name: string;
+  quantity: number;
+}
 
 /** A size/format row under one product (e.g. a drink's "Can 33cl" vs
  *  "Bottle 1L"). Unlike Sauce/Supplement, a variant belongs to exactly one
@@ -159,6 +176,9 @@ export interface OrderItem {
    *  used for display — a later rename must not rewrite history. */
   variant_id?: number | null;
   variant_name?: string | null;
+  /** For a pack line: what was inside, e.g. "1× Burger, 1× Frites, 1× Coca"
+   *  — copied at order time so the kitchen and the invoice always show it. */
+  pack_contents?: string | null;
 }
 
 export interface Order {

@@ -243,6 +243,9 @@ export default function OrdersPage() {
                           {money(it.line_total)}
                         </span>
                       </p>
+                      {it.pack_contents && (
+                        <p className="ps-3 text-[10px] font-semibold text-brand-600 dark:text-brand-400">📦 {it.pack_contents}</p>
+                      )}
                       {((it.sauces?.length ?? 0) > 0 || (it.supplements?.length ?? 0) > 0) && (
                         <p className="truncate ps-3 text-[10px] text-zinc-400 dark:text-zinc-500">
                           + {[...(it.sauces ?? []), ...(it.supplements ?? [])].map((s) => s.name).join(', ')}

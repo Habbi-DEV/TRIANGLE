@@ -162,6 +162,22 @@ export default function MenuPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Deep link: /?pack=12 (shared on Instagram/Facebook, printed as a QR…)
+  // opens that product's sheet as soon as the menu has loaded, then cleans
+  // the address so a refresh doesn't pop it open again.
+  useEffect(() => {
+    if (loading || !products.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = Number(params.get('pack') ?? params.get('product'));
+    if (!Number.isInteger(id) || id <= 0) return;
+    const target = products.find((p) => p.id === id);
+    if (target && target.is_available) setDetail(target);
+    params.delete('pack');
+    params.delete('product');
+    const qs = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+  }, [loading, products]);
+
   // Auto-advance the banner carousel every 4.5s. Restarting on every
   // bannerIdx change (not just on mount) means a manual swipe or a dot tap
   // resets the countdown instead of fighting the timer's own scroll.
@@ -372,9 +388,20 @@ export default function MenuPage() {
                 // ambient glow restores the boundary without looking loud.
                 className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-3xl border border-orange-500/30 bg-white shadow-soft dark:border-orange-500/40 dark:bg-zinc-900 dark:shadow-ember"
               >
-                {promotions.map((p) => (
-                  <img key={p.id} src={p.image_url} alt="" className="aspect-[2/1] w-full shrink-0 snap-center object-cover" />
-                ))}
+                {promotions.map((p) => {
+                  // A banner linked to a product/pack opens its sheet on tap.
+                  const linked = p.link_product_id ? products.find((x) => x.id === p.link_product_id) : undefined;
+                  return (
+                    <img
+                      key={p.id}
+                      src={p.image_url}
+                      alt={linked?.name ?? ''}
+                      onClick={linked ? () => setDetail(linked) : undefined}
+                      role={linked ? 'button' : undefined}
+                      className={`aspect-[2/1] w-full shrink-0 snap-center object-cover ${linked ? 'cursor-pointer' : ''}`}
+                    />
+                  );
+                })}
               </div>
               {promotions.length > 1 && (
                 <div className="mt-3 flex justify-center gap-1.5">

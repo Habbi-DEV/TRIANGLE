@@ -22,6 +22,47 @@ async function syncProductSauces(productId, sauceIds) {
   if (insErr) throw insErr;
 }
 
+// ---------------------------------------------------------------------------
+// PACKS — a pack is a product (is_pack = true) + a list of the products it
+// contains (pack_items). Validated here, never trusted from the client.
+// ---------------------------------------------------------------------------
+const MAX_PACK_ITEMS = 12;
+
+/** Cleans and validates a pack contents payload. Returns { items } or
+ *  { error }. Done BEFORE anything is written, so a bad request can never
+ *  leave a half-created pack behind. */
+async function validatePackItems(raw, packId = null) {
+  const list = Array.isArray(raw) ? raw : [];
+  if (list.length > MAX_PACK_ITEMS) return { error: `A pack can contain at most ${MAX_PACK_ITEMS} different products` };
+  const items = [];
+  const seen = new Set();
+  for (const it of list) {
+    const pid = toId(it?.product_id);
+    const qty = Number(it?.quantity);
+    if (!pid || pid === packId || seen.has(pid) || !Number.isInteger(qty) || qty < 1 || qty > 20) {
+      return { error: 'Invalid pack contents' };
+    }
+    seen.add(pid);
+    items.push({ product_id: pid, quantity: qty });
+  }
+  if (items.length) {
+    const { data: comps, error } = await supabase.from('products').select('id, is_pack').in('id', items.map((i) => i.product_id));
+    if (error) throw error;
+    if ((comps || []).length !== items.length) return { error: 'A pack item does not exist' };
+    if (comps.some((c) => c.is_pack)) return { error: 'A pack cannot contain another pack' };
+  }
+  return { items };
+}
+
+async function savePackItems(packId, items) {
+  const { error: delErr } = await supabase.from('pack_items').delete().eq('pack_id', packId);
+  if (delErr) throw delErr;
+  if (!items.length) return;
+  const { error: insErr } = await supabase.from('pack_items')
+    .insert(items.map((i) => ({ pack_id: packId, product_id: i.product_id, quantity: i.quantity })));
+  if (insErr) throw insErr;
+}
+
 async function handleProductVariants(req, res) {
   if (req.method === 'GET') {
     const pid = toId(req.query.product_id);
@@ -163,7 +204,7 @@ async function handleProductImages(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-const PRODUCT_UPDATE_ALLOW = new Set(['name', 'description', 'price', 'category_id', 'image_url', 'stock', 'is_available', 'badge']);
+const PRODUCT_UPDATE_ALLOW = new Set(['name', 'description', 'price', 'category_id', 'image_url', 'stock', 'is_available', 'badge', 'is_pack']);
 
 // Card badge shown on the customer menu. '' / null clears it.
 const PRODUCT_BADGES = new Set(['popular', 'new', 'limited']);
@@ -231,17 +272,55 @@ export default async function handler(req, res) {
         if (!isStaffCall && !l.sauces.is_active) continue;
         (saucesByProduct[l.product_id] ||= []).push(l.sauces);
       }
+      // Packs: attach what each one contains and what it would cost bought
+      // separately (so the menu can show "Économisez X"). Done only when the
+      // menu actually has a pack — and a database that hasn't run
+      // migration_v22 yet has no is_pack column, so this is skipped entirely.
+      const packIds = (data || []).filter((p) => p.is_pack === true).map((p) => p.id);
+      const packInfo = {};
+      if (packIds.length) {
+        const { data: links } = await supabase.from('pack_items').select('pack_id, product_id, quantity').in('pack_id', packIds);
+        const compIds = [...new Set((links || []).map((l) => l.product_id))];
+        let comps = {}, compVariants = {};
+        if (compIds.length) {
+          const [{ data: cp }, { data: cv }] = await Promise.all([
+            supabase.from('products').select('id, name, price, is_available').in('id', compIds),
+            supabase.from('product_variants').select('product_id, price, is_available').in('product_id', compIds),
+          ]);
+          comps = Object.fromEntries((cp || []).map((c) => [c.id, c]));
+          for (const v of cv || []) if (v.is_available) (compVariants[v.product_id] ||= []).push(Number(v.price));
+        }
+        for (const id of packIds) {
+          const mine = (links || []).filter((l) => l.pack_id === id && comps[l.product_id]);
+          let value = 0, allAvailable = true;
+          const pack_items = mine.map((l) => {
+            const c = comps[l.product_id];
+            // A component with sizes counts at its cheapest size.
+            const vs = compVariants[c.id];
+            const unit = vs && vs.length ? Math.min(...vs) : Number(c.price);
+            value += unit * l.quantity;
+            if (!c.is_available) allAvailable = false;
+            return { product_id: c.id, name: c.name, quantity: l.quantity };
+          });
+          packInfo[id] = { pack_items, pack_value: Math.round(value * 100) / 100, pack_ok: allAvailable && pack_items.length > 0 };
+        }
+      }
       return res.status(200).json((data || []).map((p) => {
         const { stock, ...rest } = p;
         // Server-computed "can it still be ordered?" so the public menu can
         // grey out sold-out items without ever receiving the stock number.
         // A product with sizes is in stock as long as one size is.
         const pv = variantsByProduct[p.id] || [];
-        const in_stock = pv.length
+        let in_stock = pv.length
           ? pv.some((v) => (isStaffCall ? (v.is_available && v.stock > 0) : v.in_stock))
           : (stock ?? 0) > 0;
+        // A pack can only be ordered while everything inside it can be.
+        const pk = packInfo[p.id];
+        if (pk && !pk.pack_ok) in_stock = false;
+        const { pack_ok: _ok, ...packPublic } = pk || {};
         return {
           ...(isStaffCall ? p : rest), // public never sees stock
+          ...packPublic,
           in_stock,
           images: byProduct[p.id] || [],
           sauces: (saucesByProduct[p.id] || []).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
@@ -255,7 +334,10 @@ export default async function handler(req, res) {
       const staff = await requireManager(req, res); // FIX H1: driver excluded
       if (!staff) return;
       if (!rateLimit(req, res, { max: 30, windowMs: 60_000, key: 'product-write' })) return;
-      const { name, description, price, category_id, image_url, stock, is_available, sauce_ids, supplement_ids, badge } = req.body || {};
+      const { name, description, price, category_id, image_url, stock, is_available, sauce_ids, supplement_ids, badge, is_pack, pack_items } = req.body || {};
+      const isPack = is_pack === true;
+      const packCheck = isPack ? await validatePackItems(pack_items) : { items: [] };
+      if (packCheck.error) return res.status(400).json({ error: packCheck.error });
       const badgeN = cleanBadge(badge);
       if (badgeN === undefined) return res.status(400).json({ error: 'Invalid badge' });
       const cleanName = cleanText(name, 150);
@@ -277,8 +359,10 @@ export default async function handler(req, res) {
         stock: stockN, is_available: is_available !== false,
         // Only sent when set, so installs that haven't run migration_v21 keep working.
         ...(badgeN ? { badge: badgeN } : {}),
+        ...(isPack ? { is_pack: true } : {}), // needs migration_v22
       }).select().single();
       if (error) return internalError(res, error, 'products POST');
+      if (isPack) await savePackItems(data.id, packCheck.items);
       if (Array.isArray(sauce_ids) && sauce_ids.length) await syncProductSauces(data.id, sauce_ids);
       if (Array.isArray(supplement_ids) && supplement_ids.length) await syncProductSupplements(data.id, supplement_ids);
       await audit(supabase, { actorId: staff.id, action: 'product.create', entity: 'products', entityId: data.id });
@@ -288,9 +372,17 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       const staff = await requireManager(req, res);
       if (!staff) return;
-      const { id, sauce_ids, supplement_ids, ...rest } = req.body || {};
+      const { id, sauce_ids, supplement_ids, pack_items, ...rest } = req.body || {};
       const pid = toId(id);
       if (!pid) return res.status(400).json({ error: 'id is required' });
+      if ('is_pack' in rest) rest.is_pack = rest.is_pack === true;
+      // Contents are validated first; they're only (re)written when sent, or
+      // cleared when the product stops being a pack.
+      let packCheck = null;
+      if (Array.isArray(pack_items) && rest.is_pack !== false) {
+        packCheck = await validatePackItems(pack_items, pid);
+        if (packCheck.error) return res.status(400).json({ error: packCheck.error });
+      }
       // FIX H2 mass-assignment: allowlist only
       const fields = {};
       for (const k of Object.keys(rest)) if (PRODUCT_UPDATE_ALLOW.has(k)) fields[k] = rest[k];
@@ -339,6 +431,8 @@ export default async function handler(req, res) {
         if (error) return internalError(res, error, 'products PUT');
         data = updated;
       }
+      if (rest.is_pack === false) await savePackItems(pid, []);
+      else if (packCheck) await savePackItems(pid, packCheck.items);
       if (Array.isArray(sauce_ids)) await syncProductSauces(pid, sauce_ids);
       if (Array.isArray(supplement_ids)) await syncProductSupplements(pid, supplement_ids);
       await audit(supabase, { actorId: staff.id, action: 'product.update', entity: 'products', entityId: pid, meta: { fields: Object.keys(fields) } });
@@ -356,7 +450,11 @@ export default async function handler(req, res) {
       const pid = toId(req.body?.id);
       if (!pid) return res.status(400).json({ error: 'Invalid id' });
       const { error } = await supabase.from('products').delete().eq('id', pid);
-      if (error) return internalError(res, error, 'products DELETE');
+      if (error) {
+        // Still used inside a pack (pack_items.product_id is ON DELETE RESTRICT).
+        if (error.code === '23503') return res.status(409).json({ error: 'This product is part of a pack — remove it from the pack first' });
+        return internalError(res, error, 'products DELETE');
+      }
       await audit(supabase, { actorId: staff.id, action: 'product.delete', entity: 'products', entityId: pid });
       return res.status(200).json({ ok: true });
     }

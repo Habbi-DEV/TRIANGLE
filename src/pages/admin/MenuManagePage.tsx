@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Droplet, ImagePlus, Layers, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Droplet, ImagePlus, Layers, Link2, Package, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { Category, Product, ProductImage, ProductVariant, Promotion, Sauce, Settings, Supplement } from '../../lib/types';
 import { api } from '../../lib/api';
 import supabase from '../../lib/supabase';
@@ -18,12 +18,25 @@ const EMPTY_FORM = {
   stock: '20',
   is_available: true,
   badge: '',
+  is_pack: false,
+};
+
+/** One line of a pack being edited. */
+interface PackLine { product_id: number; quantity: number }
+
+/** What a product costs when bought on its own — a product with sizes counts
+ *  at its cheapest available size (same rule as the server's pack value). */
+const unitPriceOf = (p: Product): number => {
+  const vs = (p.variants ?? []).filter((v) => v.is_available).map((v) => v.price);
+  return vs.length ? Math.min(...vs) : p.price;
 };
 
 export default function MenuManagePage() {
   const { t } = useLang();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [packLines, setPackLines] = useState<PackLine[]>([]);
+  const [copiedPackId, setCopiedPackId] = useState<number | null>(null);
   const [sauces, setSauces] = useState<Sauce[]>([]);
   const [supplements, setSupplements] = useState<Supplement[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -99,6 +112,7 @@ export default function MenuManagePage() {
   const openAdd = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setPackLines([]);
     setError('');
     setGallery([]);
     setPendingGallery([]);
@@ -121,7 +135,9 @@ export default function MenuManagePage() {
       stock: String(p.stock),
       is_available: p.is_available,
       badge: p.badge ?? '',
+      is_pack: p.is_pack === true,
     });
+    setPackLines((p.pack_items ?? []).map((i) => ({ product_id: i.product_id, quantity: i.quantity })));
     setError('');
     setGallery(p.images ?? []);
     setPendingGallery([]);
@@ -136,6 +152,10 @@ export default function MenuManagePage() {
   const save = async () => {
     if (!form.name.trim() || !form.price || isNaN(Number(form.price))) {
       setError(t('menu.error_name_price'));
+      return;
+    }
+    if (form.is_pack && packLines.length === 0) {
+      setError(t('menu.pack.no_items'));
       return;
     }
     setSaving(true);
@@ -153,6 +173,10 @@ export default function MenuManagePage() {
       // Sent only when it changed / is set, so a database without
       // migration_v21 can still save products.
       ...((editing ? (editing.badge ?? '') !== form.badge : form.badge !== '') ? { badge: form.badge || null } : {}),
+      // Pack fields are only sent when relevant, so a database without
+      // migration_v22 can still save ordinary products.
+      ...((editing ? (editing.is_pack === true) !== form.is_pack : form.is_pack) ? { is_pack: form.is_pack } : {}),
+      ...(form.is_pack ? { pack_items: packLines } : {}),
       sauce_ids: selectedSauceIds,
       supplement_ids: selectedSupplementIds,
     };
@@ -735,7 +759,20 @@ export default function MenuManagePage() {
               <div className={`h-16 w-28 overflow-hidden rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 ${p.is_active ? '' : 'opacity-40 grayscale'}`}>
                 <img src={p.image_url} alt="" className="h-full w-full object-cover" />
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex w-28 flex-wrap items-center justify-center gap-1.5">
+                <select
+                  value={p.link_product_id ?? ''}
+                  title={t('menu.promo_link')}
+                  onChange={async (e) => {
+                    const v = e.target.value ? Number(e.target.value) : null;
+                    await api('/api/categories', { method: 'PUT', body: JSON.stringify({ id: p.id, type: 'promotion', link_product_id: v }) }).catch(console.error);
+                    setPromotions((ps) => ps.map((x) => (x.id === p.id ? { ...x, link_product_id: v } : x)));
+                  }}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-1 py-1 text-[10px] text-zinc-600 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                >
+                  <option value="">{t('menu.promo_link')}: {t('menu.promo_link.none')}</option>
+                  {[...products].sort((x, y) => Number(!!y.is_pack) - Number(!!x.is_pack)).map((pr) => <option key={pr.id} value={pr.id}>{pr.is_pack ? '📦 ' : ''}{pr.name}</option>)}
+                </select>
                 <button onClick={() => togglePromotionActive(p)} title={p.is_active ? t('menu.hide_from_menu') : t('menu.show_on_menu')} className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${p.is_active ? 'bg-brand-50 text-brand-700' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500'}`}>
                   {p.is_active ? t('menu.visible') : t('menu.hidden')}
                 </button>
@@ -885,7 +922,7 @@ export default function MenuManagePage() {
             <img src={p.image_url || '/images/menu/classic-burger.jpg'} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
-                <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">{p.name}</p>
+                <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">{p.is_pack && <Package size={13} className="me-1 inline text-brand-500" />}{p.name}</p>
                 <span className="shrink-0 font-display text-sm font-bold text-burnt">{money(p.price)}</span>
               </div>
               <p className="text-[11px] text-zinc-400 dark:text-zinc-500">{catName(p.category_id)} · {t('menu.stock')} {p.stock}</p>
@@ -896,6 +933,19 @@ export default function MenuManagePage() {
                 >
                   {p.is_available ? t('menu.available') : t('menu.hidden')}
                 </button>
+                {p.is_pack && (
+                  <button
+                    title={copiedPackId === p.id ? t('menu.pack.copied') : t('menu.pack.copy_link')}
+                    aria-label={t('menu.pack.copy_link')}
+                    onClick={() => {
+                      navigator.clipboard?.writeText(`${window.location.origin}/?pack=${p.id}`).then(() => {
+                        setCopiedPackId(p.id);
+                        setTimeout(() => setCopiedPackId((c) => (c === p.id ? null : c)), 2000);
+                      }).catch(() => {});
+                    }}
+                    className={`rounded-lg p-1.5 hover:bg-zinc-50 ${copiedPackId === p.id ? 'text-green-600' : 'text-zinc-400 hover:text-brand-600 dark:text-zinc-500'}`}
+                  ><Link2 size={14} /></button>
+                )}
                 <button onClick={() => openEdit(p)} className="ms-auto rounded-lg p-1.5 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-50 hover:text-brand-600"><Pencil size={14} /></button>
                 <button onClick={() => removeProduct(p)} className="rounded-lg p-1.5 text-zinc-400 dark:text-zinc-500 hover:bg-red-50 hover:text-red-500"><Trash2 size={14} /></button>
               </div>
@@ -941,6 +991,67 @@ export default function MenuManagePage() {
               <option value="new">✨ {t('shop.badge.new')}</option>
               <option value="limited">⭐ {t('shop.badge.limited')}</option>
             </select>
+          </div>
+
+          {/* PACK: one product, one price, made of several other products */}
+          <div className="rounded-2xl border border-orange-500/30 bg-orange-500/[0.05] p-3">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input type="checkbox" checked={form.is_pack} onChange={(e) => setForm({ ...form, is_pack: e.target.checked })} className="h-4 w-4 accent-orange-500" />
+              <Package size={15} className="text-brand-500" />
+              <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">{t('menu.pack.toggle')}</span>
+            </label>
+            {form.is_pack && (() => {
+              const candidates = products.filter((p) => !p.is_pack && p.id !== editing?.id && !packLines.some((l) => l.product_id === p.id));
+              const value = packLines.reduce((n, l) => {
+                const p = products.find((x) => x.id === l.product_id);
+                return n + (p ? unitPriceOf(p) * l.quantity : 0);
+              }, 0);
+              const price = Number(form.price) || 0;
+              const saving = value - price;
+              return (
+                <div className="mt-3 space-y-2">
+                  <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t('menu.pack.hint')}</p>
+                  <p className="text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('menu.pack.items')}</p>
+                  {packLines.map((l) => {
+                    const p = products.find((x) => x.id === l.product_id);
+                    return (
+                      <div key={l.product_id} className="flex items-center gap-2 rounded-xl bg-white px-2.5 py-1.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">{p?.name ?? `#${l.product_id}`}</span>
+                        <span className="shrink-0 text-[11px] text-zinc-400">{p ? money(unitPriceOf(p)) : ''}</span>
+                        <input
+                          type="number" min={1} max={20} value={l.quantity}
+                          onChange={(e) => {
+                            const q = Math.max(1, Math.min(20, Math.floor(Number(e.target.value) || 1)));
+                            setPackLines((ls) => ls.map((x) => (x.product_id === l.product_id ? { ...x, quantity: q } : x)));
+                          }}
+                          className="w-14 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-brand-400 dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                        <button type="button" onClick={() => setPackLines((ls) => ls.filter((x) => x.product_id !== l.product_id))} className="text-zinc-300 hover:text-red-500 dark:text-zinc-600"><X size={14} /></button>
+                      </div>
+                    );
+                  })}
+                  {packLines.length < 12 && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const id = Number(e.target.value);
+                        if (id) setPackLines((ls) => [...ls, { product_id: id, quantity: 1 }]);
+                      }}
+                      className="w-full rounded-xl border border-dashed border-orange-500/50 bg-white px-2 py-2 text-sm text-zinc-500 outline-none focus:border-brand-400 dark:bg-zinc-900"
+                    >
+                      <option value="">{t('menu.pack.add_item')}</option>
+                      {candidates.map((p) => <option key={p.id} value={p.id}>{p.name} — {money(unitPriceOf(p))}</option>)}
+                    </select>
+                  )}
+                  {packLines.length > 0 && (
+                    <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-xs ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700">
+                      <span className="text-zinc-500 dark:text-zinc-400">{t('menu.pack.value')} <b className="text-zinc-800 dark:text-zinc-100">{money(value)}</b></span>
+                      <span className={saving > 0 ? 'font-bold text-green-600' : 'font-bold text-red-500'}>{t('menu.pack.savings')}: {money(saving)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div>

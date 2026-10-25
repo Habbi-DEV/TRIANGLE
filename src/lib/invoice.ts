@@ -91,10 +91,11 @@ function buildReceiptHtml(order: Order, withBackButton: boolean): string {
         ? `<div class="sauces">+ ${addOns.map((s) => escapeHtml(s.name) + (s.price > 0 ? ` (${money(s.price)})` : '')).join(', ')}</div>`
         : '';
       const size = it.variant_name ? ` · ${escapeHtml(it.variant_name)}` : '';
+      const pack = it.pack_contents ? `<div class="sauces">${escapeHtml(it.pack_contents)}</div>` : '';
       return `
         <tr>
           <td class="qty">${it.quantity}×</td>
-          <td class="name">${escapeHtml(it.product_name)}${size}${sauces}</td>
+          <td class="name">${escapeHtml(it.product_name)}${size}${pack}${sauces}</td>
           <td class="amt">${money(it.line_total)}</td>
         </tr>`;
     })
