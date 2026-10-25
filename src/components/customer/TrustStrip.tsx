@@ -14,7 +14,7 @@ const ITEMS: { icon: LucideIcon; title: string }[] = [
 export default function TrustStrip() {
   const { t } = useLang();
   return (
-    <ul className="gem gem-sm mt-3 grid grid-cols-4 divide-x divide-zinc-200/80 rounded-2xl bg-white/90 py-2 [--gem-r:16px] rtl:divide-x-reverse dark:divide-white/[0.07] dark:bg-zinc-900/80">
+    <ul className="mt-3 grid grid-cols-4 divide-x divide-zinc-200/80 rounded-2xl border border-zinc-200/80 bg-white/90 py-2 rtl:divide-x-reverse dark:divide-white/[0.07] dark:border-orange-500/20 dark:bg-zinc-900/80">
       {ITEMS.map(({ icon: Icon, title }) => (
         <li key={title} className="flex min-w-0 items-center justify-center gap-1 px-0.5">
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-orange-500/60 text-brand-500 shadow-[0_0_10px_rgba(255,106,0,0.25)] dark:text-brand-400">

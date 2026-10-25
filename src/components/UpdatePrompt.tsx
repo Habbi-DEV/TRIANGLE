@@ -89,7 +89,7 @@ export default function UpdatePrompt() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -80, opacity: 0 }}
           transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-          className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+8px)] z-[200] gem mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-white/95 [--gem-r:16px] p-3 shadow-soft-xl backdrop-blur-xl dark:bg-zinc-950/95 dark:shadow-ember"
+          className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+8px)] z-[200] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-orange-500/40 bg-white/95 p-3 shadow-soft-xl backdrop-blur-xl dark:bg-zinc-950/95 dark:shadow-ember"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-[0_0_16px_rgba(255,106,0,0.5)]">
             <RefreshCw size={18} />
