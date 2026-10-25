@@ -14,7 +14,7 @@ export default function FreeDeliveryBar({ threshold, onClick }: { threshold: num
       initial={{ y: 40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       onClick={onClick}
-      className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md items-center gap-3 overflow-hidden rounded-2xl border border-orange-500/40 bg-white/90 px-3 py-2.5 text-start shadow-soft-lg backdrop-blur-xl transition active:scale-[0.98] dark:bg-zinc-950/90 dark:shadow-ember"
+      className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md items-center gap-3 gem overflow-hidden rounded-2xl bg-white/90 [--gem-r:16px] px-3 py-2.5 text-start shadow-soft-lg backdrop-blur-xl transition active:scale-[0.98] dark:bg-zinc-950/90 dark:shadow-ember"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-[0_0_16px_rgba(255,106,0,0.5)]">
         <Gift size={18} />

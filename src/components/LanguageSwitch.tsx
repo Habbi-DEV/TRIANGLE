@@ -13,7 +13,7 @@ export default function LanguageSwitch({ compact: _compact = false }: { compact?
 
   return (
     <div
-      className="flex rounded-full border border-transparent bg-zinc-100 p-1 dark:border-orange-500/30 dark:bg-zinc-900"
+      className="gem gem-sm flex rounded-full bg-zinc-100 p-1 [--gem-r:20px] dark:bg-zinc-900"
       role="group"
       aria-label="Language"
     >

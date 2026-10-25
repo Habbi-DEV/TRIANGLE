@@ -38,7 +38,7 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
   return (
     <div
       onClick={() => !soldOut && onOpen(product)}
-      className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-white shadow-soft-sm ring-1 ring-zinc-200/70 transition duration-300 hover:shadow-soft dark:bg-zinc-900/80 dark:shadow-none dark:ring-orange-500/20 dark:hover:shadow-ember dark:hover:ring-orange-500/50 ${soldOut ? 'opacity-60' : ''}`}
+      className={`gem group relative flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-white shadow-soft-sm transition duration-300 [--gem-r:24px] hover:shadow-soft dark:bg-zinc-900/80 dark:shadow-[0_0_22px_-10px_rgba(255,106,0,0.4)] dark:hover:shadow-ember ${soldOut ? 'opacity-60' : ''}`}
     >
       {/* The photo fades into the card colour at its bottom edge, so a food
           shot with its own dark backdrop melts into the card instead of

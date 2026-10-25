@@ -322,7 +322,7 @@ export default function MenuPage() {
         {/* header — sticky identity bar only (logo, name, language, cart). Kept
             separate from the banner/categories below so it's always the very
             first thing on screen, pinned, instead of the banner pushing it down. */}
-        <header className="sticky top-0 z-30 -mx-4 rounded-b-[28px] border-b border-zinc-200/70 bg-white/85 px-4 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top))] shadow-soft-sm backdrop-blur-xl md:mx-0 md:px-5 md:pt-3 dark:border-orange-500/25 dark:bg-zinc-950/80 dark:shadow-[0_12px_40px_-14px_rgba(255,106,0,0.4)]">
+        <header className="sticky top-0 z-30 -mx-4 gem gem-bottom rounded-b-[28px] [--gem-r:28px] bg-white/85 px-4 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top))] shadow-soft-sm backdrop-blur-xl md:mx-0 md:px-5 md:pt-3 dark:bg-zinc-950/80 dark:shadow-[0_12px_40px_-14px_rgba(255,106,0,0.4)]">
           <div className="flex items-center gap-2">
             {/* Swaps to the white wordmark the moment the header goes
                 zinc-950 in dark mode — loading and no-logo states live in
@@ -370,6 +370,10 @@ export default function MenuPage() {
         ) : (
           promotions.length > 0 && (
             <div className="pt-4">
+              {/* gem frame + slow light sweep: the ring/glints are overlays on this
+                  wrapper (not on the scroller, or they would scroll away) */}
+              <div className="gem relative overflow-hidden rounded-3xl [--gem-r:24px] dark:shadow-ember">
+              <span className="gem-shine" aria-hidden="true" />
               <div
                 ref={bannerRef}
                 onScroll={(e) => {
@@ -386,7 +390,7 @@ export default function MenuPage() {
                 // border/glow they visually merge into the dark app shell and
                 // lose all depth — a thin brand-orange border plus a soft
                 // ambient glow restores the boundary without looking loud.
-                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-3xl border border-orange-500/30 bg-white shadow-soft dark:border-orange-500/40 dark:bg-zinc-900 dark:shadow-ember"
+                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-3xl bg-white dark:bg-zinc-900"
               >
                 {promotions.map((p) => {
                   // A banner linked to a product/pack opens its sheet on tap.
@@ -402,6 +406,7 @@ export default function MenuPage() {
                     />
                   );
                 })}
+              </div>
               </div>
               {promotions.length > 1 && (
                 <div className="mt-3 flex justify-center gap-1.5">
@@ -428,7 +433,8 @@ export default function MenuPage() {
             pinned). Each category is a tile (see CategoryTile): its photo
             floats bare (transparent PNGs look best), categories without one
             fall back to an emoji in a rounded square. */}
-        <div className="no-scrollbar mt-3 flex overflow-x-auto rounded-3xl border border-zinc-200/80 bg-white/90 px-1.5 py-1 dark:border-orange-500/20 dark:bg-zinc-900/80">
+        <div className="gem mt-3 rounded-3xl [--gem-r:24px] dark:shadow-[0_0_26px_-10px_rgba(255,106,0,0.45)]">
+        <div className="no-scrollbar flex overflow-x-auto rounded-3xl bg-white/90 px-1.5 py-1 dark:bg-zinc-900/80">
           {loading ? (
             // Six placeholder tiles — a plausible category-rail count —
             // since categories haven't loaded yet.
@@ -464,12 +470,13 @@ export default function MenuPage() {
             </>
           )}
         </div>
+        </div>
 
         {/* inline search — opened from the bottom nav, which also scrolls the
             page back to the top so this is reachable even mid-scroll */}
         {searchOpen && (
           <div className="mt-3">
-            <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-3 dark:border-orange-500/25 dark:bg-zinc-900">
+            <div className="gem gem-sm flex items-center gap-2 rounded-full bg-white px-4 py-3 [--gem-r:24px] dark:bg-zinc-900">
               <Search size={16} className="shrink-0 text-zinc-400" />
               <input
                 autoFocus
@@ -586,7 +593,7 @@ export default function MenuPage() {
 
       {/* bottom nav — a floating pill: Menu / Search / order status */}
       <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
-        <div className="mx-auto flex max-w-md items-center justify-around rounded-[28px] border border-zinc-200/80 bg-white/85 px-6 py-2.5 shadow-soft-xl backdrop-blur-xl md:max-w-3xl lg:max-w-5xl dark:border-orange-500/25 dark:bg-zinc-950/85 dark:shadow-[0_-8px_40px_-12px_rgba(255,106,0,0.35)]">
+        <div className="gem mx-auto flex max-w-md items-center justify-around rounded-[28px] bg-white/85 px-6 py-2.5 shadow-soft-xl backdrop-blur-xl [--gem-r:28px] md:max-w-3xl lg:max-w-5xl dark:bg-zinc-950/85 dark:shadow-[0_-8px_40px_-12px_rgba(255,106,0,0.35)]">
           <NavItem active={!searchOpen} icon={UtensilsCrossed} label={t('shop.nav_menu')} onClick={() => setSearchOpen(false)} />
           <NavItem
             active={searchOpen}

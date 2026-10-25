@@ -18,7 +18,7 @@ export default function ThemeToggle() {
       aria-checked={dark}
       onClick={toggle}
       aria-label={t('theme.toggle')}
-      className="relative flex h-9 w-14 shrink-0 items-center rounded-full border border-zinc-200 bg-zinc-100 p-1 transition-colors duration-300 dark:border-orange-500/30 dark:bg-zinc-900"
+      className="gem gem-sm relative flex h-9 w-14 shrink-0 items-center [--gem-r:18px] rounded-full bg-zinc-100 p-1 transition-colors duration-300 dark:bg-zinc-900"
     >
       <motion.span
         layout
