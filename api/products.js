@@ -33,23 +33,39 @@ const MAX_PACK_ITEMS = 12;
  *  leave a half-created pack behind. */
 async function validatePackItems(raw, packId = null) {
   const list = Array.isArray(raw) ? raw : [];
-  if (list.length > MAX_PACK_ITEMS) return { error: `A pack can contain at most ${MAX_PACK_ITEMS} different products` };
+  if (list.length > MAX_PACK_ITEMS) return { error: `A pack can contain at most ${MAX_PACK_ITEMS} lines` };
   const items = [];
   const seen = new Set();
   for (const it of list) {
     const pid = toId(it?.product_id);
+    const vid = it?.variant_id == null || it.variant_id === '' ? null : toId(it.variant_id);
     const qty = Number(it?.quantity);
-    if (!pid || pid === packId || seen.has(pid) || !Number.isInteger(qty) || qty < 1 || qty > 20) {
+    // One line per (product + size): the same drink can appear twice in
+    // different sizes, but never twice in the same one.
+    const key = `${pid}:${vid ?? 0}`;
+    if (!pid || pid === packId || (it?.variant_id != null && it.variant_id !== '' && !vid) || seen.has(key) || !Number.isInteger(qty) || qty < 1 || qty > 20) {
       return { error: 'Invalid pack contents' };
     }
-    seen.add(pid);
-    items.push({ product_id: pid, quantity: qty });
+    seen.add(key);
+    items.push({ product_id: pid, variant_id: vid, quantity: qty });
   }
   if (items.length) {
-    const { data: comps, error } = await supabase.from('products').select('id, is_pack').in('id', items.map((i) => i.product_id));
+    const pids = [...new Set(items.map((i) => i.product_id))];
+    const { data: comps, error } = await supabase.from('products').select('id, is_pack').in('id', pids);
     if (error) throw error;
-    if ((comps || []).length !== items.length) return { error: 'A pack item does not exist' };
+    if ((comps || []).length !== pids.length) return { error: 'A pack item does not exist' };
     if (comps.some((c) => c.is_pack)) return { error: 'A pack cannot contain another pack' };
+    // Sizes: a chosen size must belong to that product, and a product that
+    // HAS sizes must say which one (otherwise "Coca" is ambiguous in the
+    // kitchen and in the price).
+    const { data: sizes, error: sErr } = await supabase.from('product_variants').select('id, product_id').in('product_id', pids);
+    if (sErr) throw sErr;
+    const sizeOwner = Object.fromEntries((sizes || []).map((v) => [v.id, v.product_id]));
+    const hasSizes = new Set((sizes || []).map((v) => v.product_id));
+    for (const i of items) {
+      if (i.variant_id && sizeOwner[i.variant_id] !== i.product_id) return { error: 'Invalid size for a pack item' };
+      if (!i.variant_id && hasSizes.has(i.product_id)) return { error: 'Choose a size for every product that has sizes' };
+    }
   }
   return { items };
 }
@@ -59,7 +75,7 @@ async function savePackItems(packId, items) {
   if (delErr) throw delErr;
   if (!items.length) return;
   const { error: insErr } = await supabase.from('pack_items')
-    .insert(items.map((i) => ({ pack_id: packId, product_id: i.product_id, quantity: i.quantity })));
+    .insert(items.map((i) => ({ pack_id: packId, product_id: i.product_id, quantity: i.quantity, ...(i.variant_id ? { variant_id: i.variant_id } : {}) })));
   if (insErr) throw insErr;
 }
 
@@ -279,28 +295,33 @@ export default async function handler(req, res) {
       const packIds = (data || []).filter((p) => p.is_pack === true).map((p) => p.id);
       const packInfo = {};
       if (packIds.length) {
-        const { data: links } = await supabase.from('pack_items').select('pack_id, product_id, quantity').in('pack_id', packIds);
+        const { data: links } = await supabase.from('pack_items').select('*').in('pack_id', packIds);
         const compIds = [...new Set((links || []).map((l) => l.product_id))];
-        let comps = {}, compVariants = {};
+        let comps = {}, compVariants = {}, compVariantById = {};
         if (compIds.length) {
           const [{ data: cp }, { data: cv }] = await Promise.all([
             supabase.from('products').select('id, name, price, is_available').in('id', compIds),
-            supabase.from('product_variants').select('product_id, price, is_available').in('product_id', compIds),
+            supabase.from('product_variants').select('id, product_id, name, price, is_available').in('product_id', compIds),
           ]);
           comps = Object.fromEntries((cp || []).map((c) => [c.id, c]));
-          for (const v of cv || []) if (v.is_available) (compVariants[v.product_id] ||= []).push(Number(v.price));
+          for (const v of cv || []) {
+            compVariantById[v.id] = v;
+            if (v.is_available) (compVariants[v.product_id] ||= []).push(Number(v.price));
+          }
         }
         for (const id of packIds) {
           const mine = (links || []).filter((l) => l.pack_id === id && comps[l.product_id]);
           let value = 0, allAvailable = true;
           const pack_items = mine.map((l) => {
             const c = comps[l.product_id];
-            // A component with sizes counts at its cheapest size.
+            // A chosen size counts at ITS price; a line without a size (packs
+            // made before sizes were supported) at the cheapest size.
+            const chosen = l.variant_id ? compVariantById[l.variant_id] : null;
             const vs = compVariants[c.id];
-            const unit = vs && vs.length ? Math.min(...vs) : Number(c.price);
+            const unit = chosen ? Number(chosen.price) : vs && vs.length ? Math.min(...vs) : Number(c.price);
             value += unit * l.quantity;
-            if (!c.is_available) allAvailable = false;
-            return { product_id: c.id, name: c.name, quantity: l.quantity };
+            if (!c.is_available || (chosen && !chosen.is_available)) allAvailable = false;
+            return { product_id: c.id, variant_id: chosen ? chosen.id : null, name: chosen ? `${c.name} (${chosen.name})` : c.name, quantity: l.quantity };
           });
           packInfo[id] = { pack_items, pack_value: Math.round(value * 100) / 100, pack_ok: allAvailable && pack_items.length > 0 };
         }

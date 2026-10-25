@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Droplet, ImagePlus, Layers, Link2, Package, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { Category, Product, ProductImage, ProductVariant, Promotion, Sauce, Settings, Supplement } from '../../lib/types';
 import { api } from '../../lib/api';
@@ -22,7 +22,8 @@ const EMPTY_FORM = {
 };
 
 /** One line of a pack being edited. */
-interface PackLine { product_id: number; quantity: number }
+interface PackLine { product_id: number; variant_id: number | null; quantity: number }
+const lineKey = (l: { product_id: number; variant_id: number | null }) => `${l.product_id}:${l.variant_id ?? 0}`;
 
 /** What a product costs when bought on its own — a product with sizes counts
  *  at its cheapest available size (same rule as the server's pack value). */
@@ -36,6 +37,10 @@ export default function MenuManagePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [packLines, setPackLines] = useState<PackLine[]>([]);
+  // Stock typed in a size's field but not yet committed, and the saves still
+  // in flight — so "Enregistrer" can wait for them (see commitVariantStock).
+  const [stockDraft, setStockDraft] = useState<Record<number, string>>({});
+  const stockSaves = useRef<Set<Promise<void>>>(new Set());
   const [copiedPackId, setCopiedPackId] = useState<number | null>(null);
   const [sauces, setSauces] = useState<Sauce[]>([]);
   const [supplements, setSupplements] = useState<Supplement[]>([]);
@@ -113,6 +118,7 @@ export default function MenuManagePage() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setPackLines([]);
+    setStockDraft({});
     setError('');
     setGallery([]);
     setPendingGallery([]);
@@ -137,7 +143,8 @@ export default function MenuManagePage() {
       badge: p.badge ?? '',
       is_pack: p.is_pack === true,
     });
-    setPackLines((p.pack_items ?? []).map((i) => ({ product_id: i.product_id, quantity: i.quantity })));
+    setPackLines((p.pack_items ?? []).map((i) => ({ product_id: i.product_id, variant_id: i.variant_id ?? null, quantity: i.quantity })));
+    setStockDraft({});
     setError('');
     setGallery(p.images ?? []);
     setPendingGallery([]);
@@ -160,6 +167,10 @@ export default function MenuManagePage() {
     }
     setSaving(true);
     setError('');
+    // Anything typed in a size's stock field, and any size-stock save already
+    // under way, must land BEFORE the form closes and the list reloads.
+    variants.forEach(commitVariantStock);
+    await Promise.allSettled([...stockSaves.current]);
     const payload = {
       name: form.name.trim(),
       description: form.description,
@@ -479,6 +490,21 @@ export default function MenuManagePage() {
       setError(err instanceof Error ? err.message : t('common.save_failed'));
       setVariants((vs) => vs.map((x) => (x.id === v.id ? { ...x, stock: v.stock } : x)));
     });
+  };
+
+  /** Commits the stock typed in a size's field. Tracked, so saving the product
+   *  can wait for it: tapping "Enregistrer" right after typing used to close
+   *  the form and reload the list BEFORE this request finished, showing the
+   *  old stock (0) even though it was saved a moment later. */
+  const commitVariantStock = (v: ProductVariant) => {
+    const raw = stockDraft[v.id];
+    if (raw === undefined) return;
+    setStockDraft((d) => {
+      const { [v.id]: _drop, ...rest } = d;
+      return rest;
+    });
+    const job: Promise<void> = updateVariantStock(v, raw).finally(() => stockSaves.current.delete(job));
+    stockSaves.current.add(job);
   };
 
   const removePendingVariant = (idx: number) => setPendingVariants((vs) => vs.filter((_, i) => i !== idx));
@@ -1001,46 +1027,65 @@ export default function MenuManagePage() {
               <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">{t('menu.pack.toggle')}</span>
             </label>
             {form.is_pack && (() => {
-              const candidates = products.filter((p) => !p.is_pack && p.id !== editing?.id && !packLines.some((l) => l.product_id === p.id));
-              const value = packLines.reduce((n, l) => {
+              /** Price of one line: the chosen size's own price when it has one. */
+              const unitOf = (l: PackLine) => {
                 const p = products.find((x) => x.id === l.product_id);
-                return n + (p ? unitPriceOf(p) * l.quantity : 0);
-              }, 0);
+                if (!p) return 0;
+                const size = l.variant_id ? (p.variants ?? []).find((v) => v.id === l.variant_id) : null;
+                return size ? Number(size.price) : unitPriceOf(p);
+              };
+              const labelOf = (l: PackLine) => {
+                const p = products.find((x) => x.id === l.product_id);
+                const size = p && l.variant_id ? (p.variants ?? []).find((v) => v.id === l.variant_id) : null;
+                return p ? (size ? `${p.name} · ${size.name}` : p.name) : `#${l.product_id}`;
+              };
+              // Every product — and EVERY SIZE of a product that has sizes —
+              // is its own choice, so "Coca 33cl" and "Coca 1L" can each go
+              // in a pack (even both).
+              const options: { key: string; product_id: number; variant_id: number | null; label: string; price: number }[] = [];
+              for (const p of products) {
+                if (p.is_pack || p.id === editing?.id) continue;
+                const sizes = (p.variants ?? []).filter((v) => v.is_available);
+                if (sizes.length) {
+                  for (const v of sizes) options.push({ key: `${p.id}:${v.id}`, product_id: p.id, variant_id: v.id, label: `${p.name} · ${v.name}`, price: Number(v.price) });
+                } else {
+                  options.push({ key: `${p.id}:0`, product_id: p.id, variant_id: null, label: p.name, price: p.price });
+                }
+              }
+              const candidates = options.filter((o) => !packLines.some((l) => lineKey(l) === o.key));
+              const value = packLines.reduce((n, l) => n + unitOf(l) * l.quantity, 0);
               const price = Number(form.price) || 0;
               const saving = value - price;
               return (
                 <div className="mt-3 space-y-2">
                   <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t('menu.pack.hint')}</p>
                   <p className="text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('menu.pack.items')}</p>
-                  {packLines.map((l) => {
-                    const p = products.find((x) => x.id === l.product_id);
-                    return (
-                      <div key={l.product_id} className="flex items-center gap-2 rounded-xl bg-white px-2.5 py-1.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">{p?.name ?? `#${l.product_id}`}</span>
-                        <span className="shrink-0 text-[11px] text-zinc-400">{p ? money(unitPriceOf(p)) : ''}</span>
-                        <input
-                          type="number" min={1} max={20} value={l.quantity}
-                          onChange={(e) => {
-                            const q = Math.max(1, Math.min(20, Math.floor(Number(e.target.value) || 1)));
-                            setPackLines((ls) => ls.map((x) => (x.product_id === l.product_id ? { ...x, quantity: q } : x)));
-                          }}
-                          className="w-14 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-brand-400 dark:border-zinc-700 dark:bg-zinc-900"
-                        />
-                        <button type="button" onClick={() => setPackLines((ls) => ls.filter((x) => x.product_id !== l.product_id))} className="text-zinc-300 hover:text-red-500 dark:text-zinc-600"><X size={14} /></button>
-                      </div>
-                    );
-                  })}
+                  {packLines.map((l) => (
+                    <div key={lineKey(l)} className="flex items-center gap-2 rounded-xl bg-white px-2.5 py-1.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700">
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">{labelOf(l)}</span>
+                      <span className="shrink-0 text-[11px] text-zinc-400">{money(unitOf(l))}</span>
+                      <input
+                        type="number" min={1} max={20} value={l.quantity}
+                        onChange={(e) => {
+                          const q = Math.max(1, Math.min(20, Math.floor(Number(e.target.value) || 1)));
+                          setPackLines((ls) => ls.map((x) => (lineKey(x) === lineKey(l) ? { ...x, quantity: q } : x)));
+                        }}
+                        className="w-14 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-brand-400 dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                      <button type="button" onClick={() => setPackLines((ls) => ls.filter((x) => lineKey(x) !== lineKey(l)))} className="text-zinc-300 hover:text-red-500 dark:text-zinc-600"><X size={14} /></button>
+                    </div>
+                  ))}
                   {packLines.length < 12 && (
                     <select
                       value=""
                       onChange={(e) => {
-                        const id = Number(e.target.value);
-                        if (id) setPackLines((ls) => [...ls, { product_id: id, quantity: 1 }]);
+                        const o = options.find((x) => x.key === e.target.value);
+                        if (o) setPackLines((ls) => [...ls, { product_id: o.product_id, variant_id: o.variant_id, quantity: 1 }]);
                       }}
                       className="w-full rounded-xl border border-dashed border-orange-500/50 bg-white px-2 py-2 text-sm text-zinc-500 outline-none focus:border-brand-400 dark:bg-zinc-900"
                     >
                       <option value="">{t('menu.pack.add_item')}</option>
-                      {candidates.map((p) => <option key={p.id} value={p.id}>{p.name} — {money(unitPriceOf(p))}</option>)}
+                      {candidates.map((o) => <option key={o.key} value={o.key}>{o.label} — {money(o.price)}</option>)}
                     </select>
                   )}
                   {packLines.length > 0 && (
@@ -1152,14 +1197,14 @@ export default function MenuManagePage() {
                     <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">{v.name}</span>
                     <span className="text-xs text-zinc-400 dark:text-zinc-500">{money(Number(v.price))}</span>
                     <input
-                      key={`${v.id}-${v.stock ?? 0}`}
                       type="number"
                       min="0"
                       inputMode="numeric"
-                      defaultValue={v.stock ?? 0}
+                      value={stockDraft[v.id] ?? String(v.stock ?? 0)}
+                      onChange={(e) => setStockDraft((d) => ({ ...d, [v.id]: e.target.value }))}
                       aria-label={t('menu.variant_stock')}
                       title={t('menu.variant_stock')}
-                      onBlur={(e) => updateVariantStock(v, e.target.value)}
+                      onBlur={() => commitVariantStock(v)}
                       className="w-14 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-1.5 py-1 text-center text-xs font-bold tabular-nums outline-none focus:border-brand-400"
                     />
                     <button type="button" onClick={() => removeVariant(v)} className="text-zinc-300 dark:text-zinc-600 hover:text-red-500">

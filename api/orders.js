@@ -334,7 +334,7 @@ export default async function handler(req, res) {
       const packContents = {};
       const orderedPackIds = Object.values(byId).filter((p) => p.is_pack === true).map((p) => p.id);
       if (orderedPackIds.length) {
-        const { data: links, error: lErr } = await supabase.from('pack_items').select('pack_id, product_id, quantity').in('pack_id', orderedPackIds);
+        const { data: links, error: lErr } = await supabase.from('pack_items').select('*').in('pack_id', orderedPackIds);
         if (lErr) return internalError(res, lErr, 'orders pack_items');
         const compIds = [...new Set((links || []).map((l) => l.product_id))];
         const { data: comps, error: cErr } = compIds.length
@@ -342,14 +342,20 @@ export default async function handler(req, res) {
           : { data: [], error: null };
         if (cErr) return internalError(res, cErr, 'orders pack components');
         const compById = Object.fromEntries((comps || []).map((c) => [c.id, c]));
+        const sizeIds = [...new Set((links || []).map((l) => l.variant_id).filter(Boolean))];
+        const { data: sizes, error: szErr } = sizeIds.length
+          ? await supabase.from('product_variants').select('id, name, is_available').in('id', sizeIds)
+          : { data: [], error: null };
+        if (szErr) return internalError(res, szErr, 'orders pack sizes');
+        const sizeById = Object.fromEntries((sizes || []).map((v) => [v.id, v]));
         for (const packId of orderedPackIds) {
           const mine = (links || []).filter((l) => l.pack_id === packId);
           if (!mine.length) return res.status(400).json({ error: 'This pack is not available' });
-          if (mine.some((l) => !compById[l.product_id] || !compById[l.product_id].is_available)) {
+          if (mine.some((l) => !compById[l.product_id] || !compById[l.product_id].is_available || (l.variant_id && !(sizeById[l.variant_id] && sizeById[l.variant_id].is_available)))) {
             return res.status(400).json({ error: 'An item of this pack is currently unavailable' });
           }
           packContents[packId] = mine
-            .map((l) => `${l.quantity}× ${String(compById[l.product_id].name).slice(0, 80)}`)
+            .map((l) => `${l.quantity}× ${String(compById[l.product_id].name).slice(0, 80)}${l.variant_id ? ` (${String(sizeById[l.variant_id].name).slice(0, 40)})` : ''}`)
             .join(', ')
             .slice(0, 500);
         }

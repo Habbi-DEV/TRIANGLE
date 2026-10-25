@@ -94,6 +94,9 @@ export type ProductBadge = 'popular' | 'new' | 'limited';
 /** One line of a pack's contents, as sent by GET /api/products. */
 export interface PackItem {
   product_id: number;
+  /** The size of the product this line uses, when it has sizes. */
+  variant_id?: number | null;
+  /** Display name — includes the size, e.g. "Coca Cola (33cl)". */
   name: string;
   quantity: number;
 }
