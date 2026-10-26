@@ -156,6 +156,26 @@ html.dark .menu-ambient::before {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* Promo banner: a slow band of glass-like light that crosses it now and then.
+   It rests for most of the cycle, so it reads as a glint, not a flicker. Pure
+   transform animation on one element (cheap); off for "reduce motion". */
+.banner-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.14) 47%, rgba(255, 205, 150, 0.24) 52%, transparent 62%);
+  transform: translateX(-130%);
+  animation: banner-sweep 8s ease-in-out infinite;
+}
+@keyframes banner-sweep {
+  0%, 58% { transform: translateX(-130%); }
+  100% { transform: translateX(130%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner-shine { animation: none; display: none; }
+}
+
 /* Selected category: the (transparent-background) photo itself is outlined —
    a hairline white edge hugging the shape, an orange ring around that, then a
    soft orange halo — instead of boxing it in a square. Cascaded drop-shadows

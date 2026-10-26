@@ -293,21 +293,6 @@ export default function MenuPage() {
 
   return (
     <div className="menu-ambient min-h-screen bg-zinc-50 pb-48 dark:bg-zinc-950">
-      {/* Last-resort manual unlock, in case the order/status wasn't placed
-          on this exact page load (e.g. the bell restored a previous order
-          across a reload) and no other gesture happened to unlock it yet. */}
-      {order && !soundUnlocked && (
-        <button
-          type="button"
-          onClick={() => {
-            unlockChime();
-            if (isChimeUnlocked()) setSoundUnlocked(true);
-          }}
-          className="fixed bottom-40 end-4 z-[100] rounded-full bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-zinc-800 active:scale-95"
-        >
-          🔔 {t('shop.enable_sound')}
-        </button>
-      )}
       {readyAlarmActive && order && (
         <SoundAlertBanner
           message={t('shop.ready_alert_msg', { id: orderNumber(order.id) })}
@@ -370,6 +355,10 @@ export default function MenuPage() {
         ) : (
           promotions.length > 0 && (
             <div className="pt-4">
+              {/* wrapper carries the radius, clip and glow so the light band can sit
+                  over the images without scrolling away with them */}
+              <div className="relative overflow-hidden rounded-3xl shadow-soft dark:shadow-ember">
+              <span className="banner-shine" aria-hidden="true" />
               <div
                 ref={bannerRef}
                 onScroll={(e) => {
@@ -386,7 +375,7 @@ export default function MenuPage() {
                 // border/glow they visually merge into the dark app shell and
                 // lose all depth — a thin brand-orange border plus a soft
                 // ambient glow restores the boundary without looking loud.
-                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-3xl border border-orange-500/30 bg-white shadow-soft dark:border-orange-500/40 dark:bg-zinc-900 dark:shadow-ember"
+                className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-3xl border border-orange-500/30 bg-white dark:border-orange-500/40 dark:bg-zinc-900"
               >
                 {promotions.map((p) => {
                   // A banner linked to a product/pack opens its sheet on tap.
@@ -402,6 +391,7 @@ export default function MenuPage() {
                     />
                   );
                 })}
+              </div>
               </div>
               {promotions.length > 1 && (
                 <div className="mt-3 flex justify-center gap-1.5">
@@ -603,6 +593,12 @@ export default function MenuPage() {
           <button
             onClick={() => {
               if (!order) return;
+              // The bell doubles as the "enable sound" control: this tap is a
+              // real gesture, so it unlocks the chime. resume() is async, so
+              // look again a moment later rather than right now.
+              unlockChime();
+              if (isChimeUnlocked()) setSoundUnlocked(true);
+              else setTimeout(() => setSoundUnlocked(isChimeUnlocked()), 400);
               setTrackerOpen(true);
               setOrderUnseen(false);
             }}
@@ -613,7 +609,11 @@ export default function MenuPage() {
               order ? 'bg-gradient-to-b from-brand-400 to-brand-600 text-white shadow-[0_6px_20px_-4px_rgba(255,106,0,0.7)] active:scale-90' : 'bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600'
             }`}
           >
-            <Bell size={20} />
+            {/* While an order is active but sound is still locked, the bell
+                gently pulses — an invitation to tap it, replacing the old
+                floating "Activer le son" pill. */}
+            {order && !soundUnlocked && <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-full bg-brand-400/50 motion-reduce:hidden" />}
+            <Bell size={20} className="relative" />
             {orderUnseen && <span className="absolute -end-0.5 -top-0.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-950" />}
           </button>
         </div>
