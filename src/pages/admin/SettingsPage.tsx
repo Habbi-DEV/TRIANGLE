@@ -5,7 +5,8 @@ import {
 import type { Settings } from '../../lib/types';
 import { api } from '../../lib/api';
 import supabase from '../../lib/supabase';
-import { setCachedSettings } from '../../lib/settings';
+import { getCachedSettings, setCachedSettings } from '../../lib/settings';
+import { BRAND_PRESETS, DEFAULT_BRAND, applyBrandTheme, buildBrandTheme, isLightColor } from '../../lib/brand';
 import { useLang } from '../../lib/i18n';
 import Spinner from '../../components/ui/Spinner';
 
@@ -30,6 +31,9 @@ type FormState = {
   new_order_sound_enabled: boolean;
   low_stock_threshold: string;
   brand_color: string;
+  /** '' = no second colour. */
+  brand_color_2: string;
+  default_theme: 'system' | 'dark' | 'light';
 };
 
 /** The two editable logo slots — see src/lib/logo.ts for how they're read. */
@@ -52,6 +56,8 @@ const toForm = (s: Settings): FormState => ({
   new_order_sound_enabled: s.new_order_sound_enabled,
   low_stock_threshold: String(s.low_stock_threshold),
   brand_color: s.brand_color,
+  brand_color_2: s.brand_color_2 ?? '',
+  default_theme: s.default_theme ?? 'system',
 });
 
 function Card({ icon: Icon, title, description, children }: {
@@ -226,6 +232,24 @@ export default function SettingsPage() {
   // field here otherwise rejects the whole PUT (a single settings row),
   // silently discarding every other change in the same save, logos included.
   const brandColorValid = !!form && HEX_COLOR_RE.test(form.brand_color);
+  const brand2Valid = !!form && (form.brand_color_2 === '' || HEX_COLOR_RE.test(form.brand_color_2));
+
+  // LIVE PREVIEW: the whole app re-colours as the colours are edited, before
+  // anything is saved. Leaving the page (or a failed save) puts back whatever
+  // is actually saved — BrandApplier re-applies it on the next settings load,
+  // and the cleanup below does it immediately.
+  const previewPrimary = form && brandColorValid ? form.brand_color : null;
+  const previewSecondary = form && brand2Valid && form.brand_color_2 ? form.brand_color_2 : null;
+  useEffect(() => {
+    if (!form) return;
+    applyBrandTheme(buildBrandTheme(previewPrimary, previewSecondary));
+  }, [form, previewPrimary, previewSecondary]);
+  useEffect(() => {
+    return () => {
+      const s = getCachedSettings();
+      applyBrandTheme(buildBrandTheme(s?.brand_color, s?.brand_color_2));
+    };
+  }, []);
 
   /** Uploads into one of the two logo slots. Which slot is also the busy
    *  flag, so only the picker being used shows "uploading…". */
@@ -262,8 +286,12 @@ export default function SettingsPage() {
     setError('');
     setSuccess(false);
     try {
+      const { brand_color_2, default_theme, ...rest } = form;
+      const v24Changed = (saved?.brand_color_2 ?? '') !== brand_color_2 || (saved?.default_theme ?? 'system') !== default_theme;
       const payload = {
-        ...form,
+        ...rest,
+        // Needs migration_v24: only sent when one of them actually changed.
+        ...(v24Changed ? { brand_color_2, default_theme } : {}),
         delivery_fee: Number(form.delivery_fee) || 0,
         delivery_min_order: Number(form.delivery_min_order) || 0,
         free_delivery_threshold: Number(form.free_delivery_threshold) || 0,
@@ -292,7 +320,7 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={save}
-          disabled={saving || uploading !== null || !dirty || !brandColorValid}
+          disabled={saving || uploading !== null || !dirty || !brandColorValid || !brand2Valid}
           className="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
         >
           <Save size={16} /> {saving ? t('common.saving') : dirty ? t('common.save') : t('common.saved')}
@@ -386,47 +414,114 @@ export default function SettingsPage() {
 
       {/* Branding */}
       <Card icon={Palette} title={t('settings.branding')} description={t('settings.branding.desc')}>
-        <Field label={t('settings.brand_color')}>
+        <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">{t('settings.brand_color.help')}</p>
+
+        {/* Ready-made colours */}
+        <Field label={t('settings.brand_color.presets')}>
+          <div className="flex flex-wrap gap-2">
+            {BRAND_PRESETS.map((pr) => {
+              const active = form.brand_color.toLowerCase() === pr.primary && (form.brand_color_2 || '').toLowerCase() === (pr.secondary ?? '');
+              return (
+                <button
+                  key={pr.id}
+                  type="button"
+                  onClick={() => { set('brand_color', pr.primary); set('brand_color_2', pr.secondary ?? ''); }}
+                  className={`flex items-center gap-2 rounded-full py-1 pe-3 ps-1 text-xs font-semibold ring-1 transition ${active ? 'bg-zinc-900 text-white ring-zinc-900 dark:bg-white dark:text-zinc-900 dark:ring-white' : 'bg-white text-zinc-700 ring-zinc-200 hover:ring-zinc-400 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-700'}`}
+                >
+                  <span className="flex h-6 w-6 overflow-hidden rounded-full ring-1 ring-black/10">
+                    <span className="h-full flex-1" style={{ background: pr.primary }} />
+                    {pr.secondary && <span className="h-full flex-1" style={{ background: pr.secondary }} />}
+                  </span>
+                  {pr.name}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+
+        {/* Main colour */}
+        <Field label={t('settings.brand_color.main')}>
           <div className="flex items-center gap-3">
-            {/* Native color picker doubles as the swatch — it always
-                produces a valid #rrggbb, so this is the easiest way to
-                never hit the error below in the first place. Falls back to
-                the brand orange while the typed value is invalid, so the
-                picker always has something sane to open with. */}
-            <label
-              className={`relative h-8 w-8 shrink-0 cursor-pointer overflow-hidden rounded-lg ring-1 ${
-                brandColorValid ? 'ring-zinc-200 dark:ring-zinc-700' : 'ring-red-300'
-              }`}
-            >
-              <span
-                className="absolute inset-0"
-                style={{ backgroundColor: brandColorValid ? form.brand_color : '#f97316' }}
-              />
-              <input
-                type="color"
-                value={brandColorValid ? form.brand_color : '#f97316'}
-                onChange={(e) => set('brand_color', e.target.value)}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                aria-label={t('settings.brand_color')}
-              />
+            {/* Native colour picker doubles as the swatch — it always produces
+                a valid #rrggbb, so it's the easiest way to never hit the error
+                below. Falls back to the default orange while the typed value is
+                invalid so the picker always has something sane to open with. */}
+            <label className={`relative h-8 w-8 shrink-0 cursor-pointer overflow-hidden rounded-lg ring-1 ${brandColorValid ? 'ring-zinc-200 dark:ring-zinc-700' : 'ring-red-300'}`}>
+              <span className="absolute inset-0" style={{ backgroundColor: brandColorValid ? form.brand_color : DEFAULT_BRAND }} />
+              <input type="color" value={brandColorValid ? form.brand_color : DEFAULT_BRAND} onChange={(e) => set('brand_color', e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={t('settings.brand_color.main')} />
             </label>
             <input
               value={form.brand_color}
               onChange={(e) => set('brand_color', e.target.value)}
               onBlur={(e) => set('brand_color', normalizeHexColor(e.target.value))}
               placeholder="#f97316"
-              className={`${inputCls} max-w-[140px] font-mono ${
-                brandColorValid ? '' : 'border-red-300 focus:border-red-400 focus:ring-red-100'
-              }`}
+              className={`${inputCls} max-w-[140px] font-mono ${brandColorValid ? '' : 'border-red-300 focus:border-red-400 focus:ring-red-100'}`}
             />
           </div>
-          {!brandColorValid && (
-            <p className="mt-1.5 text-[11px] font-semibold text-red-500">{t('settings.brand_color.invalid')}</p>
-          )}
+          {!brandColorValid && <p className="mt-1.5 text-[11px] font-semibold text-red-500">{t('settings.brand_color.invalid')}</p>}
         </Field>
-        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-          {t('settings.brand_color.note1')}<code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5">brand-500</code>{t('settings.brand_color.note2')}
-        </p>
+
+        {/* Optional second colour */}
+        <Field label={t('settings.brand_color.second')}>
+          {form.brand_color_2 === '' ? (
+            <button type="button" onClick={() => set('brand_color_2', form.brand_color_2 || '#eaa605')} className="rounded-xl border border-dashed border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-600 hover:border-brand-400 hover:text-brand-600 dark:border-zinc-700 dark:text-zinc-300">
+              + {t('settings.brand_color.second_add')}
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <label className={`relative h-8 w-8 shrink-0 cursor-pointer overflow-hidden rounded-lg ring-1 ${brand2Valid ? 'ring-zinc-200 dark:ring-zinc-700' : 'ring-red-300'}`}>
+                <span className="absolute inset-0" style={{ backgroundColor: brand2Valid ? form.brand_color_2 : DEFAULT_BRAND }} />
+                <input type="color" value={brand2Valid ? form.brand_color_2 : DEFAULT_BRAND} onChange={(e) => set('brand_color_2', e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={t('settings.brand_color.second')} />
+              </label>
+              <input
+                value={form.brand_color_2}
+                onChange={(e) => set('brand_color_2', e.target.value)}
+                onBlur={(e) => set('brand_color_2', normalizeHexColor(e.target.value))}
+                placeholder="#eaa605"
+                className={`${inputCls} max-w-[140px] font-mono ${brand2Valid ? '' : 'border-red-300 focus:border-red-400 focus:ring-red-100'}`}
+              />
+              <button type="button" onClick={() => set('brand_color_2', '')} className="text-xs font-semibold text-zinc-400 hover:text-red-500">{t('settings.brand_color.second_remove')}</button>
+            </div>
+          )}
+          <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">{t('settings.brand_color.second_hint')}</p>
+        </Field>
+
+        {/* Live sample — uses the same classes as the real menu */}
+        <div className="rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800">
+          <p className="mb-2 text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500">{t('settings.brand_color.preview')}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-grad px-2.5 py-1 text-[11px] font-bold text-white">🔥 {t('settings.brand_color.sample_badge')}</span>
+            <span className="price-mark font-display text-lg font-bold text-burnt dark:text-brand-400">500 da</span>
+            <span className="rounded-full bg-gradient-to-b from-brand-400 to-brand-grad px-4 py-2 text-xs font-bold text-white shadow-[0_6px_18px_-4px_rgba(var(--brand-glow-rgb),0.7)]">{t('settings.brand_color.sample_btn')}</span>
+            <span className="text-xs font-semibold text-brand-600 dark:text-brand-400">Burgers</span>
+          </div>
+          {form && brandColorValid && isLightColor(form.brand_color) && (
+            <p className="mt-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t('settings.brand_color.light_note')}</p>
+          )}
+        </div>
+
+        <button type="button" onClick={() => { set('brand_color', DEFAULT_BRAND); set('brand_color_2', ''); }} className="text-xs font-semibold text-zinc-500 underline-offset-2 hover:text-brand-600 hover:underline dark:text-zinc-400">
+          {t('settings.brand_color.reset')}
+        </button>
+
+        {/* Default theme for new visitors */}
+        <Field label={t('settings.default_theme')}>
+          <div className="flex gap-2">
+            {(['system', 'dark', 'light'] as const).map((th) => (
+              <button
+                key={th}
+                type="button"
+                onClick={() => set('default_theme', th)}
+                className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold ring-1 transition ${form.default_theme === th ? 'bg-brand-500 text-white ring-brand-500' : 'bg-white text-zinc-600 ring-zinc-200 hover:ring-zinc-400 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700'}`}
+              >
+                {t(`settings.default_theme.${th}`)}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">{t('settings.default_theme.note')}</p>
+        </Field>
+
+        <p className="text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{t('settings.brand_color.images_note')}</p>
       </Card>
     </div>
   );

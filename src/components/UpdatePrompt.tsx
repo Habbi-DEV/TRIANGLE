@@ -91,7 +91,7 @@ export default function UpdatePrompt() {
           transition={{ type: 'spring', damping: 24, stiffness: 260 }}
           className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+8px)] z-[200] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-orange-500/40 bg-white/95 p-3 shadow-soft-xl backdrop-blur-xl dark:bg-zinc-950/95 dark:shadow-ember"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-[0_0_16px_rgba(255,106,0,0.5)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-grad text-white shadow-[0_0_16px_rgba(var(--brand-glow-rgb),0.5)]">
             <RefreshCw size={18} />
           </span>
           <div className="min-w-0 flex-1">
@@ -103,7 +103,7 @@ export default function UpdatePrompt() {
               type="button"
               onClick={update}
               disabled={updating}
-              className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-b from-brand-400 to-brand-600 px-3.5 py-1.5 text-[12px] font-bold text-white shadow-[0_4px_14px_-3px_rgba(255,106,0,0.7)] transition active:scale-95 disabled:opacity-80"
+              className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-b from-brand-400 to-brand-grad px-3.5 py-1.5 text-[12px] font-bold text-white shadow-[0_4px_14px_-3px_rgba(var(--brand-glow-rgb),0.7)] transition active:scale-95 disabled:opacity-80"
             >
               {updating && <Loader2 size={12} className="animate-spin" />}
               {t(updating ? 'update.updating' : 'update.action')}

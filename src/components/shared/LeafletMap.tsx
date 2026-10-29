@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { brandHex } from '../../lib/brand';
 import { loadLeaflet, type LeafletNS } from '../../lib/leaflet';
 
 export interface MapMarkerSpec {
@@ -178,7 +179,7 @@ export default function LeafletMap({
 
       for (const m of markers) {
         const marker = L.marker([m.lat, m.lng], {
-          icon: makeIcon(L, m.color || '#f97316'),
+          icon: makeIcon(L, m.color || brandHex()),
           draggable: !!m.draggable,
         });
         if (m.draggable && m.onDragEnd) {

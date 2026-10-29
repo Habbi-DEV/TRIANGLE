@@ -24,7 +24,7 @@ import type { OrderType } from '../../lib/types';
 // so the cashier's category rail looks like the same design system as the
 // front-of-house menu, not a second visual language.
 const CATEGORY_SELECTED_FILTER =
-  'drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 1.5px #f97316) drop-shadow(0 0 3px rgba(249,115,22,0.55))';
+  'drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 0.75px #ffffff) drop-shadow(0 0 1.5px rgb(var(--brand-rgb))) drop-shadow(0 0 3px rgba(var(--brand-rgb),0.55))';
 
 // Sauce/supplement swatch selected-state — identical filter to
 // ProductSheet's SELECTED_FILTER so a sauce picked here looks the same way

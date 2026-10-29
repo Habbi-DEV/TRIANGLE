@@ -23,7 +23,7 @@ export default function LanguageSwitch({ compact: _compact = false }: { compact?
           type="button"
           onClick={() => setLang(l)}
           className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
-            lang === l ? 'bg-gradient-to-b from-brand-400 to-brand-600 text-white shadow-[0_0_12px_rgba(255,106,0,0.45)]' : 'text-zinc-500 dark:text-zinc-400'
+            lang === l ? 'bg-gradient-to-b from-brand-400 to-brand-grad text-white shadow-[0_0_12px_rgba(var(--brand-glow-rgb),0.45)]' : 'text-zinc-500 dark:text-zinc-400'
           }`}
         >
           {l === 'fr' ? 'FR' : 'AR'}

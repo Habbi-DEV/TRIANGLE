@@ -9,6 +9,10 @@ const PUBLIC_FIELDS = 'id, restaurant_name, logo_url, light_logo_url, dark_logo_
 // free_delivery_threshold needs migration_v21. Tried first; if the column does
 // not exist yet we fall back to PUBLIC_FIELDS so the whole app keeps loading.
 const PUBLIC_FIELDS_V21 = PUBLIC_FIELDS + ', free_delivery_threshold';
+// brand_color_2 / default_theme need migration_v24; same fallback idea, one
+// step further: v24 columns -> v21 columns -> base.
+const PUBLIC_FIELDS_V24 = PUBLIC_FIELDS_V21 + ', brand_color_2, default_theme';
+const THEMES = ['system', 'dark', 'light'];
 
 // Image columns an admin can write. Each is length-capped at 2000 and must
 // pass isSafeImageUrl() below; an empty string is allowed and means "cleared".
@@ -20,7 +24,10 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      let { data, error } = await supabase.from('settings').select(PUBLIC_FIELDS_V21).eq('id', 1).single();
+      let { data, error } = await supabase.from('settings').select(PUBLIC_FIELDS_V24).eq('id', 1).single();
+      if (error) {
+        ({ data, error } = await supabase.from('settings').select(PUBLIC_FIELDS_V21).eq('id', 1).single());
+      }
       if (error) {
         ({ data, error } = await supabase.from('settings').select(PUBLIC_FIELDS).eq('id', 1).single());
       }
@@ -34,7 +41,7 @@ export default async function handler(req, res) {
       const body = req.body || {};
       const fields = {};
 
-      for (const key of ['restaurant_name', 'address', 'phone', 'contact_email', 'opening_hours', 'brand_color', ...IMAGE_FIELDS]) {
+      for (const key of ['restaurant_name', 'address', 'phone', 'contact_email', 'opening_hours', 'brand_color', 'brand_color_2', ...IMAGE_FIELDS]) {
         if (body[key] != null) {
           const v = cleanText(String(body[key]), key.includes('logo') || key.includes('url') ? 2000 : 300);
           fields[key] = v || '';
@@ -49,6 +56,15 @@ export default async function handler(req, res) {
       }
       if (fields.brand_color && !/^#[0-9a-fA-F]{6}$/.test(fields.brand_color)) {
         return res.status(400).json({ error: 'brand_color must be #rrggbb' });
+      }
+      // Second brand colour: optional. Empty = "none" (stored as NULL).
+      if ('brand_color_2' in fields) {
+        if (fields.brand_color_2 === '') fields.brand_color_2 = null;
+        else if (!/^#[0-9a-fA-F]{6}$/.test(fields.brand_color_2)) return res.status(400).json({ error: 'brand_color_2 must be #rrggbb' });
+      }
+      if (body.default_theme != null) {
+        if (!THEMES.includes(body.default_theme)) return res.status(400).json({ error: 'default_theme must be system, dark or light' });
+        fields.default_theme = body.default_theme;
       }
       if (fields.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(fields.contact_email)) {
         return res.status(400).json({ error: 'Invalid contact_email' });

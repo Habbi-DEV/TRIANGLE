@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { brandHex } from '../../lib/brand';
 import { Crosshair, Loader2, MapPin } from 'lucide-react';
 import Modal from '../ui/Modal';
 import LeafletMap from '../shared/LeafletMap';
@@ -81,7 +82,7 @@ export default function LocationPickerModal({ open, onClose, onConfirm, initial 
               id: 'pin',
               lat: position[0],
               lng: position[1],
-              color: '#f97316',
+              color: brandHex(),
               draggable: true,
               onDragEnd: (lat, lng) => setPosition([lat, lng]),
             }]}

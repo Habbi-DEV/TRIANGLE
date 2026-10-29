@@ -282,6 +282,10 @@ export interface Settings {
   new_order_sound_enabled: boolean;
   low_stock_threshold: number;
   brand_color: string;
+  /** Optional second brand colour (migration_v24); null/absent = none. */
+  brand_color_2?: string | null;
+  /** Theme offered to NEW visitors (migration_v24); absent = 'system'. */
+  default_theme?: 'system' | 'dark' | 'light';
   updated_at: string;
 }
 

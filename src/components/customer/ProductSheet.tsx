@@ -134,7 +134,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
             <div className="overflow-y-auto thin-scroll p-5 pb-8">
               <div className="flex items-start justify-between gap-3">
                 <h2 className="font-display text-xl font-bold text-zinc-900 dark:text-zinc-100">{product.name}</h2>
-                <span className="font-display text-lg font-bold text-burnt">{money(unitPrice)}</span>
+                <span className="price-mark font-display text-lg font-bold text-burnt">{money(unitPrice)}</span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{product.description}</p>
 
@@ -159,7 +159,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
                     {saving > 0 && (
                       <div className="flex items-center justify-between gap-3 border-t border-orange-500/20 bg-orange-500/10 px-4 py-2.5">
                         <span className="text-xs text-zinc-500 dark:text-zinc-400">{t('pack.value', { amount: '' })}<span className="font-semibold line-through">{money(value)}</span></span>
-                        <span className="rounded-full bg-gradient-to-r from-brand-500 to-brand-600 px-3 py-1 text-[11px] font-bold text-white">{t('pack.save', { amount: money(saving) })}</span>
+                        <span className="rounded-full bg-gradient-to-r from-brand-500 to-brand-grad px-3 py-1 text-[11px] font-bold text-white">{t('pack.save', { amount: money(saving) })}</span>
                       </div>
                     )}
                   </div>

@@ -30,6 +30,9 @@
   --color-brand-700: #c2410c;
   --color-brand-800: #9a3412;
   --color-brand-900: #7c2d12;
+  /* End colour of the brand gradients (buttons, badges). Equal to brand-600 by
+     default; becomes the 2nd brand colour when the owner sets one. */
+  --color-brand-grad: #ea580c;
   --color-burnt: #e65100;
 
   /* "Soft shadow" scale — replaces Tailwind's default shadow-sm/md/lg/2xl
@@ -53,8 +56,8 @@
   /* Brand "ember" glow — a thin orange rim plus a wide, soft orange halo.
      Used on the customer menu's banner, floating bars and primary buttons
      (shadow-ember), and the stronger variant on the + button. */
-  --shadow-ember: 0 0 0 1px rgba(255, 106, 0, 0.35), 0 10px 30px -8px rgba(255, 106, 0, 0.4);
-  --shadow-ember-lg: 0 0 0 1px rgba(255, 106, 0, 0.45), 0 14px 40px -8px rgba(255, 106, 0, 0.55);
+  --shadow-ember: 0 0 0 1px rgba(var(--brand-glow-rgb), 0.35), 0 10px 30px -8px rgba(var(--brand-glow-rgb), 0.4);
+  --shadow-ember-lg: 0 0 0 1px rgba(var(--brand-glow-rgb), 0.45), 0 14px 40px -8px rgba(var(--brand-glow-rgb), 0.55);
 }
 
 html {
@@ -137,14 +140,14 @@ html.dark textarea::placeholder {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(70% 38% at 100% 0%, rgba(249, 115, 22, 0.10), transparent 70%),
-    radial-gradient(60% 34% at 0% 48%, rgba(249, 115, 22, 0.06), transparent 70%);
+    radial-gradient(70% 38% at 100% 0%, rgba(var(--brand-rgb), 0.10), transparent 70%),
+    radial-gradient(60% 34% at 0% 48%, rgba(var(--brand-rgb), 0.06), transparent 70%);
 }
 html.dark .menu-ambient::before {
   background:
-    radial-gradient(75% 42% at 100% 0%, rgba(255, 106, 0, 0.24), transparent 70%),
-    radial-gradient(60% 38% at 0% 42%, rgba(255, 106, 0, 0.12), transparent 70%),
-    radial-gradient(80% 32% at 50% 100%, rgba(255, 106, 0, 0.16), transparent 70%);
+    radial-gradient(75% 42% at 100% 0%, rgba(var(--brand-glow-rgb), 0.24), transparent 70%),
+    radial-gradient(60% 38% at 0% 42%, rgba(var(--brand-glow-rgb), 0.12), transparent 70%),
+    radial-gradient(80% 32% at 50% 100%, rgba(var(--brand-glow-rgb), 0.16), transparent 70%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -189,14 +192,14 @@ html.dark .menu-ambient::before {
 .cat-active:not(.cat-plain) .cat-photo {
   filter:
     drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
-    drop-shadow(2px 0 0 #ff6a00) drop-shadow(-2px 0 0 #ff6a00) drop-shadow(0 2px 0 #ff6a00) drop-shadow(0 -2px 0 #ff6a00)
-    drop-shadow(0 0 8px rgba(255, 106, 0, 0.5));
+    drop-shadow(2px 0 0 rgb(var(--brand-glow-rgb))) drop-shadow(-2px 0 0 rgb(var(--brand-glow-rgb))) drop-shadow(0 2px 0 rgb(var(--brand-glow-rgb))) drop-shadow(0 -2px 0 rgb(var(--brand-glow-rgb)))
+    drop-shadow(0 0 8px rgba(var(--brand-glow-rgb), 0.5));
 }
 html.dark .cat-active:not(.cat-plain) .cat-photo {
   filter:
     drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
-    drop-shadow(2px 0 0 #ff6a00) drop-shadow(-2px 0 0 #ff6a00) drop-shadow(0 2px 0 #ff6a00) drop-shadow(0 -2px 0 #ff6a00)
-    drop-shadow(0 0 10px rgba(255, 106, 0, 0.75));
+    drop-shadow(2px 0 0 rgb(var(--brand-glow-rgb))) drop-shadow(-2px 0 0 rgb(var(--brand-glow-rgb))) drop-shadow(0 2px 0 rgb(var(--brand-glow-rgb))) drop-shadow(0 -2px 0 rgb(var(--brand-glow-rgb)))
+    drop-shadow(0 0 10px rgba(var(--brand-glow-rgb), 0.75));
 }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -204,3 +207,37 @@ html.dark .cat-active:not(.cat-plain) .cat-photo {
 .thin-scroll::-webkit-scrollbar-track { background: transparent; }
 .thin-scroll::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 999px; }
 .thin-scroll::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+
+
+/* ---------------------------------------------------------------------------
+   BRAND COLOURS (Settings → Couleurs de la marque; engine in src/lib/brand.ts)
+   These are the DEFAULTS — the original orange — so with no override the app
+   looks exactly as it always did. brand.ts overrides them on <html> when the
+   owner picks another colour. Black and white are never touched.
+   --------------------------------------------------------------------------- */
+:root {
+  --brand-rgb: 249, 115, 22;      /* main brand colour, for rgba() */
+  --brand-glow-rgb: 255, 106, 0;  /* glows / rims (a touch hotter than the base) */
+  --brand-on: #ffffff;            /* text colour that sits ON a brand fill */
+  --brand-hex: #f97316;
+}
+
+/* LIGHT brand colours (yellow, lime, gold…): white text on them is unreadable,
+   so anything that is a brand-filled surface with white text switches to the
+   dark ink colour automatically. Only active when brand.ts flags the colour as
+   light, so orange/red/blue/etc. are completely unaffected. */
+html[data-brand-light] :is([class*="bg-brand-"], [class*="from-brand-"]).text-white {
+  color: var(--brand-on);
+}
+/* Brand-coloured text/icons on a white page: use the deep shade (brand-600,
+   a dark gold for yellow) so they stay visible. Light mode + light brand only. */
+html[data-brand-light]:not(.dark) .text-brand-500 {
+  color: var(--color-brand-600);
+}
+/* …and prices: on white, a yellow price would vanish, so they become bold
+   black (see --color-burnt) with a thin brand-colour bar under them. In dark
+   mode the bright brand colour is used directly, no bar. */
+html[data-brand-light]:not(.dark) .price-mark {
+  background: linear-gradient(rgb(var(--brand-rgb)), rgb(var(--brand-rgb))) no-repeat 0 100% / 100% 0.2em;
+  padding-bottom: 0.06em;
+}

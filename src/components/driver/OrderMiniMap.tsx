@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { brandHex } from '../../lib/brand';
 import { Navigation2, MapPinOff } from 'lucide-react';
 import LeafletMap from '../shared/LeafletMap';
 import { useLang } from '../../lib/i18n';
@@ -41,7 +42,7 @@ export default function OrderMiniMap({ lat, lng }: Props) {
       <LeafletMap
         center={[lat, lng]}
         zoom={14}
-        markers={[{ id: 'dest', lat, lng, color: '#f97316' }]}
+        markers={[{ id: 'dest', lat, lng, color: brandHex() }]}
         interactive={false}
         className="h-full w-full"
         onLoadError={() => setFailed(true)}

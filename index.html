@@ -25,8 +25,19 @@
     <script>
       (function () {
         try {
+          // Brand colours chosen in Settings (cached by src/lib/brand.ts):
+          // applied here so there is no flash of the default orange.
+          var brand = JSON.parse(localStorage.getItem('triangle_brand') || 'null');
+          if (brand && brand.vars) {
+            for (var k in brand.vars) document.documentElement.style.setProperty(k, brand.vars[k]);
+            if (brand.light) document.documentElement.setAttribute('data-brand-light', '');
+          }
           var stored = localStorage.getItem('triangle_theme');
-          var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var def = localStorage.getItem('triangle_default_theme');
+          var dark = stored ? stored === 'dark'
+            : def === 'dark' ? true
+            : def === 'light' ? false
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
           if (dark) document.documentElement.classList.add('dark');
           document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
         } catch (e) {

@@ -24,6 +24,7 @@ import DriverAvailablePage from './pages/driver/DriverAvailablePage';
 import DriverHistoryPage from './pages/driver/DriverHistoryPage';
 import { loadSettings } from './lib/settings';
 import UpdatePrompt from './components/UpdatePrompt';
+import BrandApplier from './components/BrandApplier';
 
 export default function App() {
   // Loaded once at the root so money() (used on both the public e-menu and
@@ -43,6 +44,7 @@ export default function App() {
     <ToastProvider>
     <AuthProvider>
       <UpdatePrompt />
+      <BrandApplier />
       <BrowserRouter>
         <Routes>
           {/* Customer-facing, mobile-first e-menu */}

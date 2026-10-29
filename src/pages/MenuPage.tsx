@@ -57,11 +57,11 @@ function CategoryTile({ active, divider, plain = false, label, onClick, children
           outline: a thin, detailed wordmark fills in when outlined. Plain
           gradient, no filter, so nothing for Safari to mis-composite. */}
       {active && plain && (
-        <span aria-hidden="true" className="pointer-events-none absolute top-1 h-[72px] w-[72px] rounded-full bg-[radial-gradient(circle,rgba(255,106,0,0.38),rgba(255,106,0,0)_70%)]" />
+        <span aria-hidden="true" className="pointer-events-none absolute top-1 h-[72px] w-[72px] rounded-full bg-[radial-gradient(circle,rgba(var(--brand-glow-rgb),0.38),rgba(var(--brand-glow-rgb),0)_70%)]" />
       )}
       <span className="cat-pic relative flex h-12 w-12 items-center justify-center">{children}</span>
       <span className={`max-w-full truncate text-[11px] font-semibold ${active ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 dark:text-zinc-300'}`}>{label}</span>
-      {active && <span aria-hidden="true" className="absolute bottom-1.5 h-[3px] w-8 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(255,106,0,0.8)]" />}
+      {active && <span aria-hidden="true" className="absolute bottom-1.5 h-[3px] w-8 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(var(--brand-glow-rgb),0.8)]" />}
     </button>
   );
 }
@@ -72,7 +72,7 @@ function NavItem({ active, icon: Icon, label, onClick }: { active: boolean; icon
     <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className="relative flex flex-col items-center gap-0.5 px-3 pb-2 pt-0.5">
       <Icon size={21} className={active ? 'text-brand-500' : 'text-zinc-400 dark:text-zinc-500'} />
       <span className={`text-[11px] font-semibold ${active ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-400 dark:text-zinc-500'}`}>{label}</span>
-      {active && <span aria-hidden="true" className="absolute bottom-0 h-[3px] w-7 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(255,106,0,0.8)]" />}
+      {active && <span aria-hidden="true" className="absolute bottom-0 h-[3px] w-7 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(var(--brand-glow-rgb),0.8)]" />}
     </button>
   );
 }
@@ -307,7 +307,7 @@ export default function MenuPage() {
         {/* header — sticky identity bar only (logo, name, language, cart). Kept
             separate from the banner/categories below so it's always the very
             first thing on screen, pinned, instead of the banner pushing it down. */}
-        <header className="sticky top-0 z-30 -mx-4 rounded-b-[28px] border-b border-zinc-200/70 bg-white/85 px-4 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top))] shadow-soft-sm backdrop-blur-xl md:mx-0 md:px-5 md:pt-3 dark:border-orange-500/25 dark:bg-zinc-950/80 dark:shadow-[0_12px_40px_-14px_rgba(255,106,0,0.4)]">
+        <header className="sticky top-0 z-30 -mx-4 rounded-b-[28px] border-b border-zinc-200/70 bg-white/85 px-4 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top))] shadow-soft-sm backdrop-blur-xl md:mx-0 md:px-5 md:pt-3 dark:border-orange-500/25 dark:bg-zinc-950/80 dark:shadow-[0_12px_40px_-14px_rgba(var(--brand-glow-rgb),0.4)]">
           <div className="flex items-center gap-2">
             {/* Swaps to the white wordmark the moment the header goes
                 zinc-950 in dark mode — loading and no-logo states live in
@@ -403,7 +403,7 @@ export default function MenuPage() {
                         if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
                       }}
                       aria-label={t('shop.go_to_banner', { n: i + 1 })}
-                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-6 bg-brand-500 shadow-[0_0_8px_rgba(255,106,0,0.7)]' : 'w-1.5 bg-zinc-300 dark:bg-zinc-700'}`}
+                      className={`h-1.5 rounded-full transition-all ${i === bannerIdx ? 'w-6 bg-brand-500 shadow-[0_0_8px_rgba(var(--brand-glow-rgb),0.7)]' : 'w-1.5 bg-zinc-300 dark:bg-zinc-700'}`}
                     />
                   ))}
                 </div>
@@ -557,7 +557,7 @@ export default function MenuPage() {
           initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           onClick={() => setCartOpen(true)}
-          className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-4 text-white shadow-ember-lg transition active:scale-[0.98]"
+          className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center justify-between rounded-full bg-gradient-to-r from-brand-500 to-brand-grad px-5 py-4 text-white shadow-ember-lg transition active:scale-[0.98]"
         >
           <span className="flex items-center gap-2 text-sm font-semibold">
             <ShoppingBasket size={18} />
@@ -576,7 +576,7 @@ export default function MenuPage() {
 
       {/* bottom nav — a floating pill: Menu / Search / order status */}
       <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
-        <div className="mx-auto flex max-w-md items-center justify-around rounded-[28px] border border-zinc-200/80 bg-white/85 px-6 py-2.5 shadow-soft-xl backdrop-blur-xl md:max-w-3xl lg:max-w-5xl dark:border-orange-500/25 dark:bg-zinc-950/85 dark:shadow-[0_-8px_40px_-12px_rgba(255,106,0,0.35)]">
+        <div className="mx-auto flex max-w-md items-center justify-around rounded-[28px] border border-zinc-200/80 bg-white/85 px-6 py-2.5 shadow-soft-xl backdrop-blur-xl md:max-w-3xl lg:max-w-5xl dark:border-orange-500/25 dark:bg-zinc-950/85 dark:shadow-[0_-8px_40px_-12px_rgba(var(--brand-glow-rgb),0.35)]">
           <NavItem active={!searchOpen} icon={UtensilsCrossed} label={t('shop.nav_menu')} onClick={() => setSearchOpen(false)} />
           <NavItem
             active={searchOpen}
@@ -606,7 +606,7 @@ export default function MenuPage() {
             aria-label={t('shop.order_status_aria')}
             title={order ? undefined : t('shop.no_active_order')}
             className={`relative flex h-12 w-12 items-center justify-center rounded-full transition ${
-              order ? 'bg-gradient-to-b from-brand-400 to-brand-600 text-white shadow-[0_6px_20px_-4px_rgba(255,106,0,0.7)] active:scale-90' : 'bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600'
+              order ? 'bg-gradient-to-b from-brand-400 to-brand-grad text-white shadow-[0_6px_20px_-4px_rgba(var(--brand-glow-rgb),0.7)] active:scale-90' : 'bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600'
             }`}
           >
             {/* While an order is active but sound is still locked, the bell

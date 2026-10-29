@@ -23,7 +23,7 @@ export default function ThemeToggle() {
       <motion.span
         layout
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-soft-sm dark:bg-zinc-950 dark:shadow-[0_0_10px_rgba(255,106,0,0.35)]"
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-soft-sm dark:bg-zinc-950 dark:shadow-[0_0_10px_rgba(var(--brand-glow-rgb),0.35)]"
         style={{ marginInlineStart: dark ? 'calc(100% - 1.75rem)' : 0 }}
       >
         {dark ? <Moon size={14} className="text-brand-400" /> : <Sun size={14} className="text-brand-500" />}

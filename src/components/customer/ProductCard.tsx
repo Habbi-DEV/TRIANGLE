@@ -68,12 +68,12 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
           </span>
         )}
         {saving > 0 && !soldOut && (
-          <span className="absolute bottom-2 start-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-[0_4px_14px_-2px_rgba(255,106,0,0.6)]">
+          <span className="absolute bottom-2 start-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-grad px-2.5 py-1 text-[10px] font-bold text-white shadow-[0_4px_14px_-2px_rgba(var(--brand-glow-rgb),0.6)]">
             {t('pack.save', { amount: money(saving) })}
           </span>
         )}
         {badge && (
-          <span className="absolute start-2 top-2.5 flex max-w-[calc(100%-3.25rem)] items-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-600 py-1 pe-2 ps-1.5 text-[10px] font-bold text-white shadow-[0_4px_14px_-2px_rgba(255,106,0,0.6)]">
+          <span className="absolute start-2 top-2.5 flex max-w-[calc(100%-3.25rem)] items-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-grad py-1 pe-2 ps-1.5 text-[10px] font-bold text-white shadow-[0_4px_14px_-2px_rgba(var(--brand-glow-rgb),0.6)]">
             <badge.icon size={12} strokeWidth={2.4} className="shrink-0" />
             <span className="truncate">{t(badge.label)}</span>
           </span>
@@ -98,7 +98,7 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
           {/* Brand orange stays the accent in both themes — bumped one
               shade lighter (brand-400) on dark so it keeps AA contrast
               against zinc-900 instead of reading muddy. */}
-          <span className="whitespace-nowrap font-display text-[18px] font-bold leading-none text-burnt dark:text-brand-400">
+          <span className="price-mark whitespace-nowrap font-display text-[18px] font-bold leading-none text-burnt dark:text-brand-400">
             {saving > 0 && <span className="mb-1 block text-[12px] font-semibold leading-none text-zinc-400 line-through decoration-1 dark:text-zinc-500">{money(product.pack_value as number)}</span>}
             {sellableVariants(product).length > 1 && <span className="me-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t('shop.from')}</span>}
             {money(displayPrice)}
@@ -110,7 +110,7 @@ export default function ProductCard({ product, onOpen, onQuickAdd }: Props) {
             }}
             disabled={soldOut}
             aria-label={t('shop.add_to_cart', { name: product.name })}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-b from-brand-400 to-brand-600 text-white shadow-[0_6px_18px_-4px_rgba(255,106,0,0.7)] transition hover:brightness-110 active:scale-90 disabled:bg-none disabled:bg-zinc-300 disabled:shadow-none dark:disabled:bg-zinc-700"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-b from-brand-400 to-brand-grad text-white shadow-[0_6px_18px_-4px_rgba(var(--brand-glow-rgb),0.7)] transition hover:brightness-110 active:scale-90 disabled:bg-none disabled:bg-zinc-300 disabled:shadow-none dark:disabled:bg-zinc-700"
           >
             <Plus size={19} strokeWidth={3} />
           </button>

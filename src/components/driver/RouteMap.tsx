@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { brandHex } from '../../lib/brand';
 import { Navigation2, Loader2, MapPinOff } from 'lucide-react';
 import LeafletMap from '../shared/LeafletMap';
 import { useLang } from '../../lib/i18n';
@@ -52,7 +53,7 @@ export default function RouteMap({ destLat, destLng, destAddress }: Props) {
   const center: [number, number] = hasDest ? [destLat as number, destLng as number] : (me ?? [36.7538, 3.0588]);
 
   const markers = [
-    ...(hasDest ? [{ id: 'dest', lat: destLat as number, lng: destLng as number, color: '#f97316' }] : []),
+    ...(hasDest ? [{ id: 'dest', lat: destLat as number, lng: destLng as number, color: brandHex() }] : []),
     ...(me ? [{ id: 'me', lat: me[0], lng: me[1], color: '#3b82f6' }] : []),
   ];
 
